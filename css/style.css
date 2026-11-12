@@ -39,7 +39,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 /* ---------- layout ---------- */
 #app { display: grid; grid-template-columns: 240px minmax(0, 600px) 300px; justify-content: center; min-height: 100vh; }
 main { border-left: 1px solid var(--line); border-right: 1px solid var(--line); min-height: 100vh; padding-bottom: 80px; }
-nav.side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 2px; padding: 12px; }
+nav.side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 2px; padding: 12px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; } /* a low window: the menu scrolls on its own */
+nav.side > * { flex-shrink: 0; }
 nav.side a { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 999px; color: var(--text); font-size: 18px; }
 nav.side a:hover { background: var(--hover); text-decoration: none; }
 nav.side a.on { font-weight: 700; }
