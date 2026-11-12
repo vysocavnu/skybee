@@ -895,3 +895,175 @@ nav.side .logo { color: var(--text); }
   nav.bottom a.on .ico { stroke-width: 2.1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); }
   .fab { display: grid; }
 }
+
+/* =====================================================================
+   Interface styles (Settings → Appearance → «Стиль інтерфейсу», applyLook → html[data-ui]):
+   Liquid Glass — iPhone/iPad by default; Material Design 3 — Android by default; any of them on any device.
+   Always :root[data-ui=…] — the style buttons in settings carry data-ui too.
+   ===================================================================== */
+.bl { display: none; }
+
+/* ---------------------------- Liquid Glass ---------------------------- */
+:root[data-ui="glass"] { --g-a: 58%; --g-blur: 26px; --g-edge: rgba(255,255,255,.14); --g-hi: rgba(255,255,255,.22); --g-shadow: 0 10px 34px rgba(0,0,0,.32);
+  --glass: color-mix(in srgb, var(--panel) var(--g-a), transparent); }
+:root[data-ui="glass"][data-glass="clear"] { --g-a: 34%; --g-blur: 18px; }
+:root[data-ui="glass"][data-glass="frost"] { --g-a: 80%; --g-blur: 38px; }
+:root[data-ui="glass"][data-theme="light"] { --g-edge: rgba(255,255,255,.75); --g-hi: rgba(255,255,255,.9); --g-shadow: 0 10px 30px rgba(15,20,25,.12); }
+:root[data-ui="glass"] body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  /* soft coloured light behind the glass, so it has something to bend */
+  background: radial-gradient(60vw 50vh at 85% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(50vw 50vh at -10% 110%, color-mix(in srgb, var(--link) 12%, transparent), transparent 70%), var(--bg) fixed; }
+:root[data-ui="glass"] main { border-color: transparent; }
+:root[data-ui="glass"] :is(.topbar, nav.bottom, .card, .modal, .popmenu, .toast, .chatbar, .dhead, nav.side, .msheet) {
+  background: var(--glass); -webkit-backdrop-filter: blur(var(--g-blur)) saturate(180%); backdrop-filter: blur(var(--g-blur)) saturate(180%); }
+:root[data-ui="glass"] :is(.card, .modal, .popmenu, nav.bottom, .toast, .fab, .dcol) { border: 1px solid var(--g-edge);
+  box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 rgba(255,255,255,.04), var(--g-shadow); }
+:root[data-ui="glass"] .topbar { border-bottom: 1px solid var(--g-edge); box-shadow: inset 0 -1px 0 rgba(0,0,0,.06); }
+:root[data-ui="glass"] .card { border-radius: 24px; }
+:root[data-ui="glass"] .modal { border-radius: 30px; }
+:root[data-ui="glass"] .popmenu { border-radius: 20px; padding: 8px; }
+:root[data-ui="glass"] .popmenu button { border-radius: 12px; }
+:root[data-ui="glass"] .toast { color: var(--text); }
+:root[data-ui="glass"] .modal-bg { background: rgba(0,0,0,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+/* capsule buttons with a light catching the top edge */
+:root[data-ui="glass"] .btn { border-radius: 999px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent) 55%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+:root[data-ui="glass"] .ghost { border-radius: 999px; background: var(--glass); border-color: var(--g-edge); box-shadow: inset 0 1px 0 var(--g-hi);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+:root[data-ui="glass"] .ghost.icon { border-radius: 50%; }
+:root[data-ui="glass"] .imgs, :root[data-ui="glass"] .video, :root[data-ui="glass"] .ext, :root[data-ui="glass"] .quote { border-radius: 20px; }
+/* segmented control: a glass track with a brighter sliding thumb */
+:root[data-ui="glass"] .seg { gap: 2px; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+:root[data-ui="glass"] .seg button, :root[data-ui="glass"] .seg label { border: 0; border-radius: 999px; background: none; }
+:root[data-ui="glass"] .seg button.on, :root[data-ui="glass"] .seg label:has(:checked) { background: color-mix(in srgb, #fff 16%, var(--glass));
+  box-shadow: inset 0 1px 0 var(--g-hi), 0 2px 8px rgba(0,0,0,.18); font-weight: 600; }
+:root[data-ui="glass"][data-theme="light"] .seg button.on, :root[data-ui="glass"][data-theme="light"] .seg label:has(:checked) { background: #fff; }
+/* iOS switch */
+:root[data-ui="glass"] .stoggle i { width: 51px; height: 31px; }
+:root[data-ui="glass"] .stoggle i::after { top: 2px; left: 2px; width: 27px; height: 27px; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+:root[data-ui="glass"] .stoggle input:checked + i { box-shadow: none; }
+:root[data-ui="glass"] .stoggle input:checked + i::after { transform: translateX(20px); background: #fff; }
+/* side menu: a floating glass panel; where you are — a glass pill */
+:root[data-ui="glass"] nav.side { top: 10px; height: calc(100vh - 20px); margin: 10px 0; border-radius: 28px; border: 1px solid var(--g-edge); box-shadow: inset 0 1px 0 var(--g-hi), var(--g-shadow); }
+:root[data-ui="glass"] nav.side a { border-radius: 999px; }
+:root[data-ui="glass"] nav.side a.on { background: color-mix(in srgb, #fff 10%, transparent); box-shadow: inset 0 1px 0 var(--g-hi); }
+:root[data-ui="glass"] nav.side a.on::before { display: none; }
+:root[data-ui="glass"] .tabs > .on::after { width: auto; left: 18%; right: 18%; transform: none; height: 3px; border-radius: 3px; bottom: 4px; }
+:root[data-ui="glass"] .dcol { border-radius: 24px; background: var(--glass); }
+:root[data-ui="glass"] .dhead { border-bottom: 1px solid var(--g-edge); }
+@media (max-width: 640px) {
+  :root[data-ui="glass"] nav.side { top: 0; height: auto; margin: 0; border-radius: 0 28px 28px 0; }
+  /* tab bar: icons over small labels, the current one in a glass pill */
+  :root[data-ui="glass"] nav.bottom { border-width: 0; border-top: 1px solid var(--g-edge); box-shadow: inset 0 1px 0 var(--g-hi); }
+  :root[data-ui="glass"] nav.bottom a { flex-direction: column; gap: 1px; min-height: 52px; color: var(--muted); }
+  :root[data-ui="glass"] nav.bottom a.on { color: var(--accent); }
+  :root[data-ui="glass"] nav.bottom a.on::after { display: none; }
+  :root[data-ui="glass"] nav.bottom .bl { display: block; font-size: 10px; font-weight: 600; }
+  :root[data-ui="glass"] nav.bottom .ico { width: 24px !important; height: 24px !important; }
+  /* floating capsule over the feed */
+  :root[data-ui="glass"].glass-float nav.bottom { left: 14px; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom)); padding: 5px 6px; border-radius: 34px; border: 1px solid var(--g-edge);
+    box-shadow: inset 0 1px 0 var(--g-hi), var(--g-shadow); justify-content: space-between; }
+  :root[data-ui="glass"].glass-float nav.bottom a { flex: 1; border-radius: 28px; }
+  :root[data-ui="glass"].glass-float nav.bottom a.on { background: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--g-hi); }
+  :root[data-ui="glass"].glass-float main { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float .fab { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float .chatbar { bottom: calc(80px + env(safe-area-inset-bottom)); border-radius: 26px; left: 10px; right: 10px; width: auto; border: 1px solid var(--g-edge); }
+  :root[data-ui="glass"] .fab { background: color-mix(in srgb, var(--accent) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+}
+
+/* ---------------------------- Material Design 3 ---------------------------- */
+:root[data-ui="material"] { --m-s1: var(--panel); --m-s2: var(--hover); --m-c: color-mix(in srgb, var(--text) 14%, var(--bg)); --m-on-c: var(--text); --m-out: var(--line); }
+:root[data-ui="material"].m-tonal { --m-s1: color-mix(in srgb, var(--accent) 6%, var(--bg)); --m-s2: color-mix(in srgb, var(--accent) 11%, var(--bg));
+  --m-c: color-mix(in srgb, var(--accent) 26%, var(--bg)); --m-out: color-mix(in srgb, var(--accent) 22%, var(--line)); }
+:root[data-ui="material"] body { font-family: Roboto, "Google Sans", "Segoe UI", system-ui, sans-serif; letter-spacing: .01em; }
+:root[data-ui="material"] main { border-color: transparent; }
+:root[data-ui="material"] .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 0; min-height: 64px; }
+:root[data-ui="material"] .topbar h2 { font-weight: 500; font-size: 22px; letter-spacing: 0; }
+/* filled cards and dialogs, no outlines */
+:root[data-ui="material"] .card { background: var(--m-s1); border: 0; border-radius: 16px; }
+:root[data-ui="material"] .modal { background: var(--m-s2); border: 0; border-radius: 28px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+:root[data-ui="material"] .popmenu { background: var(--m-s2); border: 0; border-radius: 12px; padding: 8px 0; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+:root[data-ui="material"] .popmenu button { border-radius: 0; padding: 12px 16px; }
+:root[data-ui="material"] .toast { border-radius: 8px; background: var(--text); color: var(--bg); padding: 14px 18px; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+:root[data-ui="material"] .post { border-bottom-color: var(--m-out); }
+/* buttons: filled and outlined pills, 40px tall */
+:root[data-ui="material"] .btn { border-radius: 999px; min-height: 40px; padding: 10px 24px; font-weight: 500; letter-spacing: .02em; box-shadow: none; filter: none; }
+:root[data-ui="material"] .btn:hover { box-shadow: 0 1px 3px rgba(0,0,0,.3); filter: none; }
+:root[data-ui="material"] .ghost { border-radius: 999px; border-color: var(--m-out); font-weight: 500; }
+:root[data-ui="material"] .ghost:hover { border-color: var(--m-out); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+:root[data-ui="material"] .ghost.icon { border: 0; }
+:root[data-ui="material"] :is(.btn, .ghost):active { transform: none; }
+:root[data-ui="material"] .chip { border-radius: 8px; border-color: var(--m-out); }
+:root[data-ui="material"] .chip.on { background: var(--m-c); color: var(--m-on-c); border-color: transparent; }
+/* segmented buttons: one outlined pill split into parts, the chosen one filled */
+:root[data-ui="material"] .seg { gap: 0; }
+:root[data-ui="material"] .seg > * { border-radius: 0; border: 1px solid var(--m-out); margin-left: -1px; background: none; min-height: 40px; font-weight: 500; }
+:root[data-ui="material"] .seg > :first-child { border-radius: 999px 0 0 999px; margin-left: 0; }
+:root[data-ui="material"] .seg > :last-child { border-radius: 0 999px 999px 0; }
+:root[data-ui="material"] .seg > :only-child { border-radius: 999px; }
+:root[data-ui="material"] .seg button.on, :root[data-ui="material"] .seg label:has(:checked) { background: var(--m-c); color: var(--m-on-c); border-color: var(--m-out); }
+:root[data-ui="material"] .seg button.on::before { content: "✓ "; }
+/* M3 switch: outlined track off, filled on, the thumb grows */
+:root[data-ui="material"] .stoggle i { width: 52px; height: 32px; background: var(--m-s2); border: 2px solid var(--muted); box-shadow: none; }
+:root[data-ui="material"] .stoggle i::after { top: 6px; left: 6px; width: 16px; height: 16px; background: var(--muted); transition: transform .15s, width .15s, height .15s, top .15s, left .15s; }
+:root[data-ui="material"] .stoggle input:checked + i { background: var(--accent); border-color: var(--accent); box-shadow: none; }
+:root[data-ui="material"] .stoggle input:checked + i::after { top: 2px; left: 2px; width: 24px; height: 24px; transform: translateX(20px); background: var(--accent-ink); }
+/* navigation drawer: tall pill items, the current one in a tonal container */
+:root[data-ui="material"] nav.side a { border-radius: 999px; min-height: 52px; }
+:root[data-ui="material"] nav.side a.on { background: var(--m-c); color: var(--m-on-c); }
+:root[data-ui="material"] nav.side a.on::before { display: none; }
+:root[data-ui="material"] nav.side a.on .ico { color: var(--m-on-c); filter: none; }
+:root[data-ui="material"] .compose-side { border-radius: 16px; min-height: 56px; background: var(--m-c); color: var(--m-on-c); box-shadow: 0 3px 6px rgba(0,0,0,.25); }
+/* primary tabs: the indicator as wide as the label */
+:root[data-ui="material"] .tabs { border-bottom-color: var(--m-out); }
+:root[data-ui="material"] .tabs > .on { color: var(--accent); }
+:root[data-ui="material"][data-theme="light"] .tabs > .on { color: var(--text); }
+:root[data-ui="material"] .tabs > .on::after { left: 16px; right: 16px; width: auto; transform: none; box-shadow: none; }
+:root[data-ui="material"] .dcol { border: 0; background: var(--m-s1); border-radius: 16px; box-shadow: none; }
+:root[data-ui="material"] .dhead { background: var(--m-s2); border-bottom: 0; }
+:root[data-ui="material"] aside.right .card, :root[data-ui="material"] .sideprof { border-radius: 16px; }
+/* ripple */
+:root[data-ui="material"] :is(.btn, .ghost, .actions button, .srow, nav.side a, nav.bottom a, .tabs > *, .chip, .popmenu button, .seg button, .fab) { position: relative; overflow: hidden; }
+.ripple { position: absolute; border-radius: 50%; pointer-events: none; background: currentColor; opacity: .16; transform: scale(0); animation: ripple .55s ease-out forwards; }
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+@media (max-width: 640px) {
+  :root[data-ui="material"] nav.side { background: var(--m-s1); border-right: 0; border-radius: 0 16px 16px 0; }
+  /* navigation bar: 80dp, an indicator pill behind the icon, label below */
+  :root[data-ui="material"] nav.bottom { min-height: 80px; padding: 12px 0 calc(16px + env(safe-area-inset-bottom)); background: var(--m-s2); border-top: 0;
+    -webkit-backdrop-filter: none; backdrop-filter: none; align-items: flex-start; }
+  :root[data-ui="material"] nav.bottom a { flex: 1; flex-direction: column; gap: 4px; min-height: 0; padding: 0; border-radius: 0; overflow: visible; color: var(--muted); }
+  :root[data-ui="material"] nav.bottom a.on { color: var(--text); }
+  :root[data-ui="material"] nav.bottom a.on::after { display: none; }
+  :root[data-ui="material"] nav.bottom .ni { width: 64px; height: 32px; border-radius: 16px; transition: background .2s; }
+  :root[data-ui="material"] nav.bottom a.on .ni { background: var(--m-c); }
+  :root[data-ui="material"] nav.bottom a.on .ico { color: var(--m-on-c); filter: none; }
+  :root[data-ui="material"] nav.bottom .ico { width: 24px !important; height: 24px !important; }
+  :root[data-ui="material"].m-labels nav.bottom .bl { display: block; font-size: 12px; font-weight: 500; letter-spacing: .03em; }
+  :root[data-ui="material"]:not(.m-labels) nav.bottom { min-height: 64px; padding-top: 16px; }
+  :root[data-ui="material"] main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  /* FAB: a 56dp rounded square in the tonal container */
+  :root[data-ui="material"] .fab { width: 56px; height: 56px; border-radius: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); background: var(--m-c); color: var(--m-on-c);
+    box-shadow: 0 3px 6px rgba(0,0,0,.3), 0 2px 4px rgba(0,0,0,.2); }
+  :root[data-ui="material"] .chatbar { bottom: calc(80px + env(safe-area-inset-bottom)); background: var(--m-s2); border-top: 0; }
+  :root[data-ui="material"]:not(.m-labels) .chatbar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+}
+
+/* the three style tiles in settings */
+.uipreview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.uipv { position: relative; height: 96px; border-radius: 16px; border: 2px solid var(--line); overflow: hidden; padding: 0; display: block; text-align: left; }
+.uipv.on { border-color: var(--accent); }
+.uipv b { position: absolute; left: 8px; bottom: 6px; font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.uipv i { position: absolute; display: block; }
+.uipv-glass { background: radial-gradient(circle at 80% 10%, #f5b301aa, transparent 55%), radial-gradient(circle at 0 100%, #4c9bffaa, transparent 55%), #1b2030; }
+.uipv-glass i:nth-child(1) { left: 10px; right: 10px; top: 10px; height: 18px; border-radius: 9px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); backdrop-filter: blur(6px); }
+.uipv-glass i:nth-child(2) { left: 14px; right: 14px; bottom: 26px; height: 22px; border-radius: 12px; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
+.uipv-glass i:nth-child(3) { left: 50%; bottom: 31px; width: 24px; height: 12px; margin-left: -12px; border-radius: 6px; background: rgba(255,255,255,.45); }
+.uipv-material { background: #1f1b13; }
+.uipv-material i:nth-child(1) { left: 10px; right: 10px; top: 12px; height: 28px; border-radius: 12px; background: #3a3220; }
+.uipv-material i:nth-child(2) { left: 0; right: 0; bottom: 0; height: 26px; background: #2c2618; }
+.uipv-material i:nth-child(3) { right: 10px; bottom: 32px; width: 22px; height: 22px; border-radius: 7px; background: #f5c94a; }
+.uipv-material b { bottom: auto; top: 18px; left: 16px; color: #f5e6c0; text-shadow: none; }
+.uipv-skybee { background: var(--honey) 0 0 / 22px 38px, #0f1218; }
+.uipv-skybee i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 26px; background: #171b23; }
+.uipv-skybee i:nth-child(2) { left: 0; top: 16px; width: 3px; height: 14px; border-radius: 0 3px 3px 0; background: #f5b301; box-shadow: 0 0 8px #f5b301; }
+.uipv-skybee i:nth-child(3) { left: 36px; right: 10px; top: 14px; height: 18px; border-radius: 9px; background: #f5b301; }

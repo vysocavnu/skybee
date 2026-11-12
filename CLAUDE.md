@@ -88,6 +88,15 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   Власний набір лінійних іконок `ico(name, size)` в ui.js (меню, нижня панель, ✏️-кнопки, розділи налаштувань): приглушені, на активному — золото зі сяйвом.
   Банер без картинки — медове світло над сотами; бульбашка статусу — «медова крапля»; траєкторія бджоли на екрані входу; «Колонки» — кнопка щільності (`skybee.deckCompact`, `.deck.compact`).
 
+## Стилі інтерфейсу (Налаштування → Оформлення → «Стиль інтерфейсу»)
+- `skybee.ui`: `auto` (за замовчуванням) | `glass` | `material` | `skybee`. Авто: iPhone/iPad → **Liquid Glass**, Android → **Material Design 3**, комп'ютер → Skybee
+  (`devicePlatform()`: Capacitor `getPlatform()`, у браузері — user agent). `applyLook` ставить `html[data-ui]`; у CSS завжди `:root[data-ui=…]`
+  (кнопки вибору теж мають `data-ui`, як колись `data-theme` ламав кнопку «Світла»).
+- Liquid Glass: скляні шапка/картки/вікна/меню (`--glass`, blur + saturate, відблиск зверху), капсули-кнопки, сегменти iOS, перемикач iOS;
+  свої налаштування — скло `skybee.glass` (clear/normal/frost → `html[data-glass]`), плаваюча панель вкладок `skybee.glassFloat` (`html.glass-float`).
+- Material 3: тональні поверхні від кольору застосунку (`--m-s1/--m-s2/--m-c`), навігаційна панель 80dp з «пігулкою» під іконкою й підписами (`.bl`),
+  FAB-квадрат 16dp, сегментовані кнопки з ✓, перемикач M3, хвиля (`.ripple`, обробник у app.js); налаштування `skybee.mTonal`, `skybee.mLabels`, `skybee.mRipple` (значення "0" вимикає).
+
 ## Помилки
 - Усі помилки показуються через `errText(e)` з `js/errors.js`: людською мовою, що сталося й що робити, + технічний код у дужках
   (`network`/`offline`/`timeout`, код XRPC, HTTP-статус). Ніколи не показувати сирий `ex.message` («Failed to fetch»).

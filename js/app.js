@@ -284,7 +284,7 @@ function shell() {
     <div id="sidebox"></div>
     <div class="card small muted">${bee(16)} Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
-  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${ico(i, 26)}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
+  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}" aria-label="${l}"><span class="ni">${ico(i, 26)}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span><span class="bl">${l}</span></a>`).join("")}</nav>
   <button class="fab" data-act="compose" title="Новий пост">${ico("pen", 24)}</button>`;
 }
 
@@ -374,6 +374,20 @@ window.addEventListener("skybee:share", (e) => shareDialog(...e.detail));
 window.addEventListener("skybee:report", (e) => reportDialog(e.detail));
 // pinned feeds changed: the right column's list and the home tabs are built again
 window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
+
+/* ---------- Material ripple: a circle spreads from the finger on buttons and menu items (Settings → Appearance) ---------- */
+addEventListener("pointerdown", (e) => {
+  const r = document.documentElement;
+  if (r.dataset.ui !== "material" || !r.classList.contains("m-ripple") || document.body.classList.contains("calm")) return;
+  const t = e.target.closest?.(".btn, .ghost, .actions button, .srow, nav.side a, nav.bottom a, .tabs > *, .chip, .popmenu button, .seg button, .fab");
+  if (!t || t.disabled) return;
+  const b = t.getBoundingClientRect(), d = Math.max(b.width, b.height) * 2.2;
+  const s = document.createElement("span");
+  s.className = "ripple";
+  s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - b.left - d / 2}px;top:${e.clientY - b.top - d / 2}px`;
+  t.appendChild(s);
+  setTimeout(() => s.remove(), 600);
+}, { passive: true });
 
 /* ---------- pull to refresh (touch screens) ---------- */
 // At the very top of a screen, pulling down and letting go reloads it
