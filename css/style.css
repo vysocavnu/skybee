@@ -309,7 +309,7 @@ aside.right { overflow-y: auto; } aside.right .card { margin: 12px 0; }
 .composer .mentions .actor { padding: 6px 4px; align-items: center; }
 
 /* ---------- narrow screens: nothing may be wider than the page ---------- */
-html, body { overflow-x: hidden; max-width: 100%; }
+html, body { overflow-x: clip; max-width: 100%; } /* clip, not hidden: hidden turns body into a scroll box and the sticky side columns scroll away */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 main { overflow-x: clip; }
 .seg { flex-wrap: wrap; }

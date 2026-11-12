@@ -9,7 +9,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   Кожен push у `main` автоматично оновлює сайт.
 - Є **десктопна версія для Windows на Electron** (`desktop/`): інсталятор NSIS + переносний EXE.
   Саме Electron, а не Tauri: Tauri на Windows потребує WebView2 (Edge), а в автора Edge заблокований — застосунок має нести власний рушій.
-  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; зміни в `desktop/` або ручний запуск → артефакти.
+  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; будь-які зміни застосунку (веб чи `desktop/`) або ручний запуск → артефакти.
   Версія — у `desktop/package.json`. Далі за планом: Linux, macOS, потім Android, iOS.
 
 ## Структура
