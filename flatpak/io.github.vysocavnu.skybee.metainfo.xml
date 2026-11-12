@@ -44,6 +44,11 @@
     <color type="primary" scheme_preference="dark">#0f1218</color>
   </branding>
   <releases>
+    <release version="0.2.2" date="2026-11-12">
+      <description>
+        <p>New icon: the golden bee on a white background.</p>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-11-12">
       <description>
         <p>Flatpak: updates come only through Flathub.</p>

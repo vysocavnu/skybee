@@ -2,7 +2,7 @@
 // Network first — a new deploy is picked up at once; the cache is only a fallback without a connection.
 const CACHE = "skybee-shell-v11";
 const SHELL = ["./", "css/style.css", "js/app.js", "js/api.js", "js/ui.js", "js/views.js", "js/compose.js", "js/more.js", "js/settings.js", "js/notify.js", "js/flair.js", "js/sources.js", "js/deck.js", "js/splash.js",
-  "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon.svg", "offline.html"];
+  "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon.svg", "icons/favicon.svg", "favicon.ico", "offline.html"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
