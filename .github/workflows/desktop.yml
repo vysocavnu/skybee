@@ -10,9 +10,18 @@ on:
     branches: ["**"]
     paths: ["desktop/**", "flatpak/**", "scripts/dist.mjs", ".github/workflows/desktop.yml", "index.html", "css/**", "js/**", "icons/**"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Випустити реліз із цим тегом (наприклад v0.2.0); порожньо — лише артефакти"
+        required: false
+        default: ""
 
 permissions:
   contents: write
+
+env:
+  # тег релізу: з пушу тегу або з ручного запуску
+  RELEASE_TAG: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
 
 concurrency:
   group: desktop-${{ github.ref }}
@@ -59,9 +68,11 @@ jobs:
           if (-not (Test-Path dist/latest.yml)) { "Немає latest.yml — самооновлення не працюватиме"; exit 1 }
           Get-Content dist/latest.yml
       - name: Реліз
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           files: |
             desktop/dist/*.exe
             desktop/dist/*.exe.blockmap
@@ -69,6 +80,7 @@ jobs:
           generate_release_notes: true
 
   linux:
+    needs: windows # реліз створює Windows-збірка; решта лише додає до нього файли
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -96,9 +108,11 @@ jobs:
             desktop/dist/*.AppImage
             desktop/dist/latest-linux.yml
       - name: Реліз
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           files: |
             desktop/dist/*.tar.gz
             desktop/dist/*.AppImage
@@ -132,7 +146,7 @@ jobs:
         run: |
           name=$(basename flatpak/dl/*.tar.gz)
           sum=$(sha256sum flatpak/skybee-linux-x64.tar.gz | cut -d' ' -f1)
-          url="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/${name}"
+          url="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG:-${GITHUB_REF_NAME}}/${name}"
           sed "s|        path: skybee-linux-x64.tar.gz|        url: ${url}\n        sha256: ${sum}|" flatpak/io.github.vysocavnu.skybee.yml > io.github.vysocavnu.skybee.flathub.yml
           cat io.github.vysocavnu.skybee.flathub.yml
       - uses: actions/upload-artifact@v4
@@ -140,9 +154,11 @@ jobs:
           name: Flathub-manifest
           path: io.github.vysocavnu.skybee.flathub.yml
       - name: Реліз
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           files: |
             Skybee.flatpak
             io.github.vysocavnu.skybee.flathub.yml
