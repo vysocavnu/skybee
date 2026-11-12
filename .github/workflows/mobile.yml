@@ -1,0 +1,143 @@
+# Збирає Skybee для телефонів (Capacitor, mobile/): Android APK та iOS IPA.
+# - будь-які зміни застосунку (веб чи mobile/) або ручний запуск → файли в артефактах запуску
+#   і в тестовому (pre-release) релізі «mobile-test» — його зручно відкрити просто з телефона
+# - тег vX.Y.Z → файли ще й у звичайному релізі разом із десктопом
+# APK підписаний тестовим ключем mobile/debug.keystore (той самий у кожній збірці, тож нова ставиться поверх старої).
+# IPA — без підпису (для нього потрібен акаунт Apple Developer): поставити на iPhone можна через Sideloadly чи AltStore,
+# вони підпишуть його вашим Apple ID.
+name: Mobile (Android, iOS)
+
+on:
+  push:
+    tags: ["v*"]
+    branches: ["**"]
+    paths: ["mobile/**", "scripts/dist.mjs", ".github/workflows/mobile.yml", "index.html", "css/**", "js/**", "icons/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Вебчастина й проєкт Android
+        run: |
+          npm run web
+          npx cap add android
+          npx capacitor-assets generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#0f1218'
+          npx cap sync android
+      - name: Версія
+        run: |
+          V=$(node -p "require('./package.json').version")
+          sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"$V\"/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+          echo "VER=$V" >> "$GITHUB_ENV"
+      - name: Збірка APK
+        run: |
+          mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
+          cd android && ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../Skybee.apk
+          ls -la ../Skybee.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Skybee-Android
+          path: mobile/Skybee.apk
+
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Вебчастина й проєкт iOS
+        run: |
+          npm run web
+          npx cap add ios --packagemanager SPM
+          npx capacitor-assets generate --ios --iconBackgroundColor '#ffffff' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#0f1218'
+          npx cap sync ios
+      - name: Дозволи (фото, камера, мікрофон для відео)
+        run: |
+          P=ios/App/App/Info.plist
+          plutil -replace NSPhotoLibraryUsageDescription -string "Щоб додавати фото й відео до постів" $P
+          plutil -replace NSCameraUsageDescription -string "Щоб зняти фото чи відео для поста" $P
+          plutil -replace NSMicrophoneUsageDescription -string "Щоб записати відео зі звуком" $P
+          plutil -replace NSPhotoLibraryAddUsageDescription -string "Щоб зберігати фото з постів" $P
+          plutil -replace CFBundleDisplayName -string "Skybee" $P
+      - name: Збірка IPA (без підпису)
+        run: |
+          V=$(node -p "require('./package.json').version")
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            MARKETING_VERSION=$V CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" build | tail -30
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry Skybee-unsigned.ipa Payload
+          ls -la Skybee-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Skybee-iOS
+          path: mobile/Skybee-unsigned.ipa
+
+  # обидва файли — в один тестовий реліз (і в реліз тегу), коли обидві збірки готові
+  publish:
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - run: ls -la out
+      - name: Тестовий реліз
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-test
+          target_commitish: ${{ github.sha }}
+          name: "Skybee для телефонів (тестова збірка)"
+          prerelease: true
+          make_latest: false
+          body: |
+            Тестові збірки для Android та iOS — оновлюються з кожною зміною застосунку.
+            Android: завантажте Skybee.apk і відкрийте (дозвольте встановлення з цього джерела).
+            iPhone: Skybee-unsigned.ipa встановлюється через Sideloadly чи AltStore (вони підпишуть його вашим Apple ID).
+          files: |
+            out/Skybee.apk
+            out/Skybee-unsigned.ipa
+      - name: Реліз
+        if: env.RELEASE_TAG != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            out/Skybee.apk
+            out/Skybee-unsigned.ipa

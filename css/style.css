@@ -686,3 +686,4 @@ details.nb[open] > summary { margin-bottom: 10px; }
 .nbh { margin: 16px 0 4px; font-size: 14px; color: var(--muted); }
 details.nb .rowlink { display: block; padding: 8px 0; border-top: 1px solid var(--line); }
 details.nb .actor { padding-left: 0; padding-right: 0; }
+.nbauthor { margin: 0 0 8px; color: var(--muted); }

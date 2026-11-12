@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.vysocavnu.skybee",
+  "appName": "Skybee",
+  "webDir": "www",
+  "backgroundColor": "#0f1218",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false },
+  "ios": { "contentInset": "never", "backgroundColor": "#0f1218" }
+}

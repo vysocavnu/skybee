@@ -2,7 +2,7 @@
 // Content: the Ukrainian Bluesky knowledge base info.bsky.one (@bsky.one) and uabluerail.org («Укртвізалізниця»),
 // retold for Skybee — every «where is it» points to a Skybee screen, not to bsky.app.
 import * as api from "./api.js";
-import { $, esc, enc, renderFeedCard } from "./ui.js";
+import { $, esc, enc, renderFeedCard, renderActor } from "./ui.js";
 import { header } from "./views.js";
 
 const NEWBIE_DAYS = 183; // «less than 6 months»
@@ -73,7 +73,11 @@ const ext = (u, t) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(
 
 export async function newcomers(el) {
   el.innerHTML = header("🌱 Для новеньких", true) + `
-    <div class="card"><h3>Вітаємо з прибуттям у c. Блакитне! 💙💛</h3>
+    <div class="card"><p class="small nbauthor">Автор розділу</p>
+      <div data-author><a class="rowlink" href="#/profile/bsky.one"><b>Жовтий кластер у Блакитному небі</b> <span class="muted">@bsky.one</span></a></div>
+      <a class="small" href="https://bsky.app/profile/bsky.one" target="_blank" rel="noopener">bsky.app/profile/bsky.one ↗</a></div>
+    <div class="card">
+      <h3>Вітаємо з прибуттям у c. Блакитне! 💙💛</h3>
       <p class="small">Тут зібрано все, що варто знати в перші місяці в Bluesky: як усе працює, українські стрічки, модераційні списки й корисні поради.
       За матеріалами української бази знань ${ext("https://info.bsky.one", "info.bsky.one")} (${prof("bsky.one")}) і порталу «Укртвізалізниця»
       ${ext("https://uabluerail.org", "uabluerail.org")} (${prof("uabluerail.org")}). Цей розділ видно в меню перші пів року після реєстрації;
@@ -216,6 +220,8 @@ export async function newcomers(el) {
 
     <p class="pad small muted">Джерела: ${ext("https://info.bsky.one", "info.bsky.one")} (${ext("https://github.com/navix/info.bsky.one", "редагувати на GitHub")}) і ${ext("https://uabluerail.org/docs/", "uabluerail.org")}. Дякуємо авторам 💙💛</p>`;
 
+  // the author's profile card (avatar, follow button); the plain link stays if Bluesky does not answer
+  api.get("app.bsky.actor.getProfile", { actor: "bsky.one" }).then(p => { const box = $("[data-author]", el); if (box) box.innerHTML = renderActor(p); }).catch(() => {});
   // live cards (avatar, likes) for the Ukrainian feeds; the plain links stay if Bluesky does not answer
   api.get("app.bsky.feed.getFeedGenerators", { feeds: FEEDS.map(f => f[0]) }).then(d => {
     const box = $("[data-feeds]", el);

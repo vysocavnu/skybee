@@ -1,6 +1,7 @@
 // Skybee — app shell, router, global actions
 import { errText } from "./errors.js";
 import "./splash.js"; // the welcome scene, first of all
+import "./native.js"; // Android/iOS app: links to the browser, the Back button (nothing in a browser)
 import * as api from "./api.js";
 import * as V from "./views.js";
 import * as M from "./more.js";
