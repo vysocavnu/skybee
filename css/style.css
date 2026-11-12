@@ -728,3 +728,106 @@ nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollba
 .swipeback { position: fixed; left: 0; z-index: 90; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; pointer-events: none;
   background: var(--panel); color: var(--text); border: 1px solid var(--line); font-size: 20px; box-shadow: 0 4px 16px rgba(0,0,0,.35); transition: background .12s, color .12s; }
 .swipeback.ready { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+/* =====================================================================
+   Skybee 2.0 — «The Social Hive»: the same screens and classes, a look of its own.
+   Gold only where it means something (active, important, the bee); honeycomb and the bee's flight path
+   as quiet motifs; softer posts, bigger touch targets. Works in all three themes and with the app colour.
+   ===================================================================== */
+:root { --honey: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.713' height='48' viewBox='0 0 27.713 48'%3E%3Cpath d='M13.856 0L27.713 8V24L13.856 32L0 24V8ZM13.856 32V48' fill='none' stroke='%23e0a82e' stroke-opacity='.22' stroke-width='.8'/%3E%3C/svg%3E"); }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+button, a { touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .spinner { animation-duration: .8s !important; }
+}
+
+/* buttons: the gold one is the brand's, rounded squares instead of plain pills */
+.btn { border-radius: 14px; font-weight: 700; transition: filter .15s, transform .15s; }
+.btn:hover { filter: brightness(1.08); text-decoration: none; }
+.btn:active, .ghost:active { transform: scale(.97); }
+.ghost { border-radius: 12px; transition: background .15s, border-color .15s, transform .15s; }
+.ghost:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.ghost.icon { border-radius: 50%; }
+
+/* feed: one calm surface, more air, a soft hover */
+.post { gap: 13px; padding: 14px 18px; transition: background .18s ease; }
+.post:hover { background: color-mix(in srgb, var(--hover) 70%, transparent); }
+.post.focus:hover { background: none; }
+.meta { gap: 5px; }
+.meta b { font-weight: 700; }
+.text { line-height: 1.55; margin: 4px 0 10px; }
+.text.big { font-size: 19px; line-height: 1.5; }
+.imgs, .video, .ext, .quote { border-radius: 14px; }
+
+/* actions under a post: bigger targets, each lights up in its own colour */
+.actions { max-width: 460px; margin-top: 2px; }
+.actions button { min-width: 38px; min-height: 36px; justify-content: center; gap: 6px; border-radius: 12px; padding: 6px 10px;
+  transition: background .15s, color .15s, transform .15s; }
+.actions button:hover { background: var(--hover); color: var(--text); }
+.actions button:active { transform: scale(.92); }
+.actions [data-act="like"]:hover { color: var(--like); background: color-mix(in srgb, var(--like) 12%, transparent); }
+.actions [data-act="repostMenu"]:hover { color: var(--repost); background: color-mix(in srgb, var(--repost) 12%, transparent); }
+.actions [data-act="bookmark"]:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* side menu: a gold bar marks where you are — a Skybee detail */
+nav.side a { position: relative; border-radius: 12px; transition: background .15s; }
+nav.side a.on { background: var(--hover); }
+nav.side a.on::before { content: ""; position: absolute; left: 0; top: 22%; height: 56%; width: 3px; border-radius: 0 4px 4px 0; background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent); }
+nav.side .logo.on { background: none; } nav.side .logo.on::before { display: none; }
+nav.side .logo { letter-spacing: -.5px; margin-bottom: 10px; }
+
+/* right column: softer, rounder widgets; links warm up on hover */
+aside.right .card { border-radius: 18px; padding: 16px 18px; }
+aside.right .card h3 { font-size: 15px; }
+aside.right .card a { transition: color .15s; }
+aside.right .card a:not(.ghost):not(.btn):hover { color: var(--accent); text-decoration: none; }
+.sideprof { border-radius: 18px; }
+
+/* profile: a lower banner, a bolder name */
+.banner { height: 135px; }
+.phead { padding: 0 20px 16px; }
+.phead h1 { font-size: 28px; font-weight: 800; letter-spacing: -.6px; }
+.counts { gap: 20px; }
+.bio { line-height: 1.6; }
+
+/* settings switches: a warm glow when on */
+.stoggle input:checked + i { box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent); }
+.stoggle input:checked + i::after { background: radial-gradient(circle at 40% 35%, #fff, #fff4d6 60%, #ffe2a0); }
+
+/* «Колонки»: a workspace — columns as panels with a gold line under the header, honeycomb behind */
+.deck { gap: 12px; padding: 14px; background: var(--honey) 0 0 / 44px 76px; }
+.dcol { border-radius: 16px; background: var(--bg); box-shadow: 0 4px 18px rgba(0,0,0,.18); transition: border-color .15s; }
+.dcol:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.dhead { min-height: 50px; padding: 6px 8px 6px 14px; border-bottom: 2px solid var(--accent); }
+.dhead .dtitle { font-size: 15px; font-weight: 750; }
+.dhead .icon { min-width: 34px; min-height: 34px; border-radius: 10px; }
+.dhead .icon:hover { background: var(--hover); }
+
+/* empty screens: the bee at the end of its flight path, honeycomb fading out around it */
+.empty { position: relative; padding: 36px 16px 28px; text-align: center; isolation: isolate; }
+.empty::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--honey) center / 44px 76px;
+  -webkit-mask: radial-gradient(ellipse at 50% 40%, #000, transparent 70%); mask: radial-gradient(ellipse at 50% 40%, #000, transparent 70%); }
+.etrail { position: relative; width: 150px; height: 64px; margin: 0 auto 6px; }
+.etrail svg:not(.bee) { position: absolute; inset: 0; width: 100%; height: 100%; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 4 5; opacity: .7; }
+.etrail .bee { position: absolute; right: -8px; top: -12px; transform: rotate(18deg); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--bee-hi) 45%, transparent)); }
+.empty p { margin: 0; }
+
+/* sign-in screen: honeycomb at the edges, clear in the middle */
+body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%, transparent 80%), var(--honey) 0 0 / 44px 76px, var(--bg); }
+
+/* phone: bigger tap zones, a gold mark under the current tab, a rounder ✏️ */
+@media (max-width: 640px) {
+  nav.bottom { min-height: 58px; align-items: center; padding: 4px 0 calc(4px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  nav.bottom a { position: relative; min-width: 52px; min-height: 48px; display: flex; justify-content: center; align-items: center; font-size: 23px; border-radius: 12px; }
+  nav.bottom a.on::after { content: ""; position: absolute; bottom: 3px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+  .fab { width: 58px; height: 58px; right: 18px; box-shadow: 0 5px 22px rgba(0,0,0,.3), 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .post { padding: 13px 14px; gap: 10px; }
+  .actions { max-width: 100%; }
+  .actions button { min-width: 42px; min-height: 40px; }
+  .text { font-size: 1.05em; }
+}

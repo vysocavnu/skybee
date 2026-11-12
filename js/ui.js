@@ -558,5 +558,6 @@ export function infinite(container, loader, root = null) {
   return () => io.disconnect();
 }
 
-export const empty = (msg) => `<p class="muted center pad">${esc(msg)}</p>`;
+// Empty screen: the bee at the end of its dashed flight path over faint honeycomb (css: .empty)
+export const empty = (msg) => `<div class="empty"><div class="etrail" aria-hidden="true"><svg viewBox="0 0 120 60"><path d="M4 52c14-2 22-12 18-22s-14-6-10 2 22 10 38-6S88 6 104 10"/></svg>${bee(30)}</div><p class="muted center">${esc(msg)}</p></div>`;
 export const spinner = () => `<div class="sentinel"><div class="spinner"></div></div>`;
