@@ -76,11 +76,29 @@ jobs:
           sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"$V\"/" android/app/build.gradle
           grep -n "versionCode\|versionName" android/app/build.gradle
           echo "VER=$V" >> "$GITHUB_ENV"
-      - name: Збірка APK
+      # release-збірка (не debug: без налагодження, оптимізована), підписана ключем mobile/debug.keystore —
+      # тим самим, що й попередні тестові APK, тож нова ставиться поверх. Для Google Play потрібен буде окремий секретний ключ.
+      - name: Збірка APK (release)
         run: |
-          mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
-          cd android && ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../Skybee.apk
+          python3 - <<'PY'
+          p = "android/app/build.gradle"
+          s = open(p).read()
+          sign = """    signingConfigs {
+                  release {
+                      storeFile file("../../debug.keystore")
+                      storePassword "android"
+                      keyAlias "androiddebugkey"
+                      keyPassword "android"
+                  }
+              }
+              buildTypes {"""
+          assert "    buildTypes {" in s and "minifyEnabled false" in s
+          s = s.replace("    buildTypes {", sign, 1)
+          s = s.replace("minifyEnabled false", "minifyEnabled false\n            signingConfig signingConfigs.release", 1)
+          open(p, "w").write(s)
+          PY
+          cd android && ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Skybee.apk
           ls -la ../Skybee.apk
       - uses: actions/upload-artifact@v4
         with:

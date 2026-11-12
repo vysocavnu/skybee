@@ -494,7 +494,7 @@ function loadHls() {
   if (window.Hls) return Promise.resolve();
   return hlsLoading ||= new Promise((res, rej) => {
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js";
+    s.src = new URL("./vendor/hls.min.js", import.meta.url).href; // hls.js 1.7.4, shipped with Skybee (no CDN: works the same in the apps)
     s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });
 }

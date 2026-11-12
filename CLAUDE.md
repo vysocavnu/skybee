@@ -24,7 +24,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
 - **Телефони (Android, iOS)** — `mobile/`: Capacitor 7 (та сама вебчастина в `mobile/www/`, `node scripts/dist.mjs mobile/www`). Нативні проєкти не комітяться —
   `npx cap add android|ios` створює їх у CI (`.github/workflows/mobile.yml`), іконки й заставка — `@capacitor/assets` з `mobile/assets/`.
-  APK підписаний тестовим ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
+  APK — **release**-збірка (`assembleRelease`, CI дописує `signingConfigs` у build.gradle), підписана ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх; для Google Play знадобиться окремий секретний ключ); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
   Кожна збірка оновлює pre-release `mobile-test` (Skybee.apk; Skybee-unsigned.ipa — **iOS лише за ручним запуском** з галочкою «ios» або з тегом, на прохання автора); тег `vX.Y.Z` — ще й у реліз. Вебчастина в телефоні поки не оновлюється сама — потрібна нова збірка.
   `js/native.js`: лише в Capacitor — зовнішні посилання й `window.open` → системний браузер, кнопка «Назад» Android (меню → вікно → бічне меню → крок назад → вихід).
 
@@ -71,7 +71,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   запити без сесії йдуть на public.api.bsky.app, усе, що пише, просить увійти. Пункт «🐝 Посилання Skybee» в меню поста.
   Режим читання гілки: `#/profile/<h>/post/<rkey>?read` — лише пости автора одним текстом
 - Як в офіційному Bluesky: мітка LIVE (`isLive`, статус `app.bsky.actor.status`, «🔴 Я в ефірі» в меню свого профілю),
-  субтитри .vtt до відео (редактор + hls.js), вбудовані плеєри YouTube/Spotify/SoundCloud/Vimeo/Twitch/Apple Music (`playerOf`, iframe лише після ▶,
+  субтитри .vtt до відео (редактор + hls.js — лежить у `js/vendor/hls.min.js` 1.7.4, без CDN), вбудовані плеєри YouTube/Spotify/SoundCloud/Vimeo/Twitch/Apple Music (`playerOf`, iframe лише після ▶,
   вимикається в «Вміст і медіа»), сторінка хештегу `#/tag/<тег>`, фільтри пошуку (from/mentions/lang/since/until/domain),
   перегляд фото із зумом і збереженням, «↑ Нові пости» на головній, оновлення потягуванням, «Огляд» з інтересами (`interestsPref`) на порожньому пошуку,
   «Поділитися» з QR (`shareDialog`, QR через api.qrserver.com), скарга на повідомлення в чаті, створення/видалення стартових наборів `#/starter-packs/new`,
