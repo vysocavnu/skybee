@@ -1,4 +1,5 @@
 // Skybee — deck (several columns side by side) and the own-feed builder («Мої стрічки»)
+import { errText } from "./errors.js";
 import * as api from "./api.js";
 import * as src from "./sources.js";
 import { $, esc, enc, toast, modal, confirmBox, menu, empty, at } from "./ui.js";
@@ -98,7 +99,7 @@ export function pickSource({ deck = false, title = "Додати джерело"
         }
         if (multi && f("as") !== api.session.did) s.as = f("as");
         done = true; m.close(); resolve(s);
-      } catch (ex) { err.textContent = ex.message; x.disabled = false; }
+      } catch (ex) { err.textContent = errText(ex); x.disabled = false; }
     });
   });
 }
@@ -240,7 +241,7 @@ export async function myFeeds(el) {
         await src.saveMyFeeds(list.filter(x => x !== f)); toast("Видалено");
       }
       draw(await src.myFeeds());
-    } catch (ex) { toast(ex.message); }
+    } catch (ex) { toast(errText(ex)); }
   });
 }
 
@@ -327,7 +328,7 @@ export async function myFeedEdit(el, { id }) {
       if (i < 0) all.push(f); else all[i] = f;
       await src.saveMyFeeds(all);
       toast("Збережено"); location.hash = src.myFeedHref(f);
-    } catch (ex) { err.textContent = ex.message; btn.disabled = false; }
+    } catch (ex) { err.textContent = errText(ex); btn.disabled = false; }
   };
   return () => stop?.();
 }

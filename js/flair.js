@@ -1,6 +1,7 @@
 // Skybee «оформлення»: a status bubble by the avatar, a track under the bio, a page colour and a toy.
 // It lives in the user's own repo as one record, so any Skybee client can read it straight from their PDS;
 // other Bluesky apps simply ignore the collection.
+import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { esc, modal, toast } from "./ui.js";
 
@@ -167,7 +168,7 @@ function pickTrack() {
         if (my !== seq) return; // a newer search is already running
         box.innerHTML = list.length ? list.map((t, i) => `<div class="sb-pick" data-i="${i}">${trackCard(t, "flat")}</div>`).join("")
           : `<p class="muted small">Нічого не знайдено</p>`;
-      } catch (ex) { if (my === seq) box.innerHTML = `<p class="err">${esc(ex.message || "Пошук не вдався")}</p>`; }
+      } catch (ex) { if (my === seq) box.innerHTML = `<p class="err">${esc(errText(ex))}</p>`; }
     };
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 400); });
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") { clearTimeout(timer); run(); } });
@@ -247,6 +248,6 @@ export async function edit(onDone) {
       cache.delete(did);
       const card = document.getElementById("sideProf"); if (card) paint(card, did); // the right column follows the new colour
       m.close(); toast("Оформлення збережено"); onDone?.();
-    } catch (ex) { err.textContent = ex.message; x.disabled = false; x.textContent = "Зберегти"; }
+    } catch (ex) { err.textContent = errText(ex); x.disabled = false; x.textContent = "Зберегти"; }
   });
 }

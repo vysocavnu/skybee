@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Щось зламалося на нашому боці — Skybee</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f1218'/%3E%3Cg fill='none' stroke='%23d9b46a' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' transform='translate(10 2) scale(.82)'%3E%3Cpath d='M56 50C43 39 30 22 32 4C47 12 59 30 56 50Z'/%3E%3Cpath d='M56 50C44 35 23 19 5 15C17 33 39 45 56 50Z'/%3E%3Cpath d='M44 57C51 53 59 58 58 67C57 79 43 92 28 99C23 91 22 82 26 74C30 65 37 59 44 57Z'/%3E%3Cellipse cx='72' cy='43' rx='6.5' ry='9' transform='rotate(-30 72 43)'/%3E%3C/g%3E%3C/svg%3E">
+<script>try{var t=localStorage.getItem("skybee.theme");if(t&&t!=="system")document.documentElement.dataset.theme=t}catch(e){}</script>
+<style>*{box-sizing:border-box}
+:root{--bg:#f6f1e6;--bg2:#ece2cf;--text:#3f372b;--muted:#857761;--btn:#f5b301;--btnink:#1a1400;--line:#d9c9ab;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1218;--bg2:#171b23;--text:#e6e9ef;--muted:#8a93a6;--line:#262c38;color-scheme:dark}}
+:root[data-theme=dark],:root[data-theme=dim]{--bg:#0f1218;--bg2:#171b23;--text:#e6e9ef;--muted:#8a93a6;--line:#262c38;color-scheme:dark}
+:root[data-theme=dim]{--bg:#161e27;--bg2:#1e2833}
+body{margin:0;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px;
+  background:radial-gradient(ellipse at 50% 0%,var(--bg2),var(--bg) 70%);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
+main{max-width:520px}
+.bee{width:150px;height:150px;animation:float 3.2s ease-in-out infinite;filter:drop-shadow(0 10px 14px rgba(150,110,40,.18))}
+.w{transform-box:view-box;transform-origin:62px 50px;animation:flap .09s ease-in-out infinite alternate}
+@keyframes float{0%,100%{transform:translate(0,0) rotate(-3deg)}50%{transform:translate(6px,-12px) rotate(3deg)}}
+@keyframes flap{from{transform:rotate(3deg)}to{transform:rotate(-14deg) scaleY(.85)}}
+@media (prefers-reduced-motion:reduce){.bee,.w{animation:none}}
+.code{font-size:clamp(64px,18vw,112px);font-weight:800;line-height:1;margin:8px 0 4px;background:linear-gradient(135deg,#e8c97f,#b98f45);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.02em}
+h1{font-size:clamp(22px,5vw,30px);margin:8px 0}
+p{color:var(--muted);margin:8px 0}
+.tech{font:13px/1.4 ui-monospace,Consolas,monospace;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:8px 12px;display:inline-block;margin-top:10px;word-break:break-all}
+.btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+a.btn,button.btn{font:inherit;font-weight:700;border-radius:999px;padding:10px 22px;text-decoration:none;cursor:pointer;border:0;background:var(--btn);color:var(--btnink)}
+.ghost{background:none!important;border:1px solid var(--line)!important;color:var(--text)!important}
+footer{margin-top:28px;font-size:13px;color:var(--muted)}</style>
+</head>
+<body>
+<main>
+<svg class="bee" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8c97f"/><stop offset="1" stop-color="#b98f45"/></linearGradient></defs>
+<g transform="translate(6 0)" fill="none" stroke="url(#g)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+<g class="w"><path d="M56 50C43 39 30 22 32 4C47 12 59 30 56 50Z"/><path d="M56 50C44 35 23 19 5 15C17 33 39 45 56 50Z"/><path d="M56 50C42 41 22 39 10 47C24 55 42 55 56 50Z"/>
+<path d="M44 22c-4-1-6 3-3 5c3 2 6-1 4-4"/><path d="M50 36c-1-4-6-4-6 0c0 3 4 3 4 1"/><path d="M38 12c-2 2-1 6 3 6"/><path d="M24 25c-4 0-4 4-1 5c3 1 4-2 2-3"/><path d="M38 36c-2-3-7-2-6 2"/><path d="M26 46c-2-2-6-1-5 2c1 2 4 2 4 0"/><path d="M40 47c-3-2-7 0-5 3"/></g>
+<path d="M44 57C51 53 59 58 58 67C57 79 43 92 28 99C23 91 22 82 26 74C30 65 37 59 44 57Z"/><path d="M32 64C39 64 46 67 51 72"/><path d="M28 73C35 73 41 76 46 81"/><path d="M26 83C31 83 36 85 39 88"/>
+<path d="M60 66C66 62 68 57 64 52C61 48 63 45 67 45"/><ellipse cx="72" cy="43" rx="6.5" ry="9" transform="rotate(-30 72 43)"/><path d="M69 34C70 28 73 25 77 23"/><path d="M73 36C76 31 80 29 85 29"/></g></svg>
+<div class="code">500</div>
+<h1>Щось зламалося на нашому боці</h1>
+<p>Ми вже знаємо і лагодимо. Спробуй оновити сторінку за хвилинку.</p>
+<div class="tech" id="tech"></div>
+<div class="btns"><a class="btn" data-home href="/">На головну Skybee</a><button class="btn ghost" onclick="history.length>1?history.back():location.href=document.querySelector('[data-home]').href">← Назад</button></div>
+<footer>Skybee — відкритий клієнт для Bluesky</footer>
+</main>
+<script>var base=location.pathname.indexOf("/skybee/")===0?"/skybee/":"/";document.querySelectorAll("[data-home]").forEach(function(a){a.href=base})</script>
+
+<script>document.getElementById("tech").textContent="Код: 500 · "+location.host+location.pathname+(location.search||"")</script>
+</body>
+</html>

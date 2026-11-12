@@ -1,4 +1,5 @@
 // Skybee — app shell, router, global actions
+import { errText } from "./errors.js";
 import "./splash.js"; // the welcome scene, first of all
 import * as api from "./api.js";
 import * as V from "./views.js";
@@ -56,7 +57,7 @@ function bindLogin(f) {
       let stored = false; try { stored = !!localStorage.getItem("skybee.session"); } catch {}
       if (stored) restart(); else { document.querySelectorAll(".modal-bg").forEach(m => m.remove()); location.hash = "#/"; boot(); }
     } catch (ex) {
-      err.textContent = ex.message;
+      err.textContent = errText(ex);
       if (ex.code === "AuthFactorTokenRequired") { f.kind.value = "main"; sync(); f.code.hidden = false; f.code.focus(); }
     }
     btn.disabled = false; btn.textContent = "Увійти";
@@ -133,7 +134,7 @@ function signupScreen() {
       cap.innerHTML = needsCaptcha(pds) ? (desktop ? "Після натискання відкриється коротка перевірка «я не робот»."
         : `На bsky.social потрібна перевірка «я не робот», яку браузер не може передати в Skybee. Зареєструйся в застосунку Skybee для Windows, або <a href="https://bsky.app" target="_blank" rel="noopener">на bsky.app ↗</a>, або обери інший сервер — і потім увійди тут.`) : "";
       btn.disabled = blocked;
-    } catch (ex) { err.textContent = ex.message; }
+    } catch (ex) { err.textContent = errText(ex); }
   };
   f.srv.onchange = load; f.custom.onchange = load; load();
   f.onsubmit = async (e) => {
@@ -160,7 +161,7 @@ function signupScreen() {
       await api.updatePref("personalDetailsPref", { birthDate: new Date(birth).toISOString() }).catch(() => {});
       toast("Акаунт створено 🐝 Підтвердь email з листа, коли зможеш");
       restart();
-    } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = "Створити акаунт"; }
+    } catch (ex) { err.textContent = errText(ex); btn.disabled = false; btn.textContent = "Створити акаунт"; }
   };
 }
 
@@ -310,7 +311,7 @@ async function route() {
     if (keepScroll) restoreScroll(keepScroll);
   } catch (e) {
     if (!main._tint) flair.untint(main);
-    main.insertAdjacentHTML("beforeend", `<div class="card"><p class="err">${esc(e.message)}</p><button class="ghost" data-act="back">← Назад</button></div>`);
+    main.insertAdjacentHTML("beforeend", `<div class="card"><p class="err">${esc(errText(e))}</p><button class="ghost" data-act="back">← Назад</button></div>`);
   }
 }
 window.addEventListener("hashchange", route);
@@ -684,7 +685,7 @@ document.addEventListener("click", async (e) => {
         break;
       }
     }
-  } catch (ex) { toast(ex.message); }
+  } catch (ex) { toast(errText(ex)); }
   finally { if (actEl?.isConnected) actEl.disabled = false; }
 });
 
@@ -700,7 +701,7 @@ function reportDialog(subject) {
     const x = e.target.closest("[data-x]"); if (!x) return;
     if (x.dataset.x === "1") {
       try { await api.report(subject, m.querySelector("input:checked").value, m.querySelector("textarea").value || undefined); toast("Скаргу надіслано. Дякуємо!"); }
-      catch (ex) { toast(ex.message); return; }
+      catch (ex) { toast(errText(ex)); return; }
     }
     m.close();
   });
@@ -739,7 +740,7 @@ function liveDialog() {
     if (!/^https:\/\//.test(uri)) { m.querySelector(".err").textContent = "Встав посилання, що починається з https://"; return; }
     x.disabled = true;
     try { await api.goLive(uri, m.querySelector("[name=title]").value.trim(), +m.querySelector("[name=min]").value); m.close(); toast("Ти в ефірі 🔴"); setTimeout(reloadView, 800); }
-    catch (ex) { m.querySelector(".err").textContent = ex.message; x.disabled = false; }
+    catch (ex) { m.querySelector(".err").textContent = errText(ex); x.disabled = false; }
   });
 }
 
@@ -765,7 +766,7 @@ function peopleDialog(title, onPick) {
   res.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-did]"); if (!b) return;
     b.disabled = true;
-    try { await onPick(b.dataset.did); m.close(); } catch (ex) { toast(ex.message); b.disabled = false; }
+    try { await onPick(b.dataset.did); m.close(); } catch (ex) { toast(errText(ex)); b.disabled = false; }
   });
 }
 

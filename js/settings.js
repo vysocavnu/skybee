@@ -1,4 +1,5 @@
 // Skybee — settings: the main list of sections and every section page. Nothing here sends the user to another site.
+import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
 import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors } from "./ui.js";
@@ -10,10 +11,10 @@ const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
 };
-const saved = (promise, undo) => promise.then(() => toast("Збережено"), (ex) => { toast(ex.message, 5000); undo?.(); });
+const saved = (promise, undo) => promise.then(() => toast("Збережено"), (ex) => { toast(errText(ex), 5000); undo?.(); });
 // the server refuses some account actions to an app password: say what to do instead of a bare error
 const needMain = (ex) => ex.status === 401 || ex.status === 403 || /token|scope|privileged|Bad token/i.test(ex.message)
-  ? "Ця дія потребує входу з основним паролем. Вийди й увійди знову, обравши «Основний пароль»." : ex.message;
+  ? "Ця дія потребує входу з основним паролем. Вийди й увійди знову, обравши «Основний пароль»." : errText(ex);
 
 /* ---------- small icons (stroke, 24×24) ---------- */
 const svg = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
@@ -186,7 +187,7 @@ export async function account(el) {
         if (v.pass.length < 8) throw new Error("Пароль має містити щонайменше 8 символів");
         await api.resetPassword(v.code, v.pass); toast("Пароль змінено");
       }
-    } catch (ex) { toast(ex.message, 5000); }
+    } catch (ex) { toast(errText(ex), 5000); }
     e.target.disabled = false;
   };
   $("#birthform", el).onsubmit = (e) => {
@@ -200,7 +201,7 @@ export async function account(el) {
       const url = URL.createObjectURL(await api.exportRepo()), link = document.createElement("a");
       link.href = url; link.download = `${a.handle}-${new Date().toISOString().slice(0, 10)}.car`; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (ex) { toast(ex.message); }
+    } catch (ex) { toast(errText(ex)); }
     e.target.disabled = false;
   };
   $("#deactivate", el).onclick = async () => {
@@ -279,7 +280,7 @@ export async function moderation(el) {
     const all = [{ creator: { did: api.BSKY_MOD, handle: "moderation.bsky.app", displayName: "Bluesky Moderation Service" }, always: true }, ...views];
     box.innerHTML = all.map(v => `<a class="actor" href="#/profile/${encodeURIComponent(v.creator.handle || v.creator.did)}">${avatar(v.creator, 36)}
       <div class="who"><b>${esc(v.creator.displayName || v.creator.handle)}</b><span class="muted small">${v.always ? "Увімкнено завжди" : `${(v.policies?.labelValues || []).length} міток`}</span></div></a>`).join("");
-  } catch (ex) { box.innerHTML = `<p class="err">${esc(ex.message)}</p>`; }
+  } catch (ex) { box.innerHTML = `<p class="err">${esc(errText(ex))}</p>`; }
 }
 
 /* ================= NOTIFICATIONS ================= */
@@ -307,7 +308,7 @@ export async function notifications(el) {
   const box = $("#nprefs", el);
   let prefs;
   try { prefs = await api.getNotifPrefs(); }
-  catch (ex) { box.insertAdjacentHTML("beforeend", `<p class="err">${esc(ex.message)}</p>`); box.querySelector(".sentinel")?.remove(); return; }
+  catch (ex) { box.insertAdjacentHTML("beforeend", `<p class="err">${esc(errText(ex))}</p>`); box.querySelector(".sentinel")?.remove(); return; }
   box.innerHTML = `<h3>Що показувати в сповіщеннях</h3>` + NTYPES.map(([k, label, filter]) => {
     const p = prefs[k] || {}, on = p.list !== false;
     return `<div class="nprefrow">${toggle("n-" + k, label, on)}

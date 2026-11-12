@@ -1,4 +1,5 @@
 // Skybee — screens
+import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
 import {
@@ -361,11 +362,11 @@ async function labelerCard(head, p) {
     const b = e.target.closest("[data-sub]"); if (!b) return;
     b.disabled = true;
     try { const on = !api.labelerDids.includes(p.did); await api.setLabelerSubscribed(p.did, on); toast(on ? "Підписано на сервіс модерації" : "Відписано"); draw(); }
-    catch (ex) { toast(ex.message); b.disabled = false; }
+    catch (ex) { toast(errText(ex)); b.disabled = false; }
   });
   box.addEventListener("change", async (e) => {
     const s = e.target.closest("[data-lv]"); if (!s) return;
-    try { await api.setLabelerPref(p.did, s.dataset.lv, s.value); toast("Збережено"); } catch (ex) { toast(ex.message); }
+    try { await api.setLabelerPref(p.did, s.dataset.lv, s.value); toast("Збережено"); } catch (ex) { toast(errText(ex)); }
   });
 }
 
@@ -425,7 +426,7 @@ export function editProfile(p, onDone) {
       }
       await api.putOwnProfileRecord(rec);
       m.close(); toast("Профіль оновлено"); onDone?.();
-    } catch (ex) { m.querySelector(".err").textContent = ex.message; x.disabled = false; x.textContent = "Зберегти"; }
+    } catch (ex) { m.querySelector(".err").textContent = errText(ex); x.disabled = false; x.textContent = "Зберегти"; }
   });
 }
 
@@ -562,7 +563,7 @@ export async function hashtag(el, { tag, tab = "top" }) {
       if (w) { await api.removeMutedWord(w); toast(`#${tag} знову видно`); }
       else { await api.addMutedWord({ value: tag, targets: ["tag"], actorTarget: "all" }); toast(`Пости з #${tag} приховано`); }
       el.querySelector("[data-mbox]").innerHTML = btn();
-    } catch (ex) { toast(ex.message); }
+    } catch (ex) { toast(errText(ex)); }
   });
   return paged(el, async (cursor) => {
     const d = await api.get("app.bsky.feed.searchPosts", { q: "#" + tag, sort: tab, limit: 30, cursor });
@@ -587,7 +588,7 @@ async function explore(box) {
     const k = b.dataset.int, was = new Set(mine);
     mine.has(k) ? mine.delete(k) : mine.add(k);
     b.classList.toggle("on", mine.has(k));
-    try { await api.updatePref("interestsPref", { tags: [...mine] }); } catch (ex) { mine = was; b.classList.toggle("on", mine.has(k)); toast(ex.message); }
+    try { await api.updatePref("interestsPref", { tags: [...mine] }); } catch (ex) { mine = was; b.classList.toggle("on", mine.has(k)); toast(errText(ex)); }
   });
   api.get("app.bsky.feed.getSuggestedFeeds", { limit: 6 }).then(d => {
     if (d.feeds?.length) box.querySelector("[data-sfeeds]").innerHTML = `<h3 class="pad">Фіди, які варто спробувати</h3>${d.feeds.map(renderFeedCard).join("")}`;
@@ -745,7 +746,7 @@ export async function messages(el, { requests = false } = {}) {
   } catch (e) { el.insertAdjacentHTML("beforeend", dmError(e)); }
 }
 
-const dmError = (e) => `<div class="card pad"><p class="err">${esc(e.message)}</p><p class="small muted">Щоб працювали чати, створи пароль застосунку з галочкою <b>«Allow access to your direct messages»</b> і увійди з ним знову.</p></div>`;
+const dmError = (e) => `<div class="card pad"><p class="err">${esc(errText(e))}</p><p class="small muted">Щоб працювали чати, створи пароль застосунку з галочкою <b>«Allow access to your direct messages»</b> і увійди з ним знову.</p></div>`;
 
 // chat helpers: quick reactions, more emoji, the quoted line of a reply
 const QUICK = ["❤️", "👍", "😆", "👀", "😢"];
@@ -772,7 +773,7 @@ export async function convo(el, { id }) {
     form.insertAdjacentHTML("beforebegin", `<div class="card center" id="chatreq"><p>${name(other)} хоче написати вам. Прийняти запит?</p>
       <div class="row" style="justify-content:center"><button class="btn sm" data-accept>Прийняти</button><button class="ghost sm danger" data-act="convoLeave" data-id="${id}">Відхилити</button></div></div>`);
     $("[data-accept]", el).onclick = async () => {
-      try { await api.chatPost("chat.bsky.convo.acceptConvo", { convoId: id }); $("#chatreq", el).remove(); toast("Запит прийнято"); } catch (ex) { toast(ex.message); }
+      try { await api.chatPost("chat.bsky.convo.acceptConvo", { convoId: id }); $("#chatreq", el).remove(); toast("Запит прийнято"); } catch (ex) { toast(errText(ex)); }
     };
   }
   const seen = new Set(), byId = new Map();
@@ -857,7 +858,7 @@ export async function convo(el, { id }) {
         if (a === "del") { await api.chatPost("chat.bsky.convo.deleteMessageForSelf", { convoId: id, messageId: m.id }); row.remove(); }
         // the moderators see exactly this message (and the chat it is in)
         if (a === "report") window.dispatchEvent(new CustomEvent("skybee:report", { detail: { $type: "chat.bsky.convo.defs#messageRef", did: m.sender.did, convoId: id, messageId: m.id } }));
-      } catch (ex) { toast(ex.message); }
+      } catch (ex) { toast(errText(ex)); }
     });
     document.body.appendChild(wrap);
   };
@@ -874,7 +875,7 @@ export async function convo(el, { id }) {
     if (!m || m.$type === "chat.bsky.convo.defs#deletedMessageView") return;
     e.stopPropagation();
     const r = e.target.closest("[data-react]");
-    if (r) { try { await react(m, r.dataset.react); } catch (ex) { toast(ex.message); } return; }
+    if (r) { try { await react(m, r.dataset.react); } catch (ex) { toast(errText(ex)); } return; }
     sheet(m, row);
   });
   const first = await api.chat("chat.bsky.convo.getMessages", { convoId: id, limit: 50 });
@@ -901,7 +902,7 @@ export async function convo(el, { id }) {
       if (was) message.replyTo = { messageId: was.id }; // a real reply, seen as one in every client
       const m = await api.chatPost("chat.bsky.convo.sendMessage", { convoId: id, message });
       render([m]); scrollTo(0, document.body.scrollHeight);
-    } catch (ex) { toast(ex.message); ta.value = typed; setReply(was); }
+    } catch (ex) { toast(errText(ex)); ta.value = typed; setReply(was); }
   };
   const poll = setInterval(async () => {
     try {
@@ -962,14 +963,14 @@ export async function mutedWords(el) {
         actorTarget: form.following.checked ? "exclude-following" : "all",
         expiresAt: days ? new Date(Date.now() + days * 864e5).toISOString() : undefined });
       form.word.value = ""; render(); toast("Слово приховано");
-    } catch (ex) { err.textContent = ex.message; }
+    } catch (ex) { err.textContent = errText(ex); }
     btn.disabled = false;
   };
   box.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-word]"); if (!b) return;
     b.disabled = true;
     try { await api.removeMutedWord(shown[b.dataset.word]); render(); }
-    catch (ex) { toast(ex.message); b.disabled = false; }
+    catch (ex) { toast(errText(ex)); b.disabled = false; }
   });
   await api.getPrefs(true);
   render();

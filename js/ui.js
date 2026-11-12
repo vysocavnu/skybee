@@ -1,4 +1,5 @@
 // Skybee — rendering helpers
+import { errText } from "./errors.js";
 import { session, mutedWords, adultEnabled, labelPref, labelDef, labelName, labelerPref, labelerDids } from "./api.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
@@ -537,7 +538,7 @@ export function infinite(container, loader, root = null) {
     if (!e.isIntersecting || busy || done) return;
     busy = true;
     try { done = !(await loader()); }
-    catch (err) { sentinel.innerHTML = `<p class="err">${esc(err.message)}</p>`; done = true; }
+    catch (err) { sentinel.innerHTML = `<p class="err">${esc(errText(err))}</p>`; done = true; }
     busy = false;
     if (done && !sentinel.querySelector(".err")) sentinel.innerHTML = `<p class="muted center small theend">Це все ${bee(18)}</p>`;
     else if (!done) { io.unobserve(sentinel); io.observe(sentinel); }

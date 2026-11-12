@@ -1,8 +1,8 @@
 // Skybee service worker: keeps the app shell available offline and shows notification clicks the way.
 // Network first — a new deploy is picked up at once; the cache is only a fallback without a connection.
-const CACHE = "skybee-shell-v10";
+const CACHE = "skybee-shell-v11";
 const SHELL = ["./", "css/style.css", "js/app.js", "js/api.js", "js/ui.js", "js/views.js", "js/compose.js", "js/more.js", "js/settings.js", "js/notify.js", "js/flair.js", "js/sources.js", "js/deck.js", "js/splash.js",
-  "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon.svg"];
+  "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon.svg", "offline.html"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -16,7 +16,7 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(fetch(e.request).then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
     return res;
-  }).catch(async () => (await caches.match(e.request, { ignoreSearch: true })) || (e.request.mode === "navigate" && await caches.match("./")) || Response.error()));
+  }).catch(async () => (await caches.match(e.request, { ignoreSearch: true })) || (e.request.mode === "navigate" && (await caches.match("./") || await caches.match("offline.html"))) || Response.error()));
 });
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();

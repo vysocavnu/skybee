@@ -1,4 +1,5 @@
 // Skybee — more screens: lists, starter packs, content filters, account, app passwords
+import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
 import { $, esc, enc, num, name, vname, avatar, richText, renderActor, renderFeedCard, empty, spinner, toast, modal, menu, confirmBox, profileHref, actors, at } from "./ui.js";
@@ -39,7 +40,7 @@ export function listDialog(list) {
         const r = await api.createRecord("app.bsky.graph.list", { ...patch, purpose: m.querySelector("[name=purpose]:checked").value });
         m.close(); toast("Список створено"); location.hash = `#/list/${enc(r.uri)}`;
       }
-    } catch (ex) { $(".err", m).textContent = ex.message; x.disabled = false; }
+    } catch (ex) { $(".err", m).textContent = errText(ex); x.disabled = false; }
   });
 }
 
@@ -83,14 +84,14 @@ export function addPeopleDialog(listUri) {
         const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q, limit: 8 });
         res.innerHTML = d.actors.map(a => `<div class="actor static">${avatar(a, 36)}<div class="who"><b>${name(a)}</b><span class="muted small">${at(a.handle)}</span></div>
           <button class="ghost sm" data-add="${esc(a.did)}">Додати</button></div>`).join("");
-      } catch (ex) { toast(ex.message); }
+      } catch (ex) { toast(errText(ex)); }
     }, 250);
   });
   m.addEventListener("click", async (e) => {
     if (e.target.closest("[data-x]")) return m.close();
     const b = e.target.closest("[data-add]"); if (!b) return;
     b.disabled = true;
-    try { await api.addToList(listUri, b.dataset.add); b.textContent = "✓ Додано"; } catch (ex) { toast(ex.message); b.disabled = false; }
+    try { await api.addToList(listUri, b.dataset.add); b.textContent = "✓ Додано"; } catch (ex) { toast(errText(ex)); b.disabled = false; }
   });
 }
 
@@ -101,7 +102,7 @@ export async function addToListsDialog(actor) {
   const res = $(".results", m);
   m.addEventListener("click", e => { if (e.target.closest("[data-x]")) m.close(); });
   let rows;
-  try { rows = await api.listsWithMember(actor.did); } catch (ex) { res.innerHTML = `<p class="err">${esc(ex.message)}</p>`; return; }
+  try { rows = await api.listsWithMember(actor.did); } catch (ex) { res.innerHTML = `<p class="err">${esc(errText(ex))}</p>`; return; }
   res.innerHTML = rows.map((r, i) => `<label class="radio"><input type="checkbox" data-i="${i}" ${r.item ? "checked" : ""}> ${esc(r.list.name)}
     <span class="muted small">${r.list.purpose === api.MODLIST ? "модераційний" : ""}</span></label>`).join("") || empty("У вас ще немає списків");
   res.addEventListener("change", async (e) => {
@@ -110,7 +111,7 @@ export async function addToListsDialog(actor) {
     try {
       if (box.checked) r.item = (await api.addToList(r.list.uri, actor.did)).uri;
       else { await api.removeFromList(r.item); r.item = null; }
-    } catch (ex) { toast(ex.message); box.checked = !box.checked; }
+    } catch (ex) { toast(errText(ex)); box.checked = !box.checked; }
     box.disabled = false;
   });
 }
@@ -163,7 +164,7 @@ export async function newStarterPack(el) {
     try {
       const r = await api.createStarterPack({ name: nm, description: form.elements.desc.value.trim(), dids: [...people.keys()], feeds: [...feeds] });
       toast("Набір створено 🎒"); location.hash = `#/starter-pack/${encodeURIComponent(session.handle)}/${r.uri.split("/").pop()}`;
-    } catch (ex) { err.textContent = ex.message; b.disabled = false; b.textContent = "Створити набір"; }
+    } catch (ex) { err.textContent = errText(ex); b.disabled = false; b.textContent = "Створити набір"; }
   };
 }
 
@@ -187,7 +188,7 @@ export async function starterPack(el, { actor, rkey }) {
   const del = $("[data-spdel]", el);
   if (del) del.onclick = async () => {
     if (!await confirmBox("Видалити цей стартовий набір? Люди, які вже приєдналися, залишаться підписаними.", "Видалити", true)) return;
-    try { await api.deleteStarterPack(sp); toast("Набір видалено"); location.hash = "#/profile/me/packs"; } catch (ex) { toast(ex.message); }
+    try { await api.deleteStarterPack(sp); toast("Набір видалено"); location.hash = "#/profile/me/packs"; } catch (ex) { toast(errText(ex)); }
   };
   if (!sp.list) { el.insertAdjacentHTML("beforeend", empty("Список людей недоступний")); return; }
   const btn = $("[data-followall]", el);
@@ -203,7 +204,7 @@ export async function starterPack(el, { actor, rkey }) {
       }
       await api.followAll(dids);
       toast(`Нових підписок: ${dids.length}`); btn.textContent = "✓ Ви стежите";
-    } catch (ex) { toast(ex.message); btn.disabled = false; btn.textContent = "Стежити за всіма"; }
+    } catch (ex) { toast(errText(ex)); btn.disabled = false; btn.textContent = "Стежити за всіма"; }
   };
   return paged(el, async (cursor) => {
     const d = await api.get("app.bsky.graph.getList", { list: sp.list.uri, limit: 50, cursor });
@@ -237,12 +238,12 @@ export async function contentFilters(el) {
         <p class="small muted">«Попереджати» — медіа розмите, доки не натиснеш «Показати». «Приховувати» — пост не потрапляє у стрічки. Налаштування спільні з офіційним застосунком.</p>
       </div>`;
     $("#adult", el).onchange = async (e) => {
-      try { await api.setAdult(e.target.checked); toast("Збережено"); } catch (ex) { toast(ex.message); }
+      try { await api.setAdult(e.target.checked); toast("Збережено"); } catch (ex) { toast(errText(ex)); }
       draw();
     };
     el.querySelectorAll("[data-label]").forEach(b => b.onclick = async () => {
       b.disabled = true;
-      try { await api.setLabelPref(b.dataset.label, b.dataset.vis); toast("Збережено"); } catch (ex) { toast(ex.message); }
+      try { await api.setLabelPref(b.dataset.label, b.dataset.vis); toast("Збережено"); } catch (ex) { toast(errText(ex)); }
       draw();
     });
   };
@@ -266,7 +267,7 @@ export async function appPasswords(el) {
         <span class="muted small">створено ${new Date(p.createdAt).toLocaleDateString("uk-UA")}${p.privileged ? " · з доступом до чатів" : ""}</span></div>
         <button class="ghost sm danger" data-revoke="${esc(p.name)}">Відкликати</button></div>`).join("") || empty("Паролів застосунків ще немає");
     } catch (ex) {
-      box.innerHTML = `<div class="card"><p class="err">${esc(ex.message)}</p><p class="small muted">Керувати паролями можна лише після входу з <b>основним паролем</b>. З паролем застосунку ця сторінка недоступна.</p></div>`;
+      box.innerHTML = `<div class="card"><p class="err">${esc(errText(ex))}</p><p class="small muted">Керувати паролями можна лише після входу з <b>основним паролем</b>. З паролем застосунку ця сторінка недоступна.</p></div>`;
     }
   };
   form.onsubmit = async (e) => {
@@ -282,13 +283,13 @@ export async function appPasswords(el) {
         if (ev.target.closest("[data-x]")) m.close();
       });
       load();
-    } catch (ex) { $(".err", form).textContent = ex.message; }
+    } catch (ex) { $(".err", form).textContent = errText(ex); }
     btn.disabled = false;
   };
   box.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-revoke]"); if (!b) return;
     if (!await confirmBox(`Відкликати пароль «${b.dataset.revoke}»? Застосунки з ним втратять доступ.`, "Відкликати", true)) return;
-    try { await api.revokeAppPassword(b.dataset.revoke); toast("Пароль відкликано"); load(); } catch (ex) { toast(ex.message); }
+    try { await api.revokeAppPassword(b.dataset.revoke); toast("Пароль відкликано"); load(); } catch (ex) { toast(errText(ex)); }
   });
   load();
 }

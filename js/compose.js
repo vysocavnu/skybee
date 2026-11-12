@@ -1,4 +1,5 @@
 // Skybee — post composer
+import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { esc, modal, toast, avatar, name, richText, spinner, at } from "./ui.js";
 
@@ -64,7 +65,7 @@ export async function openGateEditor(p, onDone) {
       if (form) await api.setThreadgate(p.uri, allow);
       if (nq.checked !== wasOff) await api.setQuotesDisabled(p.uri, nq.checked);
       m.close(); onDone?.(allow, form?.lists() || []);
-    } catch (ex) { err.textContent = ex.message; save.disabled = false; }
+    } catch (ex) { err.textContent = errText(ex); save.disabled = false; }
   });
   try {
     const [cur, pg] = await Promise.all([isRoot ? api.getThreadgate(p.uri) : null, api.getPostgate(p.uri)]);
@@ -72,7 +73,7 @@ export async function openGateEditor(p, onDone) {
     if (isRoot) { box.insertAdjacentHTML("beforebegin", `<p class="small muted">Хто може відповідати</p>`); form = gateForm(box, cur?.allow); } else box.remove();
     wasOff = nq.checked = !!pg?.embeddingRules?.length; nq.disabled = false;
     save.disabled = false;
-  } catch (ex) { m.querySelector(".gatebox").innerHTML = ""; err.textContent = ex.message; }
+  } catch (ex) { m.querySelector(".gatebox").innerHTML = ""; err.textContent = errText(ex); }
 }
 
 /* ---------- composer ---------- */
@@ -345,7 +346,7 @@ export function openComposer(opts = {}, onDone) {
       } catch (ex) {
         busy = null;
         if (done) dropSent(done, prev);
-        err.textContent = (ctrl.signal.aborted ? "Надсилання скасовано" : ex.message) + (done ? ` · опубліковано постів: ${done}, решта лишилась тут` : "");
+        err.textContent = (ctrl.signal.aborted ? "Надсилання скасовано" : errText(ex)) + (done ? ` · опубліковано постів: ${done}, решта лишилась тут` : "");
         renderParts(); update();
       }
     }
@@ -378,7 +379,7 @@ function gifPicker() {
         if (!r.ok) throw new Error(r.status === 400 || r.status === 403 ? "Ключ Tenor не підходить — перевір його в налаштуваннях" : `Помилка ${r.status}`);
         items = ((await r.json()).results || []).filter(x => x.media_formats?.gif && x.media_formats?.tinygif);
         grid.innerHTML = items.map((x, i) => `<button class="gifitem" data-g="${i}" title="${esc(x.content_description || "")}"><img src="${esc(x.media_formats.tinygif.url)}" alt="${esc(x.content_description || "")}" loading="lazy"></button>`).join("") || `<p class="muted center pad">Нічого не знайдено</p>`;
-      } catch (ex) { grid.innerHTML = `<p class="err">${esc(ex.message)}</p>`; }
+      } catch (ex) { grid.innerHTML = `<p class="err">${esc(errText(ex))}</p>`; }
     };
     inp.addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(() => load(inp.value.trim()), 350); });
     grid.addEventListener("click", (e) => {
