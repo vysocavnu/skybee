@@ -3,9 +3,10 @@ import * as api from "./api.js";
 import { session } from "./api.js";
 import {
   $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
-  infinite, empty, spinner, toast, modal, profileHref, cachePost, actors,
+  infinite, empty, spinner, toast, modal, profileHref, cachePost, actors, mutedBy, gateLine, pwa,
 } from "./ui.js";
 import { getLang } from "./compose.js";
+import * as notify from "./notify.js";
 
 const header = (title, back = false, right = "") =>
   `<div class="topbar">${back ? `<button class="ghost icon" data-act="back">←</button>` : ""}<h2>${title}</h2><div class="grow"></div>${right}</div>`;
@@ -26,14 +27,15 @@ function paged(el, fetchPage) {
   });
 }
 
-const feedItems = (feed) => feed.map(it => {
-  if (!it.post) return "";
+// hideMuted: in feeds, posts with muted words disappear; elsewhere renderPost collapses them
+const feedItems = (feed, hideMuted = false) => feed.map(it => {
+  if (!it.post || (hideMuted && mutedBy(it.post))) return "";
   return renderPost(it.post, { reason: it.reason, parent: it.reply?.parent });
 });
 
 /* ================= HOME ================= */
 export async function home(el) {
-  el.innerHTML = `<div class="topbar"><h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
+  el.innerHTML = `<div class="topbar"><button class="ghost icon only-mobile" data-act="accountMenu" title="Меню">☰</button><h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
   let tabs = [{ label: "Підписки", kind: "timeline" }];
   try {
     const saved = (await api.getSavedFeeds()).filter(i => i.pinned && i.type !== "timeline");
@@ -59,7 +61,7 @@ export async function home(el) {
       const d = t.kind === "timeline" ? await api.get("app.bsky.feed.getTimeline", { limit: 30, cursor })
         : t.kind === "list" ? await api.get("app.bsky.feed.getListFeed", { list: t.uri, limit: 30, cursor })
         : await api.get("app.bsky.feed.getFeed", { feed: t.uri, limit: 30, cursor });
-      return { html: feedItems(d.feed), cursor: d.cursor };
+      return { html: feedItems(d.feed, true), cursor: d.cursor };
     });
   };
   tabEl.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) show(+b.dataset.tab); });
@@ -81,7 +83,7 @@ export async function feed(el, { uri }) {
     </div>`;
   return paged(el, async (cursor) => {
     const d = await api.get("app.bsky.feed.getFeed", { feed: uri, limit: 30, cursor });
-    return { html: feedItems(d.feed), cursor: d.cursor };
+    return { html: feedItems(d.feed, true), cursor: d.cursor };
   });
 }
 
@@ -103,7 +105,7 @@ export async function list(el, { uri }) {
     el.querySelectorAll("[data-lt]").forEach(b => b.classList.toggle("on", b.dataset.lt === which));
     stop?.(); lb.innerHTML = ""; el.querySelectorAll(".sentinel").forEach(s => s.remove());
     stop = paged(lb, which === "posts"
-      ? async (cursor) => { const d = await api.get("app.bsky.feed.getListFeed", { list: uri, limit: 30, cursor }); return { html: feedItems(d.feed), cursor: d.cursor }; }
+      ? async (cursor) => { const d = await api.get("app.bsky.feed.getListFeed", { list: uri, limit: 30, cursor }); return { html: feedItems(d.feed, true), cursor: d.cursor }; }
       : async (cursor) => { const d = await api.get("app.bsky.graph.getList", { list: uri, limit: 50, cursor }); return { html: d.items.map(i => renderActor(i.subject)), cursor: d.cursor }; });
   };
   el.addEventListener("click", e => { const b = e.target.closest("[data-lt]"); if (b) show(b.dataset.lt); });
@@ -131,9 +133,13 @@ export async function thread(el, { actor, rkey }) {
     .filter(r => r.$type === "app.bsky.feed.defs#threadViewPost")
     .sort((a, b) => (b.post.author.did === t.post.author.did) - (a.post.author.did === t.post.author.did) || (b.post.likeCount || 0) - (a.post.likeCount || 0))
     .map(r => `<div class="reply d${Math.min(depth, 4)}">${renderPost(r.post, { thread: true, line: !!r.replies?.length && depth < 5 })}${depth < 5 ? replies(r, depth + 1) : ""}</div>`).join("");
-  const gate = t.post.threadgate ? `<div class="muted small pad">🔒 Хто може відповідати — обмежено автором</div>` : "";
+  // the gate belongs to the first post of the thread, which may be above the opened one
+  let root = t;
+  while (root.parent?.$type === "app.bsky.feed.defs#threadViewPost") root = root.parent;
+  const noReply = !!t.post.viewer?.replyDisabled;
+  const gate = gateLine(root.post, { noReply, mine: root.post.author.did === session.did && !root.post.record?.reply });
   el.innerHTML = header("Пост", true) + parents.join("") + renderPost(t.post, { focus: true }) + gate +
-    `<div class="replybox" data-act="reply" data-uri="${esc(t.post.uri)}">${avatar({}, 32)}<span class="muted">Напиши відповідь…</span></div>` +
+    (noReply ? "" : `<div class="replybox" data-act="reply" data-uri="${esc(t.post.uri)}">${avatar(actors.get(session.did) || {}, 32)}<span class="muted">Напиши відповідь…</span></div>`) +
     (replies(t) || empty("Відповідей ще немає"));
   el.querySelector(".post.focus")?.scrollIntoView({ block: "start" });
   scrollBy(0, -60);
@@ -248,12 +254,7 @@ export function editProfile(p, onDone) {
 }
 
 /* ================= NOTIFICATIONS ================= */
-const NREASON = {
-  like: "вподобав(-ла) ваш пост", repost: "поширив(-ла) ваш пост", follow: "стежить за вами",
-  "like-via-repost": "вподобав(-ла) ваше поширення", "repost-via-repost": "поширив(-ла) ваше поширення",
-  "starterpack-joined": "приєднався(-лась) через ваш стартовий набір", verified: "вас верифіковано", unverified: "верифікацію знято",
-  "subscribed-post": "опублікував(-ла) новий пост",
-};
+const NREASON = notify.NREASON;
 const NICON = { like: "♥", "like-via-repost": "♥", repost: "🔁", "repost-via-repost": "🔁", follow: "👤", "starterpack-joined": "🎒", verified: "✅", unverified: "✖️", "subscribed-post": "🔔" };
 
 export async function notifications(el, { filter }) {
@@ -475,13 +476,23 @@ export async function startDm(did) {
 /* ================= SETTINGS ================= */
 export async function settings(el) {
   const theme = document.documentElement.dataset.theme || "dark";
+  // every account signed in on this device; avatars and names arrive a moment later
+  const accountRows = (profiles = []) => api.accounts.map(a => {
+    const p = profiles.find(p => p.did === a.did) || a, active = a.did === session.did;
+    return `<div class="accrow">${avatar(p, 40)}
+      <div class="who"><b>${name(p)}</b><span class="muted small">@${esc(a.handle)}${active ? ` · сервер ${esc((a.pds || "").replace(/^https?:\/\//, ""))}` : ""}</span></div>
+      ${active ? `<span class="pill">активний</span><button class="ghost sm danger" data-act="logout">Вийти</button>`
+        : `<button class="ghost sm" data-act="switchAccount" data-did="${esc(a.did)}">Перемкнути</button><button class="ghost sm" data-act="removeAccount" data-did="${esc(a.did)}" title="Вийти з цього акаунта">✕</button>`}
+    </div>`;
+  }).join("");
   el.innerHTML = header("Налаштування") + `
     <div class="card">
-      <h3>Акаунт</h3>
-      <p>Ви увійшли як <a href="#/profile/${enc(session.handle)}"><b>@${esc(session.handle)}</b></a></p>
-      <p class="muted small">Сервер: ${esc(session.pds)}</p>
-      <a class="ghost sm" href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Паролі застосунків ↗</a>
-      <button class="btn danger sm" data-act="logout">Вийти</button>
+      <h3>Акаунти</h3>
+      <div id="acclist">${accountRows()}</div>
+      <div class="row wrap">
+        <button class="ghost sm" data-act="addAccount">➕ Додати акаунт</button>
+        <a class="ghost sm" href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Паролі застосунків ↗</a>
+      </div>
     </div>
     <div class="card">
       <h3>Вигляд</h3>
@@ -491,18 +502,88 @@ export async function settings(el) {
       <h3>Мова постів за замовчуванням</h3>
       <select id="deflang">${[["uk", "Українська"], ["en", "English"], ["pl", "Polski"], ["be", "Беларуская"], ["ru", "Русский"]].map(([c, n]) => `<option value="${c}" ${c === getLang() ? "selected" : ""}>${n}</option>`).join("")}</select>
     </div>
+    <div class="card">
+      <h3>Сповіщення</h3>
+      <label class="radio"><input type="checkbox" id="sysnotify" ${notify.enabled() ? "checked" : ""} ${notify.supported() ? "" : "disabled"}> Системні сповіщення про нові події та повідомлення</label>
+      <p class="small muted">${notify.supported()
+        ? "Надходять, поки Skybee відкритий — у вкладці (навіть фоновій) або як встановлений застосунок. Коли Skybee закрито, сповіщень немає: для цього потрібен власний сервер."
+        : "Цей браузер не підтримує системні сповіщення."}</p>
+    </div>
     <div class="card"><h3>Модерація</h3>
+      <a class="rowlink" href="#/settings/words">Приховані слова →</a>
       <a class="rowlink" href="#/settings/mutes">Приховані акаунти →</a>
       <a class="rowlink" href="#/settings/blocks">Заблоковані акаунти →</a>
-      <a class="rowlink" href="https://bsky.app/moderation" target="_blank" rel="noopener">Приховані слова, фільтри контенту ↗</a>
+      <a class="rowlink" href="https://bsky.app/moderation" target="_blank" rel="noopener">Фільтри контенту ↗</a>
     </div>
-    <div class="card"><h3>Про Skybee</h3><p class="small muted">🐝 Skybee — відкритий клієнт Bluesky. <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">Код на GitHub</a></p></div>`;
+    <div class="card"><h3>Про Skybee</h3><p class="small muted">🐝 Skybee — відкритий клієнт Bluesky. <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">Код на GitHub</a></p>
+      <button class="ghost sm" data-act="install" ${pwa.install ? "" : "hidden"}>📲 Встановити як застосунок</button></div>`;
   el.querySelectorAll("[data-theme-set]").forEach(b => b.onclick = () => {
     const t = b.dataset.themeSet; document.documentElement.dataset.theme = t;
     try { localStorage.setItem("skybee.theme", t); } catch {}
     el.querySelectorAll("[data-theme-set]").forEach(x => x.classList.toggle("on", x === b));
   });
   $("#deflang", el).onchange = (e) => { try { localStorage.setItem("skybee.lang", e.target.value); } catch {} toast("Збережено"); };
+  $("#sysnotify", el).onchange = async (e) => {
+    if (!e.target.checked) { notify.disable(); return toast("Сповіщення вимкнено"); }
+    if (await notify.enable()) return toast("Сповіщення увімкнено");
+    e.target.checked = false;
+    toast("Браузер не дозволив сповіщення. Дозволь їх для цього сайту в налаштуваннях браузера.", 5000);
+  };
+  api.get("app.bsky.actor.getProfiles", { actors: api.accounts.map(a => a.did).slice(0, 25) })
+    .then(d => { const box = $("#acclist", el); if (box) box.innerHTML = accountRows(d.profiles); }).catch(() => {});
+}
+
+/* ---------- muted words ---------- */
+export async function mutedWords(el) {
+  el.innerHTML = header("Приховані слова", true) + `
+    <form class="card">
+      <p class="small muted">Пости з такими словами, фразами чи тегами зникають зі стрічок, а в гілках, пошуку, профілях і сповіщеннях згортаються. Ваші власні пости не приховуються.</p>
+      <input name="word" placeholder="Слово, фраза або #тег" maxlength="100" autocapitalize="off" required>
+      <div class="row wrap">
+        <select name="days" title="На який час">${[["", "Назавжди"], ["1", "На 24 години"], ["7", "На 7 днів"], ["30", "На 30 днів"]].map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
+        <select name="where" title="Де шукати"><option value="content">У тексті й тегах</option><option value="tag">Лише в тегах</option></select>
+      </div>
+      <label class="radio"><input type="checkbox" name="following"> Не приховувати пости тих, за ким я стежу</label>
+      <p class="err"></p>
+      <button class="btn">Приховати</button>
+    </form>
+    <div id="words">${spinner()}</div>`;
+  const form = $("form", el), box = $("#words", el), err = $(".err", form);
+  let shown = []; // the words as rendered: a row's delete button refers to this list
+  const render = () => {
+    const nowIso = new Date().toISOString();
+    shown = api.mutedWords;
+    box.innerHTML = shown.map((w, i) => {
+      const info = [
+        w.targets?.includes("content") ? "у тексті й тегах" : "лише в тегах",
+        w.actorTarget === "exclude-following" ? "крім тих, за ким я стежу" : "",
+        !w.expiresAt ? "назавжди" : w.expiresAt < nowIso ? "термін минув" : `до ${new Date(w.expiresAt).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}`,
+      ].filter(Boolean).join(" · ");
+      return `<div class="actor static"><div class="who"><b>${esc(w.value)}</b><span class="muted small">${info}</span></div>
+        <button class="ghost sm" data-word="${i}" title="Більше не приховувати">✕</button></div>`;
+    }).join("") || empty("Прихованих слів немає");
+  };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const value = api.sanitizeMutedWord(form.word.value), days = +form.days.value, btn = $("button", form);
+    if (!value) return;
+    btn.disabled = true; err.textContent = "";
+    try {
+      await api.addMutedWord({ value, targets: form.where.value === "tag" ? ["tag"] : ["content", "tag"],
+        actorTarget: form.following.checked ? "exclude-following" : "all",
+        expiresAt: days ? new Date(Date.now() + days * 864e5).toISOString() : undefined });
+      form.word.value = ""; render(); toast("Слово приховано");
+    } catch (ex) { err.textContent = ex.message; }
+    btn.disabled = false;
+  };
+  box.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-word]"); if (!b) return;
+    b.disabled = true;
+    try { await api.removeMutedWord(shown[b.dataset.word]); render(); }
+    catch (ex) { toast(ex.message); b.disabled = false; }
+  });
+  await api.getPrefs(true);
+  render();
 }
 
 export async function modList(el, { kind }) {

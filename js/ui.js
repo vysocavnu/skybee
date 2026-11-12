@@ -1,5 +1,5 @@
 // Skybee — rendering helpers
-import { session } from "./api.js";
+import { session, mutedWords } from "./api.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -9,6 +9,7 @@ export const enc = encodeURIComponent;
 export const posts = new Map();
 export const actors = new Map();
 export const cachePost = (p) => { if (p?.uri) posts.set(p.uri, p); return p; };
+export const pwa = { install: null }; // the browser's «install this app» prompt, when it offers one
 
 /* ---------- formatting ---------- */
 export function ago(iso) {
@@ -70,6 +71,61 @@ export function warnLabel(p) {
 const blurWrap = (html, label) => label
   ? `<div class="blurbox"><div class="blurred">${html}</div><button class="ghost unblur" data-act="unblur">⚠️ ${esc(label)} · Показати</button></div>` : html;
 
+/* ---------- muted words ---------- */
+// Same matching rules as the official client, so a word muted there hides the same posts here.
+const NO_SPACE_LANGS = ["ja", "zh", "ko", "th", "vi"]; // no spaces between words → plain substring search
+
+// → the first of `words` that hides this text, or null
+export function matchMuted(words, { text, facets, tags, langs, actor }) {
+  const body = (text || "").toLowerCase(), nowIso = new Date().toISOString();
+  const substring = NO_SPACE_LANGS.includes(langs?.[0] || "");
+  const allTags = [...(tags || []), ...(facets || []).flatMap(f => (f.features || []).filter(x => x.$type === "app.bsky.richtext.facet#tag").map(x => x.tag))]
+    .map(t => t.toLowerCase());
+  for (const w of words) {
+    const word = (w.value || "").toLowerCase();
+    if (!word || (w.expiresAt && w.expiresAt < nowIso)) continue;
+    if (w.actorTarget === "exclude-following" && actor?.viewer?.following) continue;
+    if (allTags.includes(word)) return w;
+    if (!w.targets?.includes("content")) continue; // a tag-only word
+    if ((word.length === 1 || substring) && body.includes(word)) return w;
+    if (word.length > body.length) continue;
+    if (word === body) return w;
+    if (/\s|\p{P}/u.test(word) && body.includes(word)) return w; // a phrase
+    for (const raw of body.split(/\s/)) {
+      const token = raw.replace(/^\p{P}+|\p{P}+$/gu, "");
+      if (raw === word || token === word) return w;
+      // punctuation inside a token: «s.p.o.i.l.e.r» or «spoiler-free»; tokens with «/» (links, «and/or») are left alone
+      if (word.length > token.length || !/\p{P}/u.test(token) || token.includes("/")) continue;
+      const spaced = token.replace(/\p{P}+/gu, " ");
+      if (spaced === word || spaced.replace(/\s/g, "") === word || token.split(/\p{P}+/u).includes(word)) return w;
+    }
+  }
+  return null;
+}
+
+// → the muted word that hides this post (its text, tags, image descriptions, link card or quoted post), or null
+export function mutedBy(p) {
+  if (!mutedWords.length || !p?.author || p.author.did === session?.did) return null; // own posts are never hidden
+  const E = "app.bsky.embed.", rec = p.record || {}, e = p.embed;
+  const alts = (em, v) => em?.$type === E + "images" + v ? em.images.map(i => i.alt) : em?.$type === E + "gallery" + v ? em.items.map(i => i.alt) : [];
+  const card = (em, v) => em?.$type === E + "external" + v ? [`${em.external.title} ${em.external.description}`] : [];
+  const parts = [[rec.text, rec.langs, p.author, rec], ...alts(rec.embed, "").map(t => [t, rec.langs, p.author]), ...card(e, "#view").map(t => [t, [], p.author])];
+  const q = e?.$type === E + "record#view" ? e.record : e?.$type === E + "recordWithMedia#view" ? e.record?.record : null;
+  if (q?.$type === E + "record#viewRecord") {
+    const v = q.value || {};
+    parts.push([v.text, v.langs, q.author, v]);
+    if (e.$type === E + "record#view") { // the quoted post's own media, as written in its record
+      const m = v.embed?.$type === E + "recordWithMedia" ? v.embed.media : v.embed;
+      parts.push(...alts(m, "").map(t => [t, v.langs, q.author]), ...card(m, "").map(t => [t, [], q.author]));
+    } else parts.push(...alts(e.media, "#view").map(t => [t, rec.langs, q.author]), ...card(e.media, "#view").map(t => [t, [], q.author]));
+  }
+  for (const [text, langs, actor, src] of parts) {
+    const w = matchMuted(mutedWords, { text, langs, actor, facets: src?.facets, tags: src?.tags });
+    if (w) return w;
+  }
+  return null;
+}
+
 /* ---------- embeds ---------- */
 export function renderEmbed(embed, label) {
   if (!embed) return "";
@@ -81,7 +137,8 @@ export function renderEmbed(embed, label) {
   }
   if (t === "app.bsky.embed.video#view") {
     const ar = embed.aspectRatio ? `aspect-ratio:${embed.aspectRatio.width}/${embed.aspectRatio.height}` : "aspect-ratio:16/9";
-    return blurWrap(`<div class="video" style="${ar}"><video controls playsinline preload="none" poster="${esc(embed.thumbnail || "")}" data-src="${esc(embed.playlist)}"></video></div>`, label);
+    const gif = embed.presentation === "gif"; // a GIF posted as a video: no controls, a click plays it in a silent loop
+    return blurWrap(`<div class="video${gif ? " gif" : ""}" style="${ar}"><video ${gif ? "data-gif loop muted" : "controls"} playsinline preload="none" poster="${esc(embed.thumbnail || "")}" data-src="${esc(embed.playlist)}" title="${esc(embed.alt || "")}"></video></div>`, label);
   }
   if (t === "app.bsky.embed.external#view") {
     const x = embed.external;
@@ -141,10 +198,30 @@ export function actionsBar(p, big = false) {
   </div>`;
 }
 
+/* ---------- threadgate: who can reply ---------- */
+const RULE_UA = { mentionRule: "згадані в пості", followingRule: "ті, за ким стежить автор", followerRule: "читачі автора" };
+
+// The line under a thread: who can reply. `root` is the thread's first post; `mine` adds the edit button.
+export function gateLine(root, { mine = false, noReply = false } = {}) {
+  const tg = root.threadgate, allow = tg?.record?.allow;
+  if (!allow && !noReply && !mine) return "";
+  const text = !allow ? (noReply ? "Відповіді обмежено" : "Відповідати можуть усі")
+    : !allow.length ? "Відповіді вимкнено"
+    : "Відповідати можуть: " + allow.map(r => {
+        const kind = r.$type?.split("#")[1];
+        if (kind !== "listRule") return RULE_UA[kind] || "інші";
+        const l = tg.lists?.find(l => l.uri === r.list);
+        return l ? `список <a href="#/list/${enc(l.uri)}">${esc(l.name)}</a>` : "учасники списку";
+      }).join(", ");
+  return `<div class="gate muted small" data-uri="${esc(root.uri)}">${allow || noReply ? "🔒" : "💬"} ${text}${
+    mine ? ` · <button class="linklike" data-act="editGate">Змінити</button>` : ""}</div>`;
+}
+
 export function renderPost(p, { reason, parent, thread = false, focus = false, line = false } = {}) {
   cachePost(p);
   const a = p.author, rec = p.record || {};
   const label = warnLabel(p);
+  const muted = focus ? null : mutedBy(p); // an opened post is always shown
   const top = [];
   if (reason?.$type === "app.bsky.feed.defs#reasonRepost")
     top.push(`<div class="reason">${I.repost} <a href="${profileHref(reason.by)}">${name(reason.by)}</a> поширив(-ла)</div>`);
@@ -169,7 +246,8 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
     ${actionsBar(p, true)}
   </article>`;
   return `
-  <article class="post${line ? " has-line" : ""}" data-uri="${esc(p.uri)}" data-href="${postHref(p)}">
+  <article class="post${line ? " has-line" : ""}${muted ? " mw-hidden" : ""}" data-uri="${esc(p.uri)}" data-href="${postHref(p)}">
+    ${muted ? `<button class="mw-note linklike small" data-act="showMuted">🙈 @${esc(a.handle)} · приховано через слово «${esc(muted.value)}» · Показати</button>` : ""}
     <div class="left"><a href="${profileHref(a)}">${avatar(a)}</a>${line ? `<div class="tline"></div>` : ""}</div>
     <div class="body">
       ${top.join("")}
@@ -218,14 +296,16 @@ export function toast(msg, ms = 2500) {
   setTimeout(() => t.remove(), ms + 400);
 }
 
-export function modal(html, { wide = false } = {}) {
+// canClose() may refuse when the user dismisses the modal (Esc, click outside); onClose() runs whenever it closes
+export function modal(html, { wide = false, canClose, onClose } = {}) {
   const wrap = document.createElement("div");
   wrap.className = "modal-bg";
   wrap.innerHTML = `<div class="modal${wide ? " wide" : ""}">${html}</div>`;
-  wrap.addEventListener("click", e => { if (e.target === wrap) close(); });
-  const onKey = (e) => { if (e.key === "Escape") close(); };
+  const dismiss = () => { if (!canClose || canClose()) close(); };
+  wrap.addEventListener("click", e => { if (e.target === wrap) dismiss(); });
+  const onKey = (e) => { if (e.key === "Escape") dismiss(); };
   document.addEventListener("keydown", onKey);
-  function close() { wrap.remove(); document.removeEventListener("keydown", onKey); }
+  function close() { wrap.remove(); document.removeEventListener("keydown", onKey); onClose?.(); }
   document.body.appendChild(wrap);
   wrap.close = close;
   return wrap;
@@ -244,7 +324,7 @@ export function menu(anchor, items) {
   return new Promise(res => {
     const m = document.createElement("div");
     m.className = "popmenu";
-    m.innerHTML = items.map(i => i === "-" ? "<hr>" : `<button data-m="${i.act}" class="${i.danger ? "danger" : ""}">${i.label}</button>`).join("");
+    m.innerHTML = items.map(i => i === "-" ? "<hr>" : `<button data-m="${esc(i.act)}" class="${i.danger ? "danger" : ""}">${i.label}</button>`).join("");
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
     const w = m.offsetWidth, h = m.offsetHeight;
@@ -280,8 +360,10 @@ function loadHls() {
   });
 }
 export async function attachVideo(video) {
-  if (video.dataset.ready) return;
+  const gif = "gif" in video.dataset;
+  if (video.dataset.ready) { if (gif) video.paused ? video.play().catch(() => {}) : video.pause(); return; }
   video.dataset.ready = "1";
+  if (gif) video.autoplay = true; // starts as soon as the stream is attached
   const src = video.dataset.src;
   if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = src; return; }
   await loadHls();

@@ -1,40 +1,57 @@
 // Skybee — app shell, router, global actions
 import * as api from "./api.js";
 import * as V from "./views.js";
-import { $, esc, posts, actors, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, actionsBar } from "./ui.js";
-import { openComposer } from "./compose.js";
+import * as notify from "./notify.js";
+import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine } from "./ui.js";
+import { openComposer, openGateEditor } from "./compose.js";
 
 try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; } catch {}
 
 const app = $("#app");
 let cleanup = null;
 
-/* ---------- login screen ---------- */
+// Caches, timers and open screens all belong to the active account: when it changes, start from a clean page
+const restart = () => { location.hash = "#/"; location.reload(); };
+
+/* ---------- login ---------- */
+const LOGIN_FIELDS = `
+  <input name="handle" placeholder="@нік" autocomplete="username" autocapitalize="off" required>
+  <input name="pass" type="password" placeholder="Пароль застосунку xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" required>
+  <p class="hint">Використовуй <b>пароль застосунку</b> (bsky.app → Налаштування → Конфіденційність і безпека → Паролі застосунків). Для чатів постав галочку доступу до повідомлень.</p>
+  <p class="err"></p>
+  <button class="btn wide">Увійти</button>`;
+
+function bindLogin(f) {
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = $("button", f), err = $(".err", f);
+    btn.disabled = true; err.textContent = "";
+    try { await api.login(f.handle.value, f.pass.value); restart(); }
+    catch (ex) { err.textContent = ex.message; btn.disabled = false; }
+  };
+}
+
 function loginScreen() {
   app.innerHTML = `
   <div class="login">
     <h1>🐝 Skybee</h1>
     <p class="muted">Клієнт для Bluesky</p>
-    <form class="card">
+    <form class="card loginform">
       <p class="hint">Достатньо ввести нік, наприклад <b>@lejk309</b>. Якщо акаунт не на bsky.social (Eurosky, свій домен) — повний handle.</p>
-      <input id="handle" placeholder="@нік" autocomplete="username" autocapitalize="off" required>
-      <input id="pass" type="password" placeholder="Пароль застосунку xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" required>
-      <p class="hint">Використовуй <b>пароль застосунку</b> (bsky.app → Налаштування → Конфіденційність і безпека → Паролі застосунків). Для чатів постав галочку доступу до повідомлень.</p>
-      <p class="err"></p>
-      <button class="btn wide">Увійти</button>
+      ${LOGIN_FIELDS}
       <hr>
       <p class="hint">Ще немає акаунта в Bluesky?</p>
       <a class="ghost wide" href="https://bsky.app" target="_blank" rel="noopener">Зареєструватися на bsky.app ↗</a>
     </form>
   </div>`;
-  const f = $("form", app);
-  f.onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = $("button", f), err = $(".err", f);
-    btn.disabled = true; err.textContent = "";
-    try { await api.login($("#handle").value, $("#pass").value); location.hash = "#/"; boot(); }
-    catch (ex) { err.textContent = ex.message; btn.disabled = false; }
-  };
+  bindLogin($("form", app));
+}
+
+// One more account: after signing in it becomes the active one
+function addAccountDialog() {
+  const m = modal(`<h3>Додати акаунт</h3><form class="loginform">${LOGIN_FIELDS}</form>`);
+  bindLogin($("form", m));
+  $("input", m).focus();
 }
 
 /* ---------- shell ---------- */
@@ -43,12 +60,17 @@ const NAV = [
   ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/bookmarks", "🔖", "Закладки"],
   ["#/profile/me", "👤", "Профіль"], ["#/settings", "⚙️", "Налаштування"],
 ];
+const meChip = () => {
+  const me = actors.get(api.session.did) || api.session;
+  return `${avatar(me, 36)}<span class="nl"><b>${name(me)}</b><small>@${esc(api.session.handle)}</small></span>`;
+};
 function shell() {
   app.innerHTML = `
   <nav class="side">
     <a class="logo" href="#/">🐝 <span>Skybee</span></a>
     ${NAV.map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="${b}"></i>` : ""}</span><span class="nl">${l}</span></a>`).join("")}
     <button class="btn compose-side" data-act="compose">✏️ <span>Новий пост</span></button>
+    <button class="me" data-act="accountMenu" title="Акаунти">${meChip()}</button>
   </nav>
   <main id="main"></main>
   <aside class="right">
@@ -63,20 +85,23 @@ function shell() {
 /* ---------- badges ---------- */
 async function badges() {
   if (!api.session) return;
+  let count = 0, convos = null;
   try {
-    const { count } = await api.get("app.bsky.notification.getUnreadCount");
+    ({ count } = await api.get("app.bsky.notification.getUnreadCount"));
     for (const id of ["nbadge", "mnbadge"]) { const d = document.getElementById(id); if (d) { d.textContent = count > 30 ? "30+" : count || ""; d.hidden = !count; } }
   } catch {}
   try {
-    const d = await api.chat("chat.bsky.convo.listConvos", { limit: 50 });
-    const c = d.convos.reduce((s, x) => s + (x.muted ? 0 : x.unreadCount), 0);
+    ({ convos } = await api.chat("chat.bsky.convo.listConvos", { limit: 50 }));
+    const c = convos.reduce((s, x) => s + (x.muted ? 0 : x.unreadCount), 0);
     for (const id of ["cbadge", "mcbadge"]) { const e = document.getElementById(id); if (e) { e.textContent = c || ""; e.hidden = !c; } }
   } catch {}
+  notify.check(count, convos).catch(() => {});
 }
 window.addEventListener("skybee:badge", badges);
 
 /* ---------- router ---------- */
 async function route() {
+  await api.prefsReady; // muted words must be known before the first post is drawn
   if (!api.session) return loginScreen();
   cleanup?.(); cleanup = null;
   document.querySelector(".popmenu")?.remove();
@@ -104,7 +129,7 @@ async function route() {
     else if (seg[0] === "feed") r = V.feed(main, { uri: seg[1] });
     else if (seg[0] === "list") r = V.list(main, { uri: seg[1] });
     else if (seg[0] === "bookmarks") r = V.bookmarks(main);
-    else if (seg[0] === "settings") r = seg[1] ? V.modList(main, { kind: seg[1] }) : V.settings(main);
+    else if (seg[0] === "settings") r = seg[1] === "words" ? V.mutedWords(main) : seg[1] ? V.modList(main, { kind: seg[1] }) : V.settings(main);
     else if (seg[0] === "profile" && seg[2] === "post" && seg[4]) r = V.postUsers(main, { actor: seg[1], rkey: seg[3], kind: seg[4] });
     else if (seg[0] === "profile" && seg[2] === "post") r = V.thread(main, { actor: seg[1], rkey: seg[3] });
     else if (seg[0] === "profile" && (seg[2] === "followers" || seg[2] === "follows")) r = V.follows(main, { actor: seg[1], kind: seg[2] });
@@ -130,6 +155,15 @@ const refreshPostEl = (uri) => {
 
 async function reloadView() { const y = scrollY; await route(); scrollTo(0, y); }
 
+// «Who can reply» for an own thread. The app view learns about the change with a delay, so the line is redrawn from what was saved
+function editGate(p) {
+  openGateEditor(p, (allow, lists) => {
+    p.threadgate = { ...p.threadgate, record: { ...p.threadgate?.record, allow }, lists };
+    document.querySelectorAll(`.gate[data-uri="${CSS.escape(p.uri)}"]`).forEach(g => { g.outerHTML = gateLine(p, { mine: true }); });
+    toast("Збережено");
+  });
+}
+
 /* ---------- global click handling ---------- */
 document.addEventListener("click", async (e) => {
   // unblur / lightbox / video first
@@ -152,6 +186,7 @@ document.addEventListener("click", async (e) => {
       case "back": history.length > 1 ? history.back() : (location.hash = "#/"); break;
       case "compose": openComposer({}, reloadView); break;
       case "unblur": actEl.parentElement.classList.add("shown"); actEl.remove(); break;
+      case "showMuted": actEl.closest(".post").classList.remove("mw-hidden"); actEl.remove(); break;
       case "lightbox": {
         const imgs = [...actEl.parentElement.querySelectorAll("img")];
         lightbox(imgs.map(i => i.dataset.full || i.src), +actEl.dataset.i, imgs.map(i => i.alt));
@@ -186,6 +221,7 @@ document.addEventListener("click", async (e) => {
         refreshPostEl(p.uri); break;
       }
       case "translate": window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(p.record?.text || "")}`, "_blank"); break;
+      case "editGate": editGate(p); break;
       case "postMenu": {
         const mine = p.author.did === api.session.did;
         const c = await menu(actEl, [
@@ -194,7 +230,11 @@ document.addEventListener("click", async (e) => {
           { act: "copyLink", label: "🔗 Копіювати посилання" },
           { act: "muteThread", label: "🔕 Приховати гілку" },
           "-",
-          ...(mine ? [{ act: "delete", label: "🗑️ Видалити пост", danger: true }] : [
+          ...(mine ? [
+            // the gate belongs to the first post of a thread, replies have none
+            ...(p.record?.reply ? [] : [{ act: "gate", label: "💬 Хто може відповідати" }]),
+            { act: "delete", label: "🗑️ Видалити пост", danger: true },
+          ] : [
             { act: "muteUser", label: `🙈 Приховати @${p.author.handle}` },
             { act: "blockUser", label: `⛔ Заблокувати @${p.author.handle}`, danger: true },
             { act: "report", label: "🚩 Поскаржитись", danger: true },
@@ -204,6 +244,7 @@ document.addEventListener("click", async (e) => {
         if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
         if (c === "copyLink") { await navigator.clipboard.writeText(webUrl(p)); toast("Посилання скопійовано"); }
         if (c === "muteThread") { await api.muteThread(p.record?.reply?.root?.uri || p.uri); toast("Гілку приховано"); }
+        if (c === "gate") editGate(p);
         if (c === "delete" && await confirmBox("Видалити цей пост назавжди?", "Видалити", true)) {
           await api.deletePost(p.uri); document.querySelectorAll(`[data-uri="${CSS.escape(p.uri)}"]`).forEach(x => x.remove()); toast("Пост видалено");
         }
@@ -284,7 +325,35 @@ document.addEventListener("click", async (e) => {
         if (c === "leave" && await confirmBox("Вийти з цього чату? Історія зникне у вас.", "Вийти", true)) { await api.chatPost("chat.bsky.convo.leaveConvo", { convoId: id }); location.hash = "#/messages"; }
         break;
       }
-      case "logout": if (await confirmBox("Вийти з акаунта?", "Вийти", true)) { api.logout(); location.hash = "#/"; boot(); } break;
+
+      /* ----- accounts ----- */
+      case "accountMenu": {
+        const others = api.accounts.filter(a => a.did !== api.session.did);
+        const c = await menu(actEl, [
+          // the phone layout has no side menu: these screens are reachable only from here
+          ...(matchMedia("(max-width: 640px)").matches
+            ? [{ act: "#/feeds", label: "#️⃣ Фіди" }, { act: "#/bookmarks", label: "🔖 Закладки" }, { act: "#/settings", label: "⚙️ Налаштування" }, "-"] : []),
+          ...others.map(a => ({ act: a.did, label: `↔️ @${esc(a.handle)}` })),
+          { act: "add", label: "➕ Додати акаунт" },
+        ]);
+        if (c?.startsWith("#/")) location.hash = c;
+        else if (c === "add") addAccountDialog();
+        else if (c && api.switchAccount(c)) restart();
+        break;
+      }
+      case "addAccount": addAccountDialog(); break;
+      case "switchAccount": if (api.switchAccount(actEl.dataset.did)) restart(); break;
+      case "removeAccount": {
+        const a = api.accounts.find(a => a.did === actEl.dataset.did);
+        if (a && await confirmBox(`Вийти з акаунта @${a.handle}?`, "Вийти", true)) { api.removeAccount(a.did); reloadView(); }
+        break;
+      }
+      case "logout": if (await confirmBox(`Вийти з акаунта @${api.session.handle}?`, "Вийти", true)) { api.logout(); restart(); } break;
+      case "install": {
+        const prompt = pwa.install; pwa.install = null; actEl.hidden = true;
+        if (prompt) { prompt.prompt(); await prompt.userChoice; }
+        break;
+      }
     }
   } catch (ex) { toast(ex.message); }
   finally { if (actEl?.isConnected) actEl.disabled = false; }
@@ -333,14 +402,38 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "/" && api.session) { e.preventDefault(); location.hash = "#/search"; }
 });
 
+/* ---------- other tabs ---------- */
+// Another tab refreshed the tokens, signed out or switched the account: take over what it saved
+window.addEventListener("storage", (e) => {
+  if (e.key !== "skybee.session" && e.key !== "skybee.accounts") return;
+  const was = api.session?.did;
+  api.loadSession();
+  if (api.session?.did !== was) location.reload();
+});
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+  // a click on a system notification: sw.js asks the open tab to show the right screen
+  navigator.serviceWorker.addEventListener("message", (e) => { if (e.data?.type === "skybee:open") location.hash = e.data.hash; });
+}
+window.addEventListener("beforeinstallprompt", (e) => {
+  pwa.install = e;
+  document.querySelector("[data-act=install]")?.removeAttribute("hidden");
+});
+
 /* ---------- boot ---------- */
 function boot() {
   api.loadSession();
   if (!api.session) return loginScreen();
+  api.primePrefs();
   shell();
   route();
   badges();
   clearInterval(window.__skybeeBadge);
   window.__skybeeBadge = setInterval(badges, 60000);
+  // own profile: the avatar for the account button and the reply box
+  api.get("app.bsky.actor.getProfile", { actor: api.session.did })
+    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); }).catch(() => {});
 }
 boot();
