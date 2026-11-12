@@ -10,6 +10,8 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Є **десктопна версія для Windows на Electron** (`desktop/`): інсталятор NSIS + переносний EXE.
   Саме Electron, а не Tauri: Tauri на Windows потребує WebView2 (Edge), а в автора Edge заблокований — застосунок має нести власний рушій.
   Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; будь-які зміни застосунку (веб чи `desktop/`) або ручний запуск → артефакти.
+  Інтерфейс у десктопі **оновлюється сам**: під час запуску оболонка тихо завантажує сайт із GitHub Pages у `userData/web-cache`
+  і з наступного запуску показує його, якщо він новіший за збірку. Новий EXE потрібен лише при зміні `desktop/main.js` чи Electron.
   Версія — у `desktop/package.json`. Далі за планом: Linux, macOS, потім Android, iOS.
 
 ## Структура
@@ -31,7 +33,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   `io.github.vysocavnu.skybee.profile/self`; чужі читаються напряму з їхнього PDS без авторизації. Поля чужих записів перевіряються (`clean`)
 - `js/notify.js` — системні сповіщення, поки застосунок відкритий (опитування раз на хвилину)
 - `desktop/` — оболонка Electron: `main.js` (вікно, схема `app://skybee/` для вебфайлів, зовнішні посилання → системний браузер,
-  один екземпляр, контекстне меню), `package.json` (налаштування electron-builder). `scripts/dist.mjs` копіює вебфайли в `desktop/web/`
+  один екземпляр, контекстне меню, самооновлення вебчастини: `updateWeb` обходить `index.html` → css/js → імпорти), `package.json` (налаштування electron-builder). `scripts/dist.mjs` копіює вебфайли в `desktop/web/`
   (новий файл/теку в корені треба дописати туди). Локально: `cd desktop && npm install && npm start`
 - `js/app.js` — роутер на hash (`#/profile/<handle>/post/<rkey>` тощо), навігація, глобальні дії через `data-act`
 
