@@ -21,6 +21,7 @@ const bundledTime = () => readJson(path.join(BUNDLED, "build.json"))?.time || 0;
 
 // Where to serve the web app from: the downloaded copy when it is newer than the bundled one
 function pickWebRoot() {
+  if (process.env.FLATPAK_ID) return BUNDLED;
   const cur = readJson(path.join(cacheDir(), "current.json"));
   const dir = cur && /^[a-f0-9]{16}$/.test(cur.dir || "") ? path.join(cacheDir(), cur.dir) : null;
   return dir && cur.time > bundledTime() && fs.existsSync(path.join(dir, "index.html")) ? dir : BUNDLED;
@@ -233,7 +234,8 @@ else {
     });
     createWindow();
     try { setupTray(); } catch { /* no tray on this system: closing the window quits */ quitting = true; }
-    setTimeout(() => updateWeb(root).catch(() => { /* offline or the site is down: try again next start */ }), 3000);
+    // Flathub forbids apps that fetch and run their own code past it: there updates come only through Flathub
+    if (!process.env.FLATPAK_ID) setTimeout(() => updateWeb(root).catch(() => { /* offline or the site is down: try again next start */ }), 3000);
     setupShellUpdates();
     app.on("activate", () => { if (!win) createWindow(); });
   });

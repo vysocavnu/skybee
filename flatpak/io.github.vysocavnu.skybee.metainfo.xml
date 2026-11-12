@@ -44,6 +44,11 @@
     <color type="primary" scheme_preference="dark">#0f1218</color>
   </branding>
   <releases>
+    <release version="0.2.1" date="2026-11-12">
+      <description>
+        <p>Flatpak: updates come only through Flathub.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-11-12">
       <description>
         <p>Self-updating on Windows, tray with notifications, sign-up, GIF search, real chat replies, columns, own feeds, a new look.</p>
