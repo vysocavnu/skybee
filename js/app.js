@@ -172,6 +172,7 @@ async function route() {
     a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session.handle)));
   });
   main.innerHTML = "";
+  main._tint = null; // the page colour stays only if the new screen claims it (profile, post)
   const keepScroll = sessionStorage.getItem("skybee.scroll:" + location.hash);
   scrollTo(0, 0);
   try {
@@ -196,8 +197,10 @@ async function route() {
     else if (seg[0] === "profile") r = V.profile(main, { actor: seg[1], tab: seg[2] });
     else main.innerHTML = `<p class="pad">Сторінку не знайдено. <a href="#/">На головну</a></p>`;
     cleanup = await r;
+    if (!main._tint) flair.untint(main);
     if (keepScroll) setTimeout(() => scrollTo(0, +keepScroll), 50);
   } catch (e) {
+    if (!main._tint) flair.untint(main);
     main.insertAdjacentHTML("beforeend", `<div class="card"><p class="err">${esc(e.message)}</p><button class="ghost" data-act="back">← Назад</button></div>`);
   }
 }

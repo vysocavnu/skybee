@@ -399,18 +399,25 @@ body.nolinkthumbs .ext img { display: none; }
 
 /* ---------- Skybee look: status bubble, music, page colour, toy (js/flair.js) ---------- */
 .banner { position: relative; }
-/* page colour: the whole page takes one base colour (--sb). Dark and dim themes get its deep shade with light text,
-   the light theme gets the colour as it is; --sb-ink (set in js/flair.js) is the text colour that reads on it */
-body.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
+/* page colour: the middle column (profile or post) takes one base colour (--sb) and it fades softly into the side menus.
+   Dark and dim themes get its deep shade with light text, the light theme gets the colour as it is;
+   --sb-ink (set in js/flair.js) is the text colour that reads on it */
+main.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
   --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
   --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
-[data-theme="dim"] body.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
-[data-theme="light"] body.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
+[data-theme="dim"] main.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
+[data-theme="light"] main.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
   --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
   --accent: var(--sb-ink); --accent-ink: var(--sb); }
-body.sb-tint .post a:not(.ghost):not(.btn), body.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
-body.sb-tint { transition: background-color .25s; }
-body.sb-tint .phead .bigava { border-color: var(--accent); }
+main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+/* the colour fades out of the column into the side menus: one wide layer behind it, solid over the column and easing out on both sides */
+main.sb-tint { color: var(--text); border-color: transparent; position: relative; overflow: clip; overflow-clip-margin: 200px; }
+main.sb-tint::before { content: ""; position: absolute; inset: 0 -200px; z-index: -1; pointer-events: none; transition: background .25s;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg) 18%, transparent) 70px, color-mix(in srgb, var(--bg) 50%, transparent) 130px,
+    color-mix(in srgb, var(--bg) 85%, transparent) 180px, var(--bg) 210px, var(--bg) calc(100% - 210px),
+    color-mix(in srgb, var(--bg) 85%, transparent) calc(100% - 180px), color-mix(in srgb, var(--bg) 50%, transparent) calc(100% - 130px),
+    color-mix(in srgb, var(--bg) 18%, transparent) calc(100% - 70px), transparent); }
+main.sb-tint .phead .bigava { border-color: var(--accent); }
 .phead .bigava { position: relative; }
 .sb-bubble { position: absolute; left: 86px; bottom: 54px; width: max-content; max-width: min(240px, 56vw); padding: 7px 12px; border-radius: 16px; pointer-events: none;
   background: var(--panel); border: 1px solid var(--line); font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; cursor: default; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
@@ -437,3 +444,6 @@ body.sb-tint .phead .bigava { border-color: var(--accent); }
 
 /* wide screens show «my profile» as a card in the right column, so the side menu does not repeat it */
 @media (min-width: 1101px) { nav.side a[data-nav^="#/profile"] { display: none; } }
+
+/* thin scrollbars everywhere (the desktop app shows Chromium's thick ones with arrows otherwise) */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent; }

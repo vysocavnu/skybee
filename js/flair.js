@@ -68,25 +68,31 @@ const trackCard = (m, cls = "") => `<div class="sb-music ${cls}">
 // delegated: works for cards on the profile and inside the editor
 document.addEventListener("click", (e) => { const b = e.target.closest(".sb-play[data-preview]"); if (b) togglePreview(b, b.dataset.preview); });
 
+// Page colour: the middle column takes the colour of this person (profile or one of their posts).
+// The router forgets the owner on every screen change and clears the colour if no screen claims it again
+export function tint(el, did) {
+  el._tint = did;
+  load(did).then((got) => {
+    if (el._tint !== did) return; // the user has already moved on
+    const c = got?.rec.color;
+    if (!c) return untint(el);
+    el.style.setProperty("--sb", c); el.style.setProperty("--sb-ink", inkFor(c)); el.classList.add("sb-tint");
+  });
+}
+export function untint(el) {
+  el._tint = null;
+  el.classList.remove("sb-tint"); el.style.removeProperty("--sb"); el.style.removeProperty("--sb-ink");
+}
+
 // Called right after the profile header is rendered; fills in the extras when they arrive
 export async function decorate(el, p) {
+  tint(el, p.did);
   const head = el.querySelector(".phead");
   const got = await load(p.did);
   if (!got || !head?.isConnected) return; // nothing to show, or the user has already left the page
   const { rec, pds } = got;
   const banner = el.querySelector(".banner");
-  if (rec.color) {
-    // the whole page takes the colour until this profile is replaced by another screen
-    const body = document.body;
-    body.style.setProperty("--sb", rec.color); body.style.setProperty("--sb-ink", inkFor(rec.color)); body.classList.add("sb-tint");
-    const mo = new MutationObserver(() => {
-      if (head.isConnected) return;
-      mo.disconnect();
-      if (!el.querySelector(".phead")) { body.classList.remove("sb-tint"); body.style.removeProperty("--sb"); body.style.removeProperty("--sb-ink"); }
-    });
-    mo.observe(el, { childList: true });
-    if (banner && !banner.style.backgroundImage) banner.style.backgroundImage = `linear-gradient(135deg, ${rec.color}, color-mix(in srgb, ${rec.color} 35%, var(--bg)))`;
-  }
+  if (rec.color && banner && !banner.style.backgroundImage) banner.style.backgroundImage = `linear-gradient(135deg, ${rec.color}, color-mix(in srgb, ${rec.color} 35%, var(--bg)))`;
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
   if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));
   if (rec.toy && banner) {

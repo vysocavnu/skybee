@@ -134,6 +134,7 @@ export async function thread(el, { actor, rkey }) {
   el.innerHTML = header("Пост", true) + spinner();
   let did = actor;
   if (!did.startsWith("did:")) did = (await api.get("com.atproto.identity.resolveHandle", { handle: actor })).did;
+  flair.tint(el, did); // the post keeps its author's page colour
   const uri = `at://${did}/app.bsky.feed.post/${rkey}`;
   const { thread: t } = await api.get("app.bsky.feed.getPostThread", { uri, depth: 10, parentHeight: 30 });
   if (t.$type !== "app.bsky.feed.defs#threadViewPost") {
