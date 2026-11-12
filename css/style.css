@@ -688,3 +688,21 @@ details.nb[open] > summary { margin-bottom: 10px; }
 details.nb .rowlink { display: block; padding: 8px 0; border-top: 1px solid var(--line); }
 details.nb .actor { padding-left: 0; padding-right: 0; }
 .nbauthor { margin: 0 0 8px; color: var(--muted); }
+
+/* ---------- phone turned sideways (Android/iOS app, phone browser) ---------- */
+/* older WebViews let ::-webkit-scrollbar win over scrollbar-width: keep the hidden bars hidden there too */
+nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollbar { display: none; width: 0; height: 0; }
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
+  /* clear the notch and the rounded corners; slim menu rail, the column takes the rest of the width (no empty sides) */
+  #app { grid-template-columns: 64px minmax(0, 1fr); padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  nav.side { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 0; }
+  nav.side a { padding: 7px 0; font-size: 17px; }
+  nav.side .logo { margin-bottom: 2px; }
+  .compose-side { margin-top: 6px; padding: 8px; }
+  .me { padding: 4px; }
+  /* less chrome on top: more room for posts on a short screen */
+  .topbar { min-height: 46px; padding: 5px 16px; }
+  .tabs > * { padding: 10px 14px; }
+  .imgs img, .video { max-height: 78vh; }
+  .imgs.n2 img, .imgs.n3 img, .imgs.n4 img { max-height: 46vh; }
+}
