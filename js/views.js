@@ -6,6 +6,7 @@ import {
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
 } from "./ui.js";
 import * as notify from "./notify.js";
+import * as flair from "./flair.js";
 
 export const MENU_BTN = `<button class="ghost icon only-mobile" data-act="drawer" title="Меню">☰</button>`; // phones: opens the side menu
 export const header = (title, back = false, right = "") =>
@@ -199,7 +200,7 @@ export async function profile(el, { actor, tab = "posts" }) {
       <div class="row between">
         <div class="bigava" ${p.avatar ? `data-act="lightboxOne" data-full="${esc(p.avatar)}"` : ""}>${avatar(p, 88)}</div>
         <div class="row">
-          ${me ? `<button class="ghost sm" data-act="editProfile">Редагувати профіль</button>`
+          ${me ? `<button class="ghost sm" data-act="editFlair" title="Статус, музика, колір та іграшка — для користувачів Skybee">✨ Оформлення</button><button class="ghost sm" data-act="editProfile">Редагувати профіль</button>`
                : `${!blocked && p.associated?.chat?.allowIncoming !== "none" ? `<button class="ghost sm icon" data-act="dm" data-did="${p.did}" title="Написати">✉️</button>` : ""}${followBtn(p)}`}
         </div>
       </div>
@@ -217,6 +218,7 @@ export async function profile(el, { actor, tab = "posts" }) {
     ${blocked ? empty(v.blocking ? "Ви заблокували цей акаунт" : "Цей акаунт заблокував вас") :
       `<div class="tabs scroll">${tabs.map(([k, l]) => `<a class="${k === tab ? "on" : ""}" href="${profileHref(p)}${k === "posts" ? "" : "/" + k}">${l}</a>`).join("")}</div><div id="pbody"></div>`}`;
   if (blocked) return;
+  flair.decorate(el, p); // Skybee extras arrive on their own, the page does not wait for them
   const body = $("#pbody", el);
   const filters = { posts: "posts_and_author_threads", replies: "posts_with_replies", media: "posts_with_media", videos: "posts_with_video" };
   if (filters[tab]) return paged(body, async (cursor) => {

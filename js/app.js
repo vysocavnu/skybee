@@ -4,6 +4,7 @@ import * as V from "./views.js";
 import * as M from "./more.js";
 import * as S from "./settings.js";
 import * as notify from "./notify.js";
+import * as flair from "./flair.js";
 import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
@@ -368,6 +369,7 @@ document.addEventListener("click", async (e) => {
       }
       case "unmute": await api.unmute(actEl.dataset.did); toast("Акаунт знову видно"); actEl.remove(); break;
       case "dm": await V.startDm(actEl.dataset.did); break;
+      case "editFlair": flair.edit(reloadView); break;
       case "editProfile": V.editProfile(actors.get(api.session.did) || {}, reloadView); break;
       case "profileMenu": {
         const a = actors.get(actEl.dataset.did); const mine = a.did === api.session.did;
