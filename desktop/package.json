@@ -29,7 +29,7 @@
     "nsis": {
       "artifactName": "Skybee-${version}-setup.${ext}",
       "oneClick": false,
-      "perMachine": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "installerLanguages": ["uk_UA", "en_US"],
       "license": "../LICENSE",
