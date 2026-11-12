@@ -59,11 +59,21 @@ export const webUrl = (p) => `https://bsky.app/profile/${p.author?.handle || p.u
 
 /* ---------- rich text ---------- */
 const te = new TextEncoder(), td = new TextDecoder();
+// Text without facets (profile bios, old posts): links — with https:// or a bare domain like info.bsky.one, as Bluesky
+// itself shows them — @mentions and #tags. One pass, so nothing is linked twice.
+const TLDS = new Set("com net org info io app dev one me tv xyz social blog site online store shop tech page link art club news live space world fm gg co ai cc biz pro name email cloud zone wiki help guide media studio design team life music video photo games fun top today network systems agency academy community digital foundation global group center institute school university education gov edu mil int".split(" "));
+const NOT_TLD = new Set(["js", "ts", "py", "rb", "sh", "md", "cs", "go", "rs", "kt", "mp", "gz", "db"]);
+const isTld = (t) => (t = t.toLowerCase(), TLDS.has(t) || (t.length === 2 && !NOT_TLD.has(t)));
+const LINK_RX = /(https?:\/\/[^\s<]+[^\s<.,;:!?)"'])|(^|[\s(])@([a-zA-Z0-9.-]+\.[a-zA-Z]+)|(^|[\s(])#([^\s#<]+)|(^|[\s(])((?:[a-zA-Z0-9-]+\.)+([a-zA-Z]{2,24})(?:\/[^\s<]*[^\s<.,;:!?)"'])?)(?![\w@])/g;
+const short = (u) => { const t = u.replace(/^https?:\/\//, ""); return t.length > 40 ? t.slice(0, 40) + "…" : t; };
 export function linkify(s) {
-  return esc(s)
-    .replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)"']/g, u => `<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\//, "").slice(0, 40)}${u.length > 48 ? "…" : ""}</a>`)
-    .replace(/(^|\s)@([a-zA-Z0-9.-]+\.[a-zA-Z]+)/g, (m, sp, h) => `${sp}<a href="#/profile/${h}">@${h}</a>`)
-    .replace(/(^|\s)#([^\s#<]+)/gu, (m, sp, t) => `${sp}<a href="#/search?q=${enc("#" + t)}">#${t}</a>`);
+  return esc(s).replace(LINK_RX, (m, url, sp1, handle, sp2, tag, sp3, dom, tld) => {
+    if (url) return `<a href="${url}" target="_blank" rel="noopener">${short(url)}</a>`;
+    if (handle) return `${sp1}<a href="#/profile/${handle}">@${handle}</a>`;
+    if (tag) return `${sp2}<a href="#/tag/${enc(tag.replace(/&amp;/g, "&"))}">#${tag}</a>`;
+    if (dom && isTld(tld)) return `${sp3}<a href="https://${dom}" target="_blank" rel="noopener">${short(dom)}</a>`;
+    return m;
+  });
 }
 export function richText(text = "", facets) {
   if (!facets?.length) return linkify(text);
