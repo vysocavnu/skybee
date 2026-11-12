@@ -700,3 +700,10 @@ body.guest .topbar { top: calc(49px + var(--sat)); padding-top: 10px; min-height
 .modal-bg { padding-top: calc(6vh + var(--sat)); }
 .login { margin-top: calc(8vh + var(--sat)); }
 body.deckmode main { padding-top: var(--sat); }
+/* Landscape: the notch / Dynamic Island / camera hole is on a side — keep content and the bars out of it */
+body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+@media (max-width: 640px) {
+  nav.bottom { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  nav.side { padding-left: calc(12px + env(safe-area-inset-left, 0px)); }
+  .fab { right: calc(16px + env(safe-area-inset-right, 0px)); }
+}
