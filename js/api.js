@@ -748,3 +748,29 @@ export async function pinPost(p, pin) {
 export async function putOwnProfileRecord(record) {
   await post("com.atproto.repo.putRecord", { repo: session.did, collection: "app.bsky.actor.profile", rkey: "self", record });
 }
+
+/* ---------- who has blocked me ----------
+   Bluesky has no query for this, but blocks are public records (app.bsky.graph.block) and Clearsky indexes them.
+   GET api.clearsky.services/api/v1/anon/single-blocklist/<did>[/<page>] → { data: { blocklist: [{ did, blocked_date }] } },
+   100 per page; …/single-blocklist/total/<did> → { data: { count } }. Free, no key, works from the browser. */
+const CLEARSKY = "https://api.clearsky.services/api/v1/anon/";
+async function clearsky(path) {
+  const r = await fetch(CLEARSKY + path, { signal: AbortSignal.timeout(25000) });
+  if (r.status === 404) return null; // nobody has blocked this account (or Clearsky has not seen it yet)
+  if (!r.ok) throw Object.assign(new Error(r.status === 429
+    ? "Сервіс Clearsky просить зачекати — забагато запитів. Спробуй за кілька хвилин"
+    : "Сервіс Clearsky, який рахує блокування, зараз не відповідає. Спробуй пізніше"), { status: r.status, code: "clearsky" });
+  return r.json();
+}
+export async function blockedByPage(did, page = 1) {
+  const j = await clearsky(`single-blocklist/${did}${page > 1 ? "/" + page : ""}`);
+  const list = j?.data?.blocklist || j?.data?.blocked_by || [];
+  const items = (Array.isArray(list) ? list : [])
+    .map(x => ({ did: x.did || x.blocked_by, date: x.blocked_date || x.date || "" }))
+    .filter(x => typeof x.did === "string" && x.did.startsWith("did:"));
+  return { items, more: items.length >= 100 };
+}
+export async function blockedByCount(did) {
+  const n = Number((await clearsky(`single-blocklist/total/${did}`))?.data?.count);
+  return Number.isFinite(n) ? n : null;
+}

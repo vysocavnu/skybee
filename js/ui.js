@@ -353,6 +353,7 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
 export function followBtn(a) {
   if (!session || a.did === session.did) return "";
   if (a.viewer?.blocking) return `<button class="ghost sm" data-act="unblock" data-did="${a.did}">Розблокувати</button>`;
+  if (a.viewer?.blockedBy) return ""; // they blocked you: following is impossible
   return a.viewer?.following
     ? `<button class="ghost sm" data-act="unfollow" data-did="${a.did}">Ви стежите</button>`
     : `<button class="btn sm" data-act="follow" data-did="${a.did}">${a.viewer?.followedBy ? "Стежити у відповідь" : "Стежити"}</button>`;

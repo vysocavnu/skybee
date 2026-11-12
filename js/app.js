@@ -300,7 +300,7 @@ async function route() {
     else if (seg[0] === "settings") r = ({
       words: V.mutedWords, content: M.contentFilters, passwords: M.appPasswords, account: S.account, accounts: S.accounts, privacy: S.privacy,
       moderation: S.moderation, notifs: S.notifications, media: S.media, appearance: S.appearance, a11y: S.a11y, langs: S.langs, help: S.help, about: S.about,
-    }[seg[1]] || (seg[1] === "mutes" || seg[1] === "blocks" ? (m) => V.modList(m, { kind: seg[1] }) : S.index))(main);
+    }[seg[1]] || (seg[1] === "mutes" || seg[1] === "blocks" ? (m) => V.modList(m, { kind: seg[1] }) : seg[1] === "blocked-by" ? V.blockedBy : S.index))(main);
     else if (seg[0] === "profile" && seg[2] === "post" && seg[4]) r = V.postUsers(main, { actor: seg[1], rkey: seg[3], kind: seg[4] });
     else if (seg[0] === "profile" && seg[2] === "post") r = V.thread(main, { actor: seg[1], rkey: seg[3], read: "read" in q });
     else if (seg[0] === "profile" && ["followers", "follows", "known"].includes(seg[2])) r = V.follows(main, { actor: seg[1], kind: seg[2] });

@@ -269,6 +269,7 @@ export async function moderation(el) {
       ${row("#/settings/words", "media", "Приховані слова й теги")}
       ${row("#/settings/mutes", "user", "Приховані акаунти")}
       ${row("#/settings/blocks", "lock", "Заблоковані акаунти")}
+      ${row("#/settings/blocked-by", "lock", "Хто мене заблокував")}
       ${row("#/lists", "users", "Модераційні списки")}
     </div>
     <div class="card"><h3>🛡️ Сервіси модерації</h3><div data-labelers>${spinner()}</div>
