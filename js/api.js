@@ -126,13 +126,16 @@ async function refresh(s) {
 // opts: { params, body, raw (Blob), contentType, proxy, retry }
 export async function xrpc(method, opts = {}) {
   const { params, body, raw, contentType, proxy, retry = true, as: s = session, headers: extra } = opts;
-  const url = new URL(`${s.pds}/xrpc/${method}`);
+  // without an account (a shared thread opened by a guest): public reading through the open AppView, no writing
+  if (!s && (body || raw || proxy)) { const e = new Error("Щоб це зробити, увійди в акаунт"); e.code = "NoSession"; throw e; }
+  const url = new URL(`${s ? s.pds : PUBLIC_API}/xrpc/${method}`);
   if (params) for (const [k, v] of Object.entries(params)) {
     if (v == null) continue;
     if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
     else url.searchParams.set(k, v);
   }
-  const headers = { ...extra, Authorization: `Bearer ${s.accessJwt}` };
+  const headers = { ...extra };
+  if (s) headers.Authorization = `Bearer ${s.accessJwt}`;
   if (proxy) headers["atproto-proxy"] = proxy;
   let payload;
   if (raw) { payload = raw; headers["Content-Type"] = contentType || raw.type || "application/octet-stream"; }
@@ -140,7 +143,7 @@ export async function xrpc(method, opts = {}) {
   const r = await fetch(url, { method: payload ? "POST" : "GET", headers, body: payload });
   const data = r.headers.get("content-type")?.includes("json") ? await r.json() : null;
   if (!r.ok) {
-    if (retry && (data?.error === "ExpiredToken" || data?.error === "InvalidToken")) {
+    if (s && retry && (data?.error === "ExpiredToken" || data?.error === "InvalidToken")) {
       await refresh(s); return xrpc(method, { ...opts, retry: false, as: s });
     }
     const e = new Error(data?.message || data?.error || `Помилка ${r.status}`);

@@ -2,19 +2,22 @@
 import * as api from "./api.js";
 import { session } from "./api.js";
 import {
-  $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
+  postHref, $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
 } from "./ui.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
+import * as src from "./sources.js";
 
 export const MENU_BTN = `<button class="ghost icon only-mobile" data-act="drawer" title="Меню">☰</button>`; // phones: opens the side menu
 export const header = (title, back = false, right = "") =>
   `<div class="topbar">${back ? `<button class="ghost icon" data-act="back">←</button>` : MENU_BTN}<h2>${title}</h2><div class="grow"></div>${right}</div>`;
 
 /* ---------- generic paginated list ---------- */
-export function paged(el, fetchPage) {
+// opts.cls: class of the list box («tiles» for the media grid); opts.root: the scrolling box (deck columns)
+export function paged(el, fetchPage, { cls = "", root = null } = {}) {
   const list = document.createElement("div");
+  if (cls) list.className = cls;
   el.appendChild(list);
   let cursor, first = true;
   return infinite(list, async () => {
@@ -25,6 +28,21 @@ export function paged(el, fetchPage) {
     list.insertAdjacentHTML("beforeend", html.join(""));
     cursor = next;
     return !!next && html.length > 0;
+  }, root);
+}
+
+/* ---------- list / media grid switch ---------- */
+// Remembered per screen («home», «feed», «myfeed»…)
+export const isGrid = (key) => { try { return localStorage.getItem("skybee.grid." + key) === "1"; } catch { return false; } };
+export const gridBtn = (key) => `<button class="ghost icon" data-grid="${esc(key)}" title="${isGrid(key) ? "Звичайна стрічка" : "Сітка медіа: лише фото й відео"}">${isGrid(key) ? "☰" : "▦"}</button>`;
+// one listener on the screen: flips the mode and redraws through `redraw`
+export function onGrid(el, redraw) {
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-grid]"); if (!b) return;
+    const k = b.dataset.grid, on = !isGrid(k);
+    try { on ? localStorage.setItem("skybee.grid." + k, "1") : localStorage.removeItem("skybee.grid." + k); } catch {}
+    b.outerHTML = gridBtn(k);
+    redraw(on);
   });
 }
 
@@ -43,7 +61,7 @@ function homeFilter(d) {
   return d;
 }
 export async function home(el) {
-  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
+  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div>${gridBtn("home")}<button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
   let tabs = [{ label: "Підписки", kind: "timeline" }];
   try {
     const saved = (await api.getSavedFeeds()).filter(i => i.pinned && i.type !== "timeline");
@@ -63,6 +81,8 @@ export async function home(el) {
     } catch {}
     if (tabs.length === 1) tabs.push({ label: "Discover", kind: "feed", uri: api.DISCOVER });
   }
+  // own feeds built in Skybee, pinned to the home screen
+  try { for (const f of await src.myFeeds()) if (f.pinned) tabs.push({ label: f.name, kind: "my", uri: f.id }); } catch {}
   let sel = 0; try { sel = Math.min(+sessionStorage.getItem("skybee.tab") || 0, tabs.length - 1); } catch {}
   const tabEl = $("#feedTabs", el), body = $("#feedBody", el);
   let stop;
@@ -70,14 +90,16 @@ export async function home(el) {
     sel = i; try { sessionStorage.setItem("skybee.tab", i); } catch {}
     tabEl.innerHTML = tabs.map((t, n) => `<button class="${n === i ? "on" : ""}" data-tab="${n}">${esc(t.label)}</button>`).join("");
     stop?.(); body.innerHTML = ""; body.parentElement.querySelectorAll(".sentinel").forEach(s => s.remove());
-    const t = tabs[i];
+    const t = tabs[i], grid = isGrid("home");
+    if (t.kind === "my") { stop = paged(body, src.feedPager({ type: "myfeed", value: t.uri }, { grid }), { cls: grid ? "tiles" : "" }); return; }
     stop = paged(body, async (cursor) => {
       const d = t.kind === "timeline" ? await api.get("app.bsky.feed.getTimeline", { limit: 30, cursor }).then(homeFilter)
         : t.kind === "list" ? await api.get("app.bsky.feed.getListFeed", { list: t.uri, limit: 30, cursor })
         : await api.get("app.bsky.feed.getFeed", { feed: t.uri, limit: 30, cursor }, api.feedHeaders());
-      return { html: feedItems(d.feed, true), cursor: d.cursor };
-    });
+      return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true), cursor: d.cursor };
+    }, { cls: grid ? "tiles" : "" });
   };
+  onGrid(el, () => show(sel));
   tabEl.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) show(+b.dataset.tab); });
   el.querySelector("[data-act=refresh]").onclick = () => { scrollTo(0, 0); show(sel); };
   show(sel);
@@ -88,17 +110,25 @@ export async function home(el) {
 export async function feed(el, { uri }) {
   el.innerHTML = header("Фід", true) + spinner();
   const g = (await api.get("app.bsky.feed.getFeedGenerator", { feed: uri })).view;
-  el.innerHTML = header(esc(g.displayName), true) + `
+  el.innerHTML = header(esc(g.displayName), true, gridBtn("feed")) + `
     <div class="card-row pad">${avatar({ avatar: g.avatar, displayName: g.displayName }, 56)}
       <div class="grow"><b>${esc(g.displayName)}</b><div class="muted small">Фід від <a href="${profileHref(g.creator)}">${at(g.creator.handle)}</a> · ♥ ${num(g.likeCount)}</div>
       ${g.description ? `<div class="small">${richText(g.description, g.descriptionFacets)}</div>` : ""}</div>
       <div class="col"><button class="btn sm" data-act="saveFeed" data-uri="${esc(uri)}">${g.viewer?.saved ? "Збережено ✓" : "Зберегти"}</button>
       <button class="ghost sm" data-act="likeFeed" data-uri="${esc(uri)}" data-cid="${esc(g.cid)}" data-like="${esc(g.viewer?.like || "")}">${g.viewer?.like ? "♥" : "♡"}</button></div>
-    </div>`;
-  return paged(el, async (cursor) => {
-    const d = await api.get("app.bsky.feed.getFeed", { feed: uri, limit: 30, cursor }, api.feedHeaders());
-    return { html: feedItems(d.feed, true), cursor: d.cursor };
-  });
+    </div><div id="fbody"></div>`;
+  const body = $("#fbody", el);
+  let stop;
+  const show = () => {
+    stop?.(); body.innerHTML = ""; el.querySelectorAll(".sentinel").forEach(x => x.remove());
+    const grid = isGrid("feed");
+    stop = paged(body, async (cursor) => {
+      const d = await api.get("app.bsky.feed.getFeed", { feed: uri, limit: 30, cursor }, api.feedHeaders());
+      return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true), cursor: d.cursor };
+    }, { cls: grid ? "tiles" : "" });
+  };
+  onGrid(el, show); show();
+  return () => stop?.();
 }
 
 export async function list(el, { uri }) {
@@ -106,7 +136,7 @@ export async function list(el, { uri }) {
   const d = await api.get("app.bsky.graph.getList", { list: uri, limit: 1 });
   const l = d.list;
   const curate = l.purpose === "app.bsky.graph.defs#curatelist", mine = l.creator.did === session.did;
-  el.innerHTML = header(esc(l.name), true, `<button class="ghost icon" data-act="listMenu" data-uri="${esc(uri)}">⋯</button>`) + `
+  el.innerHTML = header(esc(l.name), true, (curate ? gridBtn("list") : "") + `<button class="ghost icon" data-act="listMenu" data-uri="${esc(uri)}">⋯</button>`) + `
     <div class="card-row pad">${avatar({ avatar: l.avatar, displayName: l.name }, 56)}
       <div class="grow"><b>${esc(l.name)}</b><div class="muted small">${curate ? "Список" : "Модераційний список"} від <a href="${profileHref(l.creator)}">${at(l.creator.handle)}</a></div>
       ${l.description ? `<div class="small">${richText(l.description, l.descriptionFacets)}</div>` : ""}</div>
@@ -120,22 +150,26 @@ export async function list(el, { uri }) {
   const show = (which) => {
     el.querySelectorAll("[data-lt]").forEach(b => b.classList.toggle("on", b.dataset.lt === which));
     stop?.(); lb.innerHTML = ""; el.querySelectorAll(".sentinel").forEach(s => s.remove());
+    const grid = which === "posts" && isGrid("list");
     stop = paged(lb, which === "posts"
-      ? async (cursor) => { const d = await api.get("app.bsky.feed.getListFeed", { list: uri, limit: 30, cursor }); return { html: feedItems(d.feed, true), cursor: d.cursor }; }
-      : async (cursor) => { const d = await api.get("app.bsky.graph.getList", { list: uri, limit: 50, cursor }); return { html: d.items.map(i => renderActor(i.subject, mine ? `<div><button class="ghost sm" data-act="listRemove" data-item="${esc(i.uri)}">Прибрати зі списку</button></div>` : "")), cursor: d.cursor }; });
+      ? async (cursor) => { const d = await api.get("app.bsky.feed.getListFeed", { list: uri, limit: 30, cursor }); return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true), cursor: d.cursor }; }
+      : async (cursor) => { const d = await api.get("app.bsky.graph.getList", { list: uri, limit: 50, cursor }); return { html: d.items.map(i => renderActor(i.subject, mine ? `<div><button class="ghost sm" data-act="listRemove" data-item="${esc(i.uri)}">Прибрати зі списку</button></div>` : "")), cursor: d.cursor }; },
+      { cls: grid ? "tiles" : "" });
   };
+  onGrid(el, () => show("posts"));
   el.addEventListener("click", e => { const b = e.target.closest("[data-lt]"); if (b) show(b.dataset.lt); });
   show(curate ? "posts" : "people");
   return () => stop?.();
 }
 
 /* ================= THREAD ================= */
-export async function thread(el, { actor, rkey }) {
+export async function thread(el, { actor, rkey, read = false }) {
   el.innerHTML = header("Пост", true) + spinner();
   let did = actor;
   if (!did.startsWith("did:")) did = (await api.get("com.atproto.identity.resolveHandle", { handle: actor })).did;
   flair.tint(el, did); // the post keeps its author's page colour
   const uri = `at://${did}/app.bsky.feed.post/${rkey}`;
+  if (read) return reader(el, uri);
   const { thread: t } = await api.get("app.bsky.feed.getPostThread", { uri, depth: 10, parentHeight: 30 });
   if (t.$type !== "app.bsky.feed.defs#threadViewPost") {
     el.innerHTML = header("Пост", true) + empty(t.$type?.includes("Blocked") ? "Пост заблоковано" : "Пост не знайдено або видалено");
@@ -159,13 +193,38 @@ export async function thread(el, { actor, rkey }) {
     .sort((a, b) => (b.post.author.did === t.post.author.did) - (a.post.author.did === t.post.author.did) || order(a.post, b.post))
     .map(r => `<div class="reply d${Math.min(depth, 4)}">${renderPost(r.post, { thread: true, line: !!r.replies?.length && depth < 5 })}${depth < 5 ? replies(r, depth + 1) : ""}</div>`).join("");
   const noReply = !!t.post.viewer?.replyDisabled;
-  const gate = gateLine(root.post, { noReply, mine: root.post.author.did === session.did && !root.post.record?.reply });
-  el.innerHTML = header("Пост", true) + parents.join("") + renderPost(t.post, { focus: true }) + gate +
-    (noReply ? "" : `<div class="replybox" data-act="reply" data-uri="${esc(t.post.uri)}">${avatar(actors.get(session.did) || {}, 32)}<span class="muted">Напиши відповідь…</span></div>`) +
+  const gate = gateLine(root.post, { noReply, mine: !!session && root.post.author.did === session.did && !root.post.record?.reply });
+  // «read as one text»: when the author continued the thread with their own replies
+  const by = t.post.author.did, chain = t.parent?.post?.author?.did === by || (t.replies || []).some(r => r.post?.author?.did === by);
+  const readBtn = chain ? `<a class="ghost sm" href="${location.hash.split("?")[0]}?read" title="Лише пости автора гілки, одним текстом">📖 Читати</a>` : "";
+  el.innerHTML = header("Пост", true, readBtn) + parents.join("") + renderPost(t.post, { focus: true }) + gate +
+    (noReply ? "" : !session ? `<a class="replybox" href="#/login"><span class="muted">Увійди, щоб відповісти…</span></a>`
+      : `<div class="replybox" data-act="reply" data-uri="${esc(t.post.uri)}">${avatar(actors.get(session.did) || {}, 32)}<span class="muted">Напиши відповідь…</span></div>`) +
     (replies(t) || empty("Відповідей ще немає")) +
     (hidden.length ? `<details class="hidden-replies"><summary class="muted pad">Приховані відповіді: ${hidden.length}</summary>${hidden.map(p => renderPost(p, { thread: true })).join("")}</details>` : "");
   el.querySelector(".post.focus")?.scrollIntoView({ block: "start" });
-  scrollBy(0, -60);
+  scrollBy(0, -60 - (document.querySelector(".guestbar")?.offsetHeight || 0));
+}
+
+/* ---------- reading mode: a long thread by one author as one continuous text ---------- */
+async function reader(el, uri) {
+  let { thread: t } = await api.get("app.bsky.feed.getPostThread", { uri, depth: 0, parentHeight: 1000 });
+  while (t.parent?.$type === "app.bsky.feed.defs#threadViewPost" && t.parent.post.author.did === t.post.author.did) t = t.parent;
+  const top = t.post, me = top.author.did;
+  ({ thread: t } = await api.get("app.bsky.feed.getPostThread", { uri: top.uri, depth: 1000, parentHeight: 0 }));
+  const chain = [];
+  for (let n = t; n; ) {
+    chain.push(cachePost(n.post));
+    n = (n.replies || []).filter(r => r.$type === "app.bsky.feed.defs#threadViewPost" && r.post.author.did === me)
+      .sort((a, b) => a.post.indexedAt.localeCompare(b.post.indexedAt))[0];
+  }
+  const a = top.author, open = location.hash.split("?")[0];
+  el.innerHTML = header("Читання", true, `<a class="ghost sm" href="${open}" title="Звичайний вигляд з відповідями">💬 Гілка</a>`) + `
+    <article class="reader">
+      <div class="row"><a href="${profileHref(a)}">${avatar(a, 44)}</a><div class="who"><a href="${profileHref(a)}"><b>${vname(a)}</b></a><span class="muted small">${at(a.handle)} · ${new Date(top.record?.createdAt || top.indexedAt).toLocaleDateString("uk-UA", { dateStyle: "long" })} · ${chain.length} ${chain.length === 1 ? "пост" : chain.length < 5 ? "пости" : "постів"}</span></div></div>
+      ${chain.map((p, i) => `<section data-uri="${esc(p.uri)}"><div class="text">${richText(p.record?.text, p.record?.facets)}</div>${renderEmbed(p.embed, warnLabel(p))}
+        <a class="muted small rnum" href="${postHref(p)}">${i + 1}/${chain.length}</a></section>`).join("")}
+    </article>`;
 }
 
 /* ================= POST: likes / reposts / quotes ================= */
@@ -186,7 +245,7 @@ export async function profile(el, { actor, tab = "posts" }) {
   el.innerHTML = header("Профіль", true) + spinner();
   const p = await api.get("app.bsky.actor.getProfile", { actor });
   actors.set(p.did, p);
-  const me = p.did === session.did;
+  const me = !!session && p.did === session.did;
   const v = p.viewer || {};
   const blocked = v.blocking || v.blockedBy;
   const tabs = [["posts", "Пости"], ["replies", "Відповіді"], ["media", "Медіа"], ["videos", "Відео"]];
@@ -296,10 +355,19 @@ export async function notifications(el, { filter }) {
     `<div class="tabs"><a href="#/notifications" class="${!filter ? "on" : ""}">Усі</a><a href="#/notifications/mentions" class="${filter ? "on" : ""}">Згадки</a></div>`;
   const seenAt = new Date().toISOString();
   let marked = false;
+  const page = notifPager({ filter });
   return paged(el, async (cursor) => {
-    const d = await api.get("app.bsky.notification.listNotifications", {
-      limit: 40, cursor, reasons: filter ? ["mention", "reply", "quote"] : undefined });
+    const r = await page(cursor);
     if (!marked) { marked = true; api.post("app.bsky.notification.updateSeen", { seenAt }).then(() => window.dispatchEvent(new Event("skybee:badge"))).catch(() => {}); }
+    return r;
+  });
+}
+
+// One page of notifications, grouped; also used by deck columns (`as`: another signed-in account)
+export const notifPager = ({ filter, as } = {}) => async (cursor) => {
+    const o = as ? { as } : undefined;
+    const d = await api.get("app.bsky.notification.listNotifications", {
+      limit: 40, cursor, reasons: filter ? ["mention", "reply", "quote"] : undefined }, o);
     // fetch post views for subjects and post-type notifications
     const uris = new Set();
     for (const n of d.notifications) {
@@ -309,7 +377,7 @@ export async function notifications(el, { filter }) {
     const postsBy = new Map();
     const arr = [...uris];
     for (let i = 0; i < arr.length; i += 25) {
-      const r = await api.get("app.bsky.feed.getPosts", { uris: arr.slice(i, i + 25) });
+      const r = await api.get("app.bsky.feed.getPosts", { uris: arr.slice(i, i + 25) }, o);
       r.posts.forEach(p => postsBy.set(p.uri, cachePost(p)));
     }
     // group like/repost/follow by reason+subject
@@ -340,8 +408,7 @@ export async function notifications(el, { filter }) {
         </div></div>`;
     });
     return { html, cursor: d.cursor };
-  });
-}
+};
 
 /* ================= SEARCH ================= */
 export async function search(el, { q = "", tab = "top" }) {
@@ -393,7 +460,10 @@ export async function search(el, { q = "", tab = "top" }) {
 
 /* ================= FEEDS ================= */
 export async function feeds(el) {
-  el.innerHTML = header("Фіди") + `<h3 class="pad">Мої фіди</h3><div id="mine">${spinner()}</div><h3 class="pad">Рекомендовані</h3><div id="rec"></div><h3 class="pad">Знайти нові фіди</h3>
+  el.innerHTML = header("Фіди", false, `<a class="ghost sm" href="#/myfeeds">🧩 Мої стрічки</a>`) + `
+    <div class="card"><b>🧩 Конструктор стрічок</b><p class="hint">Збери власну стрічку з підписок, фідів, списків, пошуку й профілів: ключові слова, виключення, без відповідей чи поширень, лише медіа, сортування.</p>
+      <div class="row"><a class="btn sm" href="#/myfeeds/new">Створити стрічку</a><a class="ghost sm" href="#/myfeeds">Мої стрічки</a><a class="ghost sm" href="#/deck">🗂 Колонки</a></div></div>
+    <h3 class="pad">Мої фіди</h3><div id="mine">${spinner()}</div><h3 class="pad">Рекомендовані</h3><div id="rec"></div><h3 class="pad">Знайти нові фіди</h3>
     <form class="searchbar"><input type="search" placeholder="Пошук фідів"></form><div id="disc"></div>`;
   const mine = $("#mine", el);
   const renderMine = async () => {

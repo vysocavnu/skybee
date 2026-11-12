@@ -5,6 +5,7 @@ import * as M from "./more.js";
 import * as S from "./settings.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
+import * as D from "./deck.js";
 import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
@@ -62,6 +63,7 @@ function bindLogin(f) {
 }
 
 function loginScreen() {
+  document.body.classList.remove("guest");
   app.innerHTML = `
   <div class="login">
     <h1>🐝 Skybee</h1>
@@ -73,8 +75,33 @@ function loginScreen() {
       <p class="hint">Ще немає акаунта в Bluesky?</p>
       <a class="ghost wide" href="https://bsky.app" target="_blank" rel="noopener">Зареєструватися на bsky.app ↗</a>
     </form>
+    <form class="card loginform" id="peek">
+      <p class="hint"><b>Переглянути без входу.</b> Встав посилання на пост чи профіль з bsky.app або Skybee — гілку можна прочитати й поділитися нею без акаунта.</p>
+      <input name="url" placeholder="https://bsky.app/profile/…/post/…" autocapitalize="none" spellcheck="false">
+      <p class="err"></p>
+      <button class="ghost wide">Відкрити</button>
+    </form>
   </div>`;
   bindLogin($("form", app));
+  const peek = $("#peek", app);
+  peek.onsubmit = (e) => {
+    e.preventDefault();
+    const m = peek.url.value.trim().match(/profile\/([^/?#\s]+)(?:\/post\/([^/?#\s]+))?/);
+    if (!m) { $(".err", peek).textContent = "Це не схоже на посилання на пост чи профіль"; return; }
+    location.hash = `#/profile/${m[1]}${m[2] ? "/post/" + m[2] : ""}`;
+  };
+}
+
+/* ---------- guest: reading shared threads and profiles without an account ---------- */
+// Everything here comes from the public AppView; anything that writes asks to sign in
+const guestRoute = () => {
+  const seg = location.hash.slice(1).split("?")[0].split("/").filter(Boolean);
+  return seg[0] === "profile" && seg[1] && seg[1] !== "me" && !["known", "likes"].includes(seg[2]);
+};
+const GUEST_ACTS = new Set(["back", "unblur", "showMuted", "lightbox", "lightboxOne", "translate"]);
+function guestShell() {
+  document.body.classList.add("guest");
+  app.innerHTML = `<header class="guestbar"><a class="logo" href="#/login">🐝 <b>Skybee</b></a><span class="muted small grow">перегляд без входу</span><a class="btn sm" href="#/login">Увійти</a></header><main id="main"></main>`;
 }
 
 // One more account: after signing in it becomes the active one
@@ -87,7 +114,7 @@ function addAccountDialog() {
 /* ---------- shell ---------- */
 const NAV = [
   ["#/", "🏠", "Головна"], ["#/search", "🔍", "Пошук"], ["#/notifications", "🔔", "Сповіщення", "nbadge"],
-  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/lists", "📋", "Списки"], ["#/bookmarks", "🔖", "Закладки"],
+  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/deck", "🗂", "Колонки"], ["#/lists", "📋", "Списки"], ["#/bookmarks", "🔖", "Закладки"],
   ["#/profile/me", "👤", "Профіль"], ["#/settings", "⚙️", "Налаштування"],
 ];
 const meChip = () => {
@@ -131,7 +158,7 @@ function shell() {
     <div id="sidebox"></div>
     <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
-  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 7].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
+  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
   <button class="fab" data-act="compose">✏️</button>`;
 }
 
@@ -155,7 +182,8 @@ window.addEventListener("skybee:badge", badges);
 /* ---------- router ---------- */
 async function route() {
   await api.prefsReady; // muted words must be known before the first post is drawn
-  if (!api.session) return loginScreen();
+  if (!api.session && !guestRoute()) return loginScreen();
+  if (!api.session && !$("#main")) guestShell();
   cleanup?.(); cleanup = null;
   document.body.classList.remove("drawer");
   document.querySelector(".popmenu")?.remove();
@@ -166,12 +194,14 @@ async function route() {
   path = path || "/";
   const q = Object.fromEntries(new URLSearchParams(qs || ""));
   const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
+  if (path === "/login" && api.session) { location.replace("#/"); return; }
   if (seg[0] === "profile" && seg[1] === "me") { location.replace(`#/profile/${api.session.handle}${seg.length > 2 ? "/" + seg.slice(2).join("/") : ""}`); return; }
   document.querySelectorAll("[data-nav]").forEach(a => {
     const h = a.dataset.nav.slice(1);
-    a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session.handle)));
+    a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session?.handle)));
   });
   main.innerHTML = "";
+  document.body.classList.remove("deckmode");
   main._tint = null; // the page colour stays only if the new screen claims it (profile, post)
   const keepScroll = sessionStorage.getItem("skybee.scroll:" + location.hash);
   scrollTo(0, 0);
@@ -184,6 +214,10 @@ async function route() {
     else if (seg[0] === "lists") r = M.lists(main);
     else if (seg[0] === "starter-pack" && seg[2]) r = M.starterPack(main, { actor: seg[1], rkey: seg[2] });
     else if (seg[0] === "feeds") r = V.feeds(main);
+    else if (seg[0] === "deck") r = D.deck(main);
+    else if (seg[0] === "myfeeds" && seg[1]) r = D.myFeedEdit(main, { id: seg[1] });
+    else if (seg[0] === "myfeeds") r = D.myFeeds(main);
+    else if (seg[0] === "myfeed" && seg[1]) r = D.myFeedView(main, { id: seg[1] });
     else if (seg[0] === "feed") r = V.feed(main, { uri: seg[1] });
     else if (seg[0] === "list") r = V.list(main, { uri: seg[1] });
     else if (seg[0] === "bookmarks") r = V.bookmarks(main);
@@ -192,7 +226,7 @@ async function route() {
       moderation: S.moderation, notifs: S.notifications, media: S.media, appearance: S.appearance, a11y: S.a11y, langs: S.langs, help: S.help, about: S.about,
     }[seg[1]] || (seg[1] === "mutes" || seg[1] === "blocks" ? (m) => V.modList(m, { kind: seg[1] }) : S.index))(main);
     else if (seg[0] === "profile" && seg[2] === "post" && seg[4]) r = V.postUsers(main, { actor: seg[1], rkey: seg[3], kind: seg[4] });
-    else if (seg[0] === "profile" && seg[2] === "post") r = V.thread(main, { actor: seg[1], rkey: seg[3] });
+    else if (seg[0] === "profile" && seg[2] === "post") r = V.thread(main, { actor: seg[1], rkey: seg[3], read: "read" in q });
     else if (seg[0] === "profile" && ["followers", "follows", "known"].includes(seg[2])) r = V.follows(main, { actor: seg[1], kind: seg[2] });
     else if (seg[0] === "profile") r = V.profile(main, { actor: seg[1], tab: seg[2] });
     else main.innerHTML = `<p class="pad">Сторінку не знайдено. <a href="#/">На головну</a></p>`;
@@ -208,6 +242,9 @@ window.addEventListener("hashchange", route);
 addEventListener("scroll", () => { try { sessionStorage.setItem("skybee.scroll:" + location.hash, scrollY); } catch {} }, { passive: true });
 
 /* ---------- helpers for actions ---------- */
+// A link to the post in Skybee itself; the desktop app has no web address, so it gives the site's one
+const skybeeUrl = (p) => (location.protocol.startsWith("http") ? location.origin + location.pathname : "https://vysocavnu.github.io/skybee/") +
+  `#/profile/${encodeURIComponent(p.author?.handle || p.uri.split("/")[2])}/post/${p.uri.split("/").pop()}`;
 const postOf = (el) => posts.get(el.closest("[data-uri]")?.dataset.uri);
 const refreshPostEl = (uri) => {
   // re-render action bars of every copy of this post on screen
@@ -249,6 +286,18 @@ document.addEventListener("click", async (e) => {
   }
   e.preventDefault(); e.stopPropagation();
   const p = postOf(actEl);
+  if (!api.session && !GUEST_ACTS.has(act)) {
+    if (act === "postMenu" && p) {
+      const c = await menu(actEl, [{ act: "copyText", label: "📋 Копіювати текст" }, { act: "copySkybee", label: "🐝 Копіювати посилання" }, { act: "copyLink", label: "🔗 Посилання на bsky.app" }, "-", { act: "login", label: "Увійти, щоб відповісти чи вподобати" }]);
+      if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
+      if (c === "copySkybee") { await navigator.clipboard.writeText(skybeeUrl(p)); toast("Посилання скопійовано"); }
+      if (c === "copyLink") { await navigator.clipboard.writeText(webUrl(p)); toast("Посилання скопійовано"); }
+      if (c === "login") location.hash = "#/login";
+      return;
+    }
+    toast("Щоб це зробити, увійди в акаунт");
+    return;
+  }
   try {
     switch (act) {
       case "back": history.length > 1 ? history.back() : (location.hash = "#/"); break;
@@ -299,6 +348,7 @@ document.addEventListener("click", async (e) => {
           { act: "translate", label: "🌐 Перекласти" },
           { act: "copyText", label: "📋 Копіювати текст" },
           { act: "copyLink", label: "🔗 Копіювати посилання" },
+          { act: "copySkybee", label: "🐝 Посилання Skybee (відкривається й без входу)" },
           { act: "sendDm", label: "✉️ Надіслати в чат" },
           { act: "muteThread", label: p.viewer?.threadMuted ? "🔔 Не приховувати гілку" : "🔕 Приховати гілку" },
           "-",
@@ -333,6 +383,7 @@ document.addEventListener("click", async (e) => {
         if (c === "translate") window.open(`https://translate.google.com/?sl=auto&tl=${S.translateLang()}&text=${encodeURIComponent(p.record?.text || "")}`, "_blank");
         if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
         if (c === "copyLink") { await navigator.clipboard.writeText(webUrl(p)); toast("Посилання скопійовано"); }
+        if (c === "copySkybee") { await navigator.clipboard.writeText(skybeeUrl(p)); toast("Посилання скопійовано"); }
         if (c === "muteThread") {
           const on = !p.viewer?.threadMuted;
           await api.post(on ? "app.bsky.graph.muteThread" : "app.bsky.graph.unmuteThread", { root: rootUri || p.uri });
@@ -557,7 +608,8 @@ window.addEventListener("beforeinstallprompt", (e) => {
 /* ---------- boot ---------- */
 function boot() {
   api.loadSession();
-  if (!api.session) return loginScreen();
+  if (!api.session) return guestRoute() ? (guestShell(), route()) : loginScreen();
+  document.body.classList.remove("guest");
   api.primePrefs();
   shell();
   route();

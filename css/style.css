@@ -447,3 +447,56 @@ main.sb-tint .phead .bigava { border-color: var(--accent); }
 
 /* thin scrollbars everywhere (the desktop app shows Chromium's thick ones with arrows otherwise) */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent; }
+
+/* ---------- deck: several columns side by side ---------- */
+body.deckmode #app { grid-template-columns: 240px minmax(0, 1fr); justify-content: stretch; }
+body.deckmode aside.right { display: none; }
+body.deckmode main { border-right: 0; padding-bottom: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.deck { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px; overflow-x: auto; overscroll-behavior-x: contain; }
+.dcol { flex: 0 0 360px; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.dhead { display: flex; align-items: center; gap: 2px; padding: 6px 6px 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.dhead .dtitle { flex: 1; min-width: 0; }
+.dhead .icon { border: 0; padding: 4px 8px; }
+.dbody { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.dbody .post { padding: 10px 12px; }
+.dcol > .muted, .deck > .muted { margin: auto; }
+@media (max-width: 1100px) { body.deckmode #app { grid-template-columns: 80px minmax(0, 1fr); } }
+/* phones: one column per screen, swiped sideways */
+@media (max-width: 640px) {
+  body.deckmode main { height: calc(100dvh - 58px - env(safe-area-inset-bottom)); }
+  .deck { padding: 0; gap: 0; scroll-snap-type: x mandatory; }
+  .dcol { flex-basis: 100vw; border-radius: 0; border-width: 0 1px 0 0; scroll-snap-align: start; }
+}
+
+/* ---------- media grid ---------- */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; }
+.tile { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--panel); border-radius: 4px; }
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+.tile:hover img { transform: scale(1.04); }
+.tile.blur img { filter: blur(18px); }
+.tbadge { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
+.dbody .tiles { grid-template-columns: repeat(2, 1fr); }
+
+/* ---------- reading mode: a thread as one text ---------- */
+.reader { padding: 20px 22px 40px; }
+.reader > .row { margin-bottom: 18px; }
+.reader .who { display: flex; flex-direction: column; }
+.reader section { position: relative; padding-bottom: 14px; }
+.reader .text { font-size: 18px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.reader .rnum { display: block; text-align: right; margin-top: 4px; opacity: .6; }
+.reader section + section { border-top: 1px dashed color-mix(in srgb, var(--line) 70%, transparent); padding-top: 14px; }
+
+/* ---------- own feed builder ---------- */
+.builder .field select { margin-top: 4px; }
+.builder .row.wrap .field { min-width: 140px; margin: 4px 0; }
+.srcrow { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; color: var(--text); font-size: 14px; }
+label.check { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+label.check input { width: auto; }
+
+/* ---------- guest: reading without an account ---------- */
+body.guest #app { display: block; max-width: 640px; margin: 0 auto; }
+body.guest main { border-top: 0; }
+body.guest [data-act="drawer"] { display: none; }
+.guestbar { position: sticky; top: 0; z-index: 11; display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.guestbar .logo { color: var(--text); font-size: 18px; }
+body.guest .topbar { top: 49px; }

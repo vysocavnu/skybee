@@ -400,7 +400,8 @@ export async function attachVideo(video) {
 }
 
 /* ---------- infinite scroll ---------- */
-export function infinite(container, loader) {
+// root: the scrolling box when it is not the page itself (deck columns)
+export function infinite(container, loader, root = null) {
   const sentinel = document.createElement("div");
   sentinel.className = "sentinel";
   sentinel.innerHTML = `<div class="spinner"></div>`;
@@ -414,7 +415,7 @@ export function infinite(container, loader) {
     busy = false;
     if (done && !sentinel.querySelector(".err")) sentinel.innerHTML = `<p class="muted center small">Це все 🐝</p>`;
     else if (!done) { io.unobserve(sentinel); io.observe(sentinel); }
-  }, { rootMargin: "800px" });
+  }, { root, rootMargin: "800px" });
   io.observe(sentinel);
   return () => io.disconnect();
 }
