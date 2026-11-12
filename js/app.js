@@ -2,11 +2,13 @@
 import * as api from "./api.js";
 import * as V from "./views.js";
 import * as M from "./more.js";
+import * as S from "./settings.js";
 import * as notify from "./notify.js";
 import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
-try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; document.body.style.fontSize = (localStorage.getItem("skybee.font") || "15") + "px"; } catch {}
+try { S.applyLook(); } catch {}
+matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => S.applyLook()); // «as in the system» follows the OS live
 
 const app = $("#app");
 let cleanup = null;
@@ -28,7 +30,7 @@ const LOGIN_FIELDS = `
   <p class="err"></p>
   <button class="btn wide">Увійти</button>`;
 const LOGIN_HINT = {
-  app: "<b>Пароль застосунку</b> безпечніший: його створюють окремо (bsky.app → Налаштування → Конфіденційність і безпека → Паролі застосунків) і можна будь-коли відкликати. Для чатів постав галочку доступу до повідомлень.",
+  app: "<b>Пароль застосунку</b> безпечніший: його можна будь-коли відкликати. Створити його можна прямо в Skybee (Налаштування → Конфіденційність і безпека → Паролі застосунків) після одного входу з основним паролем. Для чатів постав галочку доступу до повідомлень.",
   main: "<b>Основний пароль</b> дає повний доступ до акаунта. Він надсилається лише на сервер Bluesky і в Skybee не зберігається. Якщо ввімкнено підтвердження поштою, знадобиться код із листа.",
 };
 
@@ -183,8 +185,10 @@ async function route() {
     else if (seg[0] === "feed") r = V.feed(main, { uri: seg[1] });
     else if (seg[0] === "list") r = V.list(main, { uri: seg[1] });
     else if (seg[0] === "bookmarks") r = V.bookmarks(main);
-    else if (seg[0] === "settings") r = seg[1] === "words" ? V.mutedWords(main) : seg[1] === "content" ? M.contentFilters(main) : seg[1] === "account" ? M.account(main)
-      : seg[1] === "passwords" ? M.appPasswords(main) : seg[1] ? V.modList(main, { kind: seg[1] }) : V.settings(main);
+    else if (seg[0] === "settings") r = ({
+      words: V.mutedWords, content: M.contentFilters, passwords: M.appPasswords, account: S.account, accounts: S.accounts, privacy: S.privacy,
+      moderation: S.moderation, notifs: S.notifications, media: S.media, appearance: S.appearance, a11y: S.a11y, langs: S.langs, help: S.help, about: S.about,
+    }[seg[1]] || (seg[1] === "mutes" || seg[1] === "blocks" ? (m) => V.modList(m, { kind: seg[1] }) : S.index))(main);
     else if (seg[0] === "profile" && seg[2] === "post" && seg[4]) r = V.postUsers(main, { actor: seg[1], rkey: seg[3], kind: seg[4] });
     else if (seg[0] === "profile" && seg[2] === "post") r = V.thread(main, { actor: seg[1], rkey: seg[3] });
     else if (seg[0] === "profile" && ["followers", "follows", "known"].includes(seg[2])) r = V.follows(main, { actor: seg[1], kind: seg[2] });
@@ -281,7 +285,7 @@ document.addEventListener("click", async (e) => {
         else { await api.bookmark(p); p.viewer = { ...(p.viewer || {}), bookmarked: true }; toast("Додано в закладки 🔖"); }
         refreshPostEl(p.uri); break;
       }
-      case "translate": window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(p.record?.text || "")}`, "_blank"); break;
+      case "translate": window.open(`https://translate.google.com/?sl=auto&tl=${S.translateLang()}&text=${encodeURIComponent(p.record?.text || "")}`, "_blank"); break;
       case "editGate": editGate(p); break;
       case "postMenu": {
         const mine = p.author.did === api.session.did, my = `at://${api.session.did}/`;
@@ -322,7 +326,7 @@ document.addEventListener("click", async (e) => {
         if (c === "detach" && await confirmBox("Від'єднати ваш пост від цієї цитати? Замість нього там буде позначка «від'єднано».", "Від'єднати", true)) {
           await api.detachQuote(quoted.uri, p.uri); toast("Цитату від'єднано"); setTimeout(reloadView, 800);
         }
-        if (c === "translate") window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(p.record?.text || "")}`, "_blank");
+        if (c === "translate") window.open(`https://translate.google.com/?sl=auto&tl=${S.translateLang()}&text=${encodeURIComponent(p.record?.text || "")}`, "_blank");
         if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
         if (c === "copyLink") { await navigator.clipboard.writeText(webUrl(p)); toast("Посилання скопійовано"); }
         if (c === "muteThread") {
@@ -502,6 +506,20 @@ function peopleDialog(title, onPick) {
     try { await onPick(b.dataset.did); m.close(); } catch (ex) { toast(ex.message); b.disabled = false; }
   });
 }
+
+/* ---------- GIFs play by themselves when that is turned on ---------- */
+const gifSeen = new IntersectionObserver((list) => {
+  for (const e of list) {
+    const v = e.target;
+    if (e.isIntersecting) { if (!v.dataset.ready) attachVideo(v); else v.play().catch(() => {}); }
+    else if (v.dataset.ready) v.pause();
+  }
+}, { threshold: 0.5 });
+new MutationObserver(() => {
+  let on = false; try { on = localStorage.getItem("skybee.autogif") === "1"; } catch {}
+  if (!on) return;
+  document.querySelectorAll("video[data-gif]:not([data-watched])").forEach(v => { v.dataset.watched = "1"; gifSeen.observe(v); });
+}).observe(document.getElementById("app"), { childList: true, subtree: true });
 
 /* ---------- keyboard shortcuts ---------- */
 document.addEventListener("keydown", (e) => {

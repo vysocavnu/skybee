@@ -125,14 +125,14 @@ async function refresh(s) {
 /* ---------- XRPC ---------- */
 // opts: { params, body, raw (Blob), contentType, proxy, retry }
 export async function xrpc(method, opts = {}) {
-  const { params, body, raw, contentType, proxy, retry = true, as: s = session } = opts;
+  const { params, body, raw, contentType, proxy, retry = true, as: s = session, headers: extra } = opts;
   const url = new URL(`${s.pds}/xrpc/${method}`);
   if (params) for (const [k, v] of Object.entries(params)) {
     if (v == null) continue;
     if (Array.isArray(v)) v.forEach(x => url.searchParams.append(k, x));
     else url.searchParams.set(k, v);
   }
-  const headers = { Authorization: `Bearer ${s.accessJwt}` };
+  const headers = { ...extra, Authorization: `Bearer ${s.accessJwt}` };
   if (proxy) headers["atproto-proxy"] = proxy;
   let payload;
   if (raw) { payload = raw; headers["Content-Type"] = contentType || raw.type || "application/octet-stream"; }
@@ -303,7 +303,42 @@ export async function followAll(dids) {
   for (let i = 0; i < writes.length; i += 100) await post("com.atproto.repo.applyWrites", { repo: session.did, writes: writes.slice(i, i + 100) });
 }
 
+/* ---------- languages of feed content ---------- */
+// Custom feeds pick posts in these languages (sent as Accept-Language); empty → any language
+export function contentLangs() { try { return JSON.parse(localStorage.getItem("skybee.contentLangs")) || []; } catch { return []; } }
+export const feedHeaders = () => { const l = contentLangs(); return l.length ? { headers: { "Accept-Language": l.join(",") } } : undefined; };
+
 /* ---------- account ---------- */
+// E-mail: a change needs a code from the current address once the address is confirmed
+export const requestEmailUpdate = () => post("com.atproto.server.requestEmailUpdate");
+export const updateEmail = (email, token, emailAuthFactor) => post("com.atproto.server.updateEmail", { email, token: token?.trim() || undefined, emailAuthFactor });
+export const requestEmailConfirmation = () => post("com.atproto.server.requestEmailConfirmation");
+export const confirmEmail = (email, token) => post("com.atproto.server.confirmEmail", { email, token: token.trim() });
+export const deactivateAccount = () => post("com.atproto.server.deactivateAccount", {});
+export const requestAccountDelete = () => post("com.atproto.server.requestAccountDelete");
+export const deleteAccount = (password, token) => post("com.atproto.server.deleteAccount", { did: session.did, password, token: token.trim() });
+// Server-side notification settings: which kinds appear in the list and from whom
+export const getNotifPrefs = () => get("app.bsky.notification.getPreferences").then(d => d.preferences || {});
+export const putNotifPrefs = (patch) => post("app.bsky.notification.putPreferencesV2", patch);
+// Who may get notified about my new posts: "followers" | "mutuals" | "none"
+const NDECL = "app.bsky.notification.declaration";
+export async function getActivityAccess() {
+  try { return (await get("com.atproto.repo.getRecord", { repo: session.did, collection: NDECL, rkey: "self" })).value.allowSubscriptions || "followers"; }
+  catch { return "followers"; }
+}
+export const setActivityAccess = (allowSubscriptions) =>
+  post("com.atproto.repo.putRecord", { repo: session.did, collection: NDECL, rkey: "self", record: { $type: NDECL, allowSubscriptions } });
+// «Ask apps not to show my account to people who are not signed in» is a self-label on the profile
+const NOAUTH = "!no-unauthenticated";
+export const loggedOutHidden = async () => !!(await getOwnProfileRecord()).labels?.values?.some(l => l.val === NOAUTH);
+export async function setLoggedOutHidden(on) {
+  const rec = await getOwnProfileRecord();
+  const vals = (rec.labels?.values || []).filter(l => l.val !== NOAUTH);
+  if (on) vals.push({ val: NOAUTH });
+  if (vals.length) rec.labels = { $type: "com.atproto.label.defs#selfLabels", values: vals }; else delete rec.labels;
+  await putOwnProfileRecord(rec);
+}
+
 export const getAccount = () => get("com.atproto.server.getSession");
 export async function changeHandle(handle) {
   handle = normalizeHandle(handle);

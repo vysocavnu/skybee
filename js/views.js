@@ -5,7 +5,6 @@ import {
   $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
 } from "./ui.js";
-import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
 
 export const MENU_BTN = `<button class="ghost icon only-mobile" data-act="drawer" title="Меню">☰</button>`; // phones: opens the side menu
@@ -74,7 +73,7 @@ export async function home(el) {
     stop = paged(body, async (cursor) => {
       const d = t.kind === "timeline" ? await api.get("app.bsky.feed.getTimeline", { limit: 30, cursor }).then(homeFilter)
         : t.kind === "list" ? await api.get("app.bsky.feed.getListFeed", { list: t.uri, limit: 30, cursor })
-        : await api.get("app.bsky.feed.getFeed", { feed: t.uri, limit: 30, cursor });
+        : await api.get("app.bsky.feed.getFeed", { feed: t.uri, limit: 30, cursor }, api.feedHeaders());
       return { html: feedItems(d.feed, true), cursor: d.cursor };
     });
   };
@@ -96,7 +95,7 @@ export async function feed(el, { uri }) {
       <button class="ghost sm" data-act="likeFeed" data-uri="${esc(uri)}" data-cid="${esc(g.cid)}" data-like="${esc(g.viewer?.like || "")}">${g.viewer?.like ? "♥" : "♡"}</button></div>
     </div>`;
   return paged(el, async (cursor) => {
-    const d = await api.get("app.bsky.feed.getFeed", { feed: uri, limit: 30, cursor });
+    const d = await api.get("app.bsky.feed.getFeed", { feed: uri, limit: 30, cursor }, api.feedHeaders());
     return { html: feedItems(d.feed, true), cursor: d.cursor };
   });
 }
@@ -560,104 +559,6 @@ export async function convo(el, { id }) {
 export async function startDm(did) {
   const d = await api.chat("chat.bsky.convo.getConvoForMembers", { members: [did] });
   location.hash = `#/messages/${d.convo.id}`;
-}
-
-/* ================= SETTINGS ================= */
-export async function settings(el) {
-  const theme = document.documentElement.dataset.theme || "dark";
-  const store = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
-  const font = store("skybee.font") || "15", home = api.pref("feedViewPref", "home");
-  const tsort = ["oldest", "newest"].includes(api.pref("threadViewPref").sort) ? api.pref("threadViewPref").sort : "most-likes";
-  const saved = (promise, input) => promise.then(() => toast("Збережено"), (ex) => { toast(ex.message); if (input) input.checked = !input.checked; });
-  // every account signed in on this device; avatars and names arrive a moment later
-  const accountRows = (profiles = []) => api.accounts.map(a => {
-    const p = profiles.find(p => p.did === a.did) || a, active = a.did === session.did;
-    return `<div class="accrow">${avatar(p, 40)}
-      <div class="who"><b>${name(p)}</b><span class="muted small">${at(a.handle)}${active ? ` · сервер ${esc((a.pds || "").replace(/^https?:\/\//, ""))}` : ""}</span></div>
-      ${active ? `<span class="pill">активний</span><button class="ghost sm danger" data-act="logout">Вийти</button>`
-        : `<button class="ghost sm" data-act="switchAccount" data-did="${esc(a.did)}">Перемкнути</button><button class="ghost sm" data-act="removeAccount" data-did="${esc(a.did)}" title="Вийти з цього акаунта">✕</button>`}
-    </div>`;
-  }).join("");
-  el.innerHTML = header("Налаштування") + `
-    <div class="card">
-      <h3>Акаунти</h3>
-      <div id="acclist">${accountRows()}</div>
-      <div class="row wrap">
-        <button class="ghost sm" data-act="addAccount">➕ Додати акаунт</button>
-      </div>
-      <a class="rowlink" href="#/settings/account">Акаунт: нік, пошта, пароль, експорт даних →</a>
-      <a class="rowlink" href="#/settings/passwords">Паролі застосунків →</a>
-    </div>
-    <div class="card">
-      <h3>Вигляд</h3>
-      <div class="seg">${[["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]].map(([k, l]) => `<button data-theme-set="${k}" class="${k === theme ? "on" : ""}">${l}</button>`).join("")}</div>
-    </div>
-    <div class="card">
-      <h3>Розмір тексту</h3>
-      <div class="seg">${[["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]].map(([k, l]) => `<button data-font="${k}" class="${k === font ? "on" : ""}">${l}</button>`).join("")}</div>
-    </div>
-    <div class="card">
-      <h3>Стрічка «Підписки»</h3>
-      ${[["hideReplies", "Приховувати відповіді"], ["hideReposts", "Приховувати поширення"], ["hideQuotePosts", "Приховувати цитати"]].map(([k, l]) =>
-        `<label class="radio"><input type="checkbox" data-home="${k}" ${home[k] ? "checked" : ""}> ${l}</label>`).join("")}
-      <a class="rowlink" href="#/feeds">Мої фіди та їхній порядок →</a>
-    </div>
-    <div class="card">
-      <h3>Гілки</h3>
-      <label class="field">Порядок відповідей<select id="tsort">${[["most-likes", "Спершу популярні"], ["oldest", "Спершу старіші"], ["newest", "Спершу новіші"]].map(([v, l]) =>
-        `<option value="${v}" ${v === tsort ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-    </div>
-    <div class="card">
-      <h3>Конфіденційність</h3>
-      <label class="field">Хто може написати мені в чат<select id="chatacc" disabled><option value="all">Усі</option><option value="following">Ті, за ким я стежу</option><option value="none">Ніхто</option></select></label>
-    </div>
-    <div class="card">
-      <h3>Доступність</h3>
-      <label class="radio"><input type="checkbox" id="reqalt" ${store("skybee.requireAlt") === "1" ? "checked" : ""}> Не публікувати фото й відео без опису (ALT)</label>
-    </div>
-    <div class="card">
-      <h3>Мова постів за замовчуванням</h3>
-      <select id="deflang">${[["uk", "Українська"], ["en", "English"], ["pl", "Polski"], ["be", "Беларуская"], ["ru", "Русский"]].map(([c, n]) => `<option value="${c}" ${c === getLang() ? "selected" : ""}>${n}</option>`).join("")}</select>
-    </div>
-    <div class="card">
-      <h3>Сповіщення</h3>
-      <label class="radio"><input type="checkbox" id="sysnotify" ${notify.enabled() ? "checked" : ""} ${notify.supported() ? "" : "disabled"}> Системні сповіщення про нові події та повідомлення</label>
-      <p class="small muted">${notify.supported()
-        ? "Надходять, поки Skybee відкритий — у вкладці (навіть фоновій) або як встановлений застосунок. Коли Skybee закрито, сповіщень немає: для цього потрібен власний сервер."
-        : "Цей браузер не підтримує системні сповіщення."}</p>
-    </div>
-    <div class="card"><h3>Модерація</h3>
-      <a class="rowlink" href="#/settings/words">Приховані слова →</a>
-      <a class="rowlink" href="#/settings/mutes">Приховані акаунти →</a>
-      <a class="rowlink" href="#/settings/blocks">Заблоковані акаунти →</a>
-      <a class="rowlink" href="#/settings/content">Фільтри контенту →</a>
-      <a class="rowlink" href="#/lists">Списки (зокрема модераційні) →</a>
-    </div>
-    <div class="card"><h3>Про Skybee</h3><p class="small muted">🐝 Skybee — відкритий клієнт Bluesky. <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">Код на GitHub</a></p>
-      <button class="ghost sm" data-act="install" ${pwa.install ? "" : "hidden"}>📲 Встановити як застосунок</button></div>`;
-  el.querySelectorAll("[data-theme-set]").forEach(b => b.onclick = () => {
-    const t = b.dataset.themeSet; document.documentElement.dataset.theme = t;
-    try { localStorage.setItem("skybee.theme", t); } catch {}
-    el.querySelectorAll("[data-theme-set]").forEach(x => x.classList.toggle("on", x === b));
-  });
-  el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => {
-    document.body.style.fontSize = b.dataset.font + "px";
-    try { localStorage.setItem("skybee.font", b.dataset.font); } catch {}
-    el.querySelectorAll("[data-font]").forEach(x => x.classList.toggle("on", x === b));
-  });
-  el.querySelectorAll("[data-home]").forEach(c => c.onchange = () => saved(api.updatePref("feedViewPref", { [c.dataset.home]: c.checked }, "home"), c));
-  $("#tsort", el).onchange = (e) => saved(api.updatePref("threadViewPref", { sort: e.target.value }));
-  $("#reqalt", el).onchange = (e) => { try { e.target.checked ? localStorage.setItem("skybee.requireAlt", "1") : localStorage.removeItem("skybee.requireAlt"); } catch {} toast("Збережено"); };
-  api.getChatAccess().then(v => { const s = $("#chatacc", el); if (!s) return; s.value = v; s.disabled = false; s.onchange = () => saved(api.setChatAccess(s.value)); });
-  $("#deflang", el).onchange = (e) => { try { localStorage.setItem("skybee.lang", e.target.value); } catch {} toast("Збережено"); };
-  $("#sysnotify", el).onchange = async (e) => {
-    if (!e.target.checked) { notify.disable(); return toast("Сповіщення вимкнено"); }
-    if (await notify.enable()) return toast("Сповіщення увімкнено");
-    e.target.checked = false;
-    toast("Браузер не дозволив сповіщення. Дозволь їх для цього сайту в налаштуваннях браузера.", 5000);
-  };
-  api.get("app.bsky.actor.getProfiles", { actors: api.accounts.map(a => a.did).slice(0, 25) })
-    .then(d => { const box = $("#acclist", el); if (box) box.innerHTML = accountRows(d.profiles); }).catch(() => {});
 }
 
 /* ---------- muted words ---------- */
