@@ -31,4 +31,15 @@ python -m http.server
 ```
 і відкрити http://localhost:8000
 
+## Версія для Windows
+Інсталятор `Skybee_…-setup.exe` і переносний `Skybee-portable.exe` лежать у [релізах](https://github.com/vysocavnu/skybee/releases).
+Це оболонка на Tauri 2 (`src-tauri/`) довкола тієї самої вебверсії; потрібен WebView2 (у Windows 10/11 він уже є, інакше інсталятор довантажить).
+
+Зібрати самому (потрібні Rust і Node):
+```
+npm install -g @tauri-apps/cli@2
+tauri build
+```
+Новий реліз: змінити версію в `src-tauri/tauri.conf.json` і `src-tauri/Cargo.toml`, потім `git tag v0.1.0 && git push origin v0.1.0`.
+
 Ліцензія MIT.

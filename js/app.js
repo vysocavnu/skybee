@@ -539,7 +539,7 @@ window.addEventListener("storage", (e) => {
 });
 
 /* ---------- PWA ---------- */
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !window.__TAURI_INTERNALS__) { // the desktop app ships its own files, no service worker there
   navigator.serviceWorker.register("sw.js").catch(() => {});
   // a click on a system notification: sw.js asks the open tab to show the right screen
   navigator.serviceWorker.addEventListener("message", (e) => { if (e.data?.type === "skybee:open") location.hash = e.data.hash; });

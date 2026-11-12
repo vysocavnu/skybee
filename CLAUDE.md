@@ -7,7 +7,9 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Зараз це **веб-версія** (vanilla JS, ES-модулі, без збірки і без залежностей).
 - Хостинг: GitHub Pages з гілки `main`, корінь репозиторію → https://vysocavnu.github.io/skybee
   Кожен push у `main` автоматично оновлює сайт.
-- План: спершу довести веб-версію, потім загорнути в **Tauri 2** для Windows, Linux, macOS, Android, iOS.
+- Є **десктопна оболонка на Tauri 2** (`src-tauri/`), поки що для Windows: інсталятор NSIS + переносний EXE.
+  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; зміни в `src-tauri/` або ручний запуск → артефакти.
+  Версію міняти разом у `src-tauri/tauri.conf.json` і `src-tauri/Cargo.toml`. Далі за планом: Linux, macOS, Android, iOS.
 
 ## Структура
 - `index.html` — оболонка, підключає `css/style.css` і `js/app.js`
@@ -23,6 +25,8 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - `js/settings.js` — налаштування: головний список розділів і всі підсторінки (`#/settings/<розділ>`); тема, шрифт, «спокійний» режим (`applyLook`).
   Нічого не відкриває на bsky.app — усе робиться в Skybee
 - `js/notify.js` — системні сповіщення, поки застосунок відкритий (опитування раз на хвилину)
+- `src-tauri/` — оболонка Tauri: `src/main.rs` (вікно, зовнішні посилання → системний браузер, один екземпляр, сповіщення через плагін),
+  `tauri.conf.json`, `capabilities/`. `scripts/dist.mjs` копіює вебфайли в `dist/` для збірки (новий файл/теку в корені треба дописати туди)
 - `js/app.js` — роутер на hash (`#/profile/<handle>/post/<rkey>` тощо), навігація, глобальні дії через `data-act`
 
 ## Правила
