@@ -461,11 +461,36 @@ export async function about(el) {
       <p class="small muted">Відкритий клієнт для Bluesky. Без реклами, без трекерів, без збирання даних: усе зберігається у вашому акаунті Bluesky або в цьому браузері.</p>
       <a class="ghost sm" href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">Код на GitHub</a>
       <button class="btn sm" data-act="install" ${pwa.install ? "" : "hidden"}>📲 Встановити як застосунок</button></div>
+    ${window.skybeeDesktop?.update ? `<div class="card"><h3>Оновлення</h3>
+      <p class="small muted" id="appver">Версія застосунку: …</p>
+      <button class="btn sm" id="checkupd">Перевірити оновлення</button>
+      <p class="small" id="updres" hidden></p></div>` : ""}
     <div class="card"><h3>Цей пристрій</h3>
       <button class="ghost sm" id="clearcache">Очистити кеш застосунку</button>
       <p class="small muted">Допомагає, якщо після оновлення щось виглядає дивно. Акаунти й налаштування залишаться.</p>
       <button class="ghost sm danger" id="resetlocal">Скинути налаштування цього пристрою</button>
       <p class="small muted">Тема, розмір тексту, мови й чернетка повернуться до початкових. Акаунти й налаштування в акаунті Bluesky не зміняться.</p></div>`;
+  const upd = $("#checkupd", el);
+  if (upd) {
+    window.skybeeDesktop.version().then((v) => { $("#appver", el).textContent = `Версія застосунку: ${v}`; }).catch(() => {});
+    upd.onclick = async () => {
+      const res = $("#updres", el);
+      upd.disabled = true; upd.textContent = "Перевіряю…"; res.hidden = true;
+      let r;
+      try { r = await window.skybeeDesktop.update(); } catch { r = { state: "error", code: "ipc" }; }
+      upd.disabled = false; upd.textContent = "Перевірити оновлення";
+      res.textContent = {
+        latest: `✓ У тебе найновіша версія (${r.version}).`,
+        downloading: `Знайдено версію ${r.version}. Вона завантажується у фоні (прогрес — на значку в панелі задач); коли буде готова, Skybee запропонує перезапуститися.`,
+        ready: `Версія ${r.version} вже завантажена — перезапусти Skybee, щоб її встановити.`,
+        flatpak: "Цю версію оновлює Flathub: відкрий «Програми» (GNOME Software чи Discover) або виконай flatpak update.",
+        manual: "Ця збірка не оновлюється сама — завантаж нову версію зі сторінки релізів Skybee на GitHub.",
+        dev: "Skybee запущено з вихідного коду — оновлення вимкнені.",
+        error: `Не вдалося перевірити оновлення. Перевір підключення до інтернету й спробуй ще раз пізніше. (${r.code || "network"})`,
+      }[r.state] || "";
+      res.hidden = !res.textContent;
+    };
+  }
   $("#clearcache", el).onclick = async () => {
     try {
       for (const k of await caches.keys()) await caches.delete(k);

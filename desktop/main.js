@@ -87,35 +87,52 @@ async function updateWeb(activeRoot) {
    On start and every 6 hours: electron-updater reads latest.yml from the newest GitHub release, downloads the new
    installer in the background (progress on the taskbar button) and asks to restart. «Later» is fine too: the update
    is installed when Skybee is closed. Only for the installed app — not when run from source (npm start). */
+let updater = null, downloaded = null; // downloaded: the version waiting to be installed
+function askRestart(version) {
+  dialog.showMessageBox(win, {
+    type: "info", title: "Оновлення Skybee", noLink: true, defaultId: 0, cancelId: 1,
+    message: `Завантажено нову версію Skybee ${version}`,
+    detail: "Перезапустити й оновити зараз? Якщо відкласти, оновлення встановиться саме, коли закриєш Skybee.",
+    buttons: ["Оновити зараз", "Пізніше"],
+  }).then(({ response }) => { if (response === 0) setImmediate(() => updater.quitAndInstall(true, true)); }); // silently, then start Skybee again
+}
 function setupShellUpdates() {
   if (!app.isPackaged) return;
   // Windows (installer) and the AppImage update themselves; Flatpak and tar.gz are updated by Flathub / by hand
   if (process.platform !== "win32" && !process.env.APPIMAGE) return;
-  let autoUpdater;
-  try { ({ autoUpdater } = require("electron-updater")); } catch { return; }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = false;
+  try { ({ autoUpdater: updater } = require("electron-updater")); } catch { return; }
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  updater.allowPrerelease = false;
   let asked = false;
-  autoUpdater.on("before-quit-for-update", () => { quitting = true; });
-  autoUpdater.on("download-progress", (p) => win?.setProgressBar(Math.max(0.01, (p.percent || 0) / 100)));
-  autoUpdater.on("error", () => win?.setProgressBar(-1)); // offline, GitHub down…: quietly try again later
-  autoUpdater.on("update-downloaded", async (info) => {
+  updater.on("before-quit-for-update", () => { quitting = true; });
+  updater.on("download-progress", (p) => win?.setProgressBar(Math.max(0.01, (p.percent || 0) / 100)));
+  updater.on("error", () => win?.setProgressBar(-1)); // offline, GitHub down…: quietly try again later
+  updater.on("update-downloaded", (info) => {
     win?.setProgressBar(-1);
-    if (asked) return;
-    asked = true;
-    const { response } = await dialog.showMessageBox(win, {
-      type: "info", title: "Оновлення Skybee", noLink: true, defaultId: 0, cancelId: 1,
-      message: `Завантажено нову версію Skybee ${info.version}`,
-      detail: "Перезапустити й оновити зараз? Якщо відкласти, оновлення встановиться саме, коли закриєш Skybee.",
-      buttons: ["Оновити зараз", "Пізніше"],
-    });
-    if (response === 0) setImmediate(() => autoUpdater.quitAndInstall(true, true)); // silently, then start Skybee again
+    downloaded = info.version;
+    if (!asked) { asked = true; askRestart(info.version); }
   });
-  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  const check = () => updater.checkForUpdates().catch(() => {});
   setTimeout(check, 8000);
   setInterval(check, 6 * 3600e3);
 }
+
+/* «Перевірити оновлення» (Settings → Про Skybee, and the tray menu). Result:
+   { state: "latest" | "downloading" | "ready" | "flatpak" | "manual" | "dev" | "error", version, code? } */
+async function checkUpdatesNow() {
+  const current = app.getVersion();
+  if (!updater) return { state: process.env.FLATPAK_ID ? "flatpak" : app.isPackaged ? "manual" : "dev", version: current };
+  if (downloaded) { askRestart(downloaded); return { state: "ready", version: downloaded }; }
+  try {
+    const r = await updater.checkForUpdates();
+    if (!r?.isUpdateAvailable) return { state: "latest", version: current };
+    return { state: "downloading", version: r.updateInfo.version }; // autoDownload: the restart question comes when it is done
+  } catch (e) {
+    return { state: "error", version: current, code: String(e?.code || e?.statusCode || "network").slice(0, 60) };
+  }
+}
+ipcMain.handle("skybee:update", () => checkUpdatesNow());
 
 // ES modules and localStorage need a real origin, file:// gives neither
 protocol.registerSchemesAsPrivileged([
@@ -141,6 +158,19 @@ function setupTray() {
     { label: "Відкрити Skybee", click: show },
     { label: "Запускати разом із Windows", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin,
       click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked, args: ["--hidden"] }) },
+    { label: "Перевірити оновлення", click: async () => {
+      const r = await checkUpdatesNow();
+      if (r.state === "ready") return; // the restart question is already on screen
+      const text = {
+        latest: [`У тебе найновіша версія Skybee (${r.version}).`, ""],
+        downloading: [`Знайдено нову версію Skybee ${r.version}.`, "Вона завантажується у фоні; коли буде готова, Skybee запропонує перезапуститися."],
+        flatpak: ["Цю версію Skybee оновлює Flathub.", "Відкрий «Програми» (GNOME Software чи Discover) або виконай: flatpak update"],
+        manual: ["Ця збірка не оновлюється сама.", "Завантаж нову версію зі сторінки релізів Skybee на GitHub."],
+        dev: ["Skybee запущено з вихідного коду — оновлення вимкнені.", ""],
+        error: ["Не вдалося перевірити оновлення.", `Перевір підключення до інтернету й спробуй ще раз пізніше. (${r.code})`],
+      }[r.state];
+      dialog.showMessageBox({ type: r.state === "error" ? "warning" : "info", title: "Оновлення Skybee", message: text[0], detail: text[1], buttons: ["OK"], noLink: true });
+    } },
     { type: "separator" },
     { label: "Вийти", click: () => { quitting = true; app.quit(); } },
   ]);
