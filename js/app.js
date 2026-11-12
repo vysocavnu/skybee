@@ -623,5 +623,6 @@ function boot() {
   // own profile: the avatar for the account button and the reply box
   api.get("app.bsky.actor.getProfile", { actor: api.session.did })
     .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const sp = $("#sideProf"); if (sp) sp.innerHTML = sideProfile(p); }).catch(() => {});
+  const sp = $("#sideProf"); if (sp) flair.paint(sp, api.session.did); // own Skybee colour on the profile card
 }
 boot();

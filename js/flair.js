@@ -79,6 +79,14 @@ export function tint(el, did) {
     el.style.setProperty("--sb", c); el.style.setProperty("--sb-ink", inkFor(c)); el.classList.add("sb-tint");
   });
 }
+// A card (own profile in the right column) in the person's colour; no colour → back to the usual look
+export function paint(el, did) {
+  load(did).then((got) => {
+    const c = got?.rec.color;
+    if (!c) { el.classList.remove("sb-tint"); el.style.removeProperty("--sb"); el.style.removeProperty("--sb-ink"); return; }
+    el.style.setProperty("--sb", c); el.style.setProperty("--sb-ink", inkFor(c)); el.classList.add("sb-tint");
+  });
+}
 export function untint(el) {
   el._tint = null;
   el.classList.remove("sb-tint"); el.style.removeProperty("--sb"); el.style.removeProperty("--sb-ink");
@@ -237,6 +245,7 @@ export async function edit(onDone) {
       else if (cur.toy && !f("notoy")?.checked) record.toy = cur.toy;
       await api.post("com.atproto.repo.putRecord", { repo: did, collection: NSID, rkey: "self", record, validate: false });
       cache.delete(did);
+      const card = document.getElementById("sideProf"); if (card) paint(card, did); // the right column follows the new colour
       m.close(); toast("Оформлення збережено"); onDone?.();
     } catch (ex) { err.textContent = ex.message; x.disabled = false; x.textContent = "Зберегти"; }
   });

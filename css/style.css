@@ -404,11 +404,11 @@ body.nolinkthumbs .ext img { display: none; }
 /* page colour: the middle column (profile or post) takes one base colour (--sb) and it fades softly into the side menus.
    Dark and dim themes get its deep shade with light text, the light theme gets the colour as it is;
    --sb-ink (set in js/flair.js) is the text colour that reads on it */
-main.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
+main.sb-tint, .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
   --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
   --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
-[data-theme="dim"] main.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
-[data-theme="light"] main.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
+[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
+[data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
   --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
   --accent: var(--sb-ink); --accent-ink: var(--sb); }
 main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -563,3 +563,9 @@ body.guest .topbar { top: 49px; }
 .memoji[hidden] { display: none; }
 body:has(.chatbar) .fab { display: none; } /* in a chat the ✏️ button would cover the send button */
 .mquote { max-width: min(280px, 70vw); }
+
+/* own profile card in the right column takes the same Skybee colour */
+.sideprof.sb-tint { background: var(--panel); color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
+.sideprof.sb-tint .sp-ava { border-color: var(--panel); }
+.sideprof.sb-tint .ghost { border-color: color-mix(in srgb, var(--text) 30%, transparent); }
+.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(135deg, var(--sb), color-mix(in srgb, var(--sb) 35%, var(--bg))); }
