@@ -24,7 +24,7 @@
     "directories": { "output": "dist" },
     "win": {
       "icon": "icon.ico",
-      "target": ["nsis", "portable"]
+      "target": ["nsis"]
     },
     "nsis": {
       "artifactName": "Skybee-${version}-setup.${ext}",
@@ -36,9 +36,6 @@
       "shortcutName": "Skybee",
       "createDesktopShortcut": true,
       "deleteAppDataOnUninstall": false
-    },
-    "portable": {
-      "artifactName": "Skybee-${version}-portable.${ext}"
     }
   }
 }

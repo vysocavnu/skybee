@@ -33,7 +33,7 @@ python -m http.server
 і відкрити http://localhost:8000
 
 ## Версія для Windows
-Інсталятор `Skybee-…-setup.exe` і переносний `Skybee-…-portable.exe` лежать у [релізах](https://github.com/vysocavnu/skybee/releases).
+Інсталятор `Skybee-…-setup.exe` лежить у [релізах](https://github.com/vysocavnu/skybee/releases).
 Це оболонка на Electron (`desktop/`) довкола тієї самої вебверсії: має власний рушій, Edge чи WebView2 не потрібні.
 
 Інтерфейс оновлюється сам: під час запуску застосунок підтягує свіжу версію із сайту й показує її з наступного запуску.
