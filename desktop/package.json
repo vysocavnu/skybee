@@ -24,6 +24,14 @@
   "build": {
     "appId": "io.github.vysocavnu.skybee",
     "productName": "Skybee",
+    "protocols": [
+      {
+        "name": "Skybee",
+        "schemes": [
+          "skybee"
+        ]
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",

@@ -204,12 +204,25 @@ ipcMain.handle("skybee:captcha", (_e, url, state) => new Promise((resolve) => {
 }));
 const external = (url) => { if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); };
 
+/* ---------- skybee:// links ----------
+   Sign-up happens in the browser; when it is done, the page there opens skybee://login?handle=… and the OS hands it
+   to Skybee — as the start argument, to the running copy (second-instance) or, on macOS, as open-url. */
+const LINK = "skybee";
+let pendingLink = null;
+const linkIn = (argv = []) => argv.find(a => typeof a === "string" && a.toLowerCase().startsWith(LINK + "://")) || null;
+function deliverLink(url) {
+  if (!url) return;
+  if (!app.isReady() || !win) { pendingLink = url; if (app.isReady()) createWindow(); return; }
+  show();
+  if (win.webContents.isLoading()) pendingLink = url; else win.webContents.send("skybee:link", url);
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1200, height: 820, minWidth: 360, minHeight: 520,
     title: "Skybee", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0f1218",
     autoHideMenuBar: true,
-    show: !startHidden,
+    show: !startHidden || !!pendingLink,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true,
       preload: path.join(__dirname, "preload.js"), backgroundThrottling: false }, // keeps polling for notifications while hidden
   });
@@ -240,14 +253,21 @@ function createWindow() {
     if (k.key === "F11") { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
     if (k.key === "F12") { win.webContents.toggleDevTools(); e.preventDefault(); }
   });
+  win.webContents.on("did-finish-load", () => { if (pendingLink) { win.webContents.send("skybee:link", pendingLink); pendingLink = null; } });
   win.on("closed", () => { win = null; });
   win.loadURL(HOME);
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  // a second launch only brings the running window to the front
-  app.on("second-instance", show);
+  // a second launch only brings the running window to the front — or carries a skybee:// link to it
+  pendingLink = linkIn(process.argv);
+  app.on("second-instance", (_e, argv) => { const l = linkIn(argv); l ? deliverLink(l) : show(); });
+  app.on("open-url", (e, url) => { e.preventDefault(); deliverLink(url); }); // macOS
+  // Windows: registered for the current user at every start; Linux: the .desktop file (MimeType) does it
+  if (!process.env.FLATPAK_ID) {
+    try { process.defaultApp ? app.setAsDefaultProtocolClient(LINK, process.execPath, [path.resolve(process.argv[1] || ".")]) : app.setAsDefaultProtocolClient(LINK); } catch {}
+  }
   app.on("before-quit", () => { quitting = true; });
   app.setAppUserModelId("io.github.vysocavnu.skybee"); // Windows shows notifications under this name
   Menu.setApplicationMenu(null);

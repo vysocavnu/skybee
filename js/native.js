@@ -25,3 +25,13 @@ if (isNative) {
     canGoBack ? history.back() : App.exitApp();
   });
 }
+
+// skybee://… links (the browser hands the user back after sign-up): fn(url) for the link that started the app
+// and for every later one. In the desktop app the same comes through skybeeDesktop.onLink.
+export function onLink(fn) {
+  if (window.skybeeDesktop?.onLink) window.skybeeDesktop.onLink(fn);
+  const App = isNative && cap.Plugins?.App;
+  if (!App) return;
+  App.addListener?.("appUrlOpen", (e) => e?.url && fn(e.url));
+  App.getLaunchUrl?.().then((r) => r?.url && fn(r.url)).catch(() => {});
+}

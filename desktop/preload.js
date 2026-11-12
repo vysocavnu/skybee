@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld("skybeeDesktop", {
   captcha: (url, state) => ipcRenderer.invoke("skybee:captcha", url, state),
   version: () => ipcRenderer.invoke("skybee:version"),
   update: () => ipcRenderer.invoke("skybee:update"), // check for a new version of the app now
+  onLink: (cb) => ipcRenderer.on("skybee:link", (_e, url) => cb(String(url))), // skybee://… opened in the browser
 });

@@ -12,3 +12,4 @@ Categories=Network;Chat;
 Keywords=bluesky;atproto;social;
 Keywords[uk]=bluesky;блюскай;соцмережа;
 StartupWMClass=Skybee
+MimeType=x-scheme-handler/skybee;

@@ -48,6 +48,23 @@ jobs:
           npx cap add android
           npx capacitor-assets generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#0f1218'
           npx cap sync android
+      - name: Посилання skybee:// (повернення з реєстрації в браузері)
+        run: |
+          python3 - <<'PY'
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p).read()
+          f = """            <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="skybee" />
+                      </intent-filter>
+          """
+          assert "</activity>" in s
+          s = s.replace("        </activity>", f + "        </activity>", 1)
+          open(p, "w").write(s)
+          PY
+          grep -n "skybee" android/app/src/main/AndroidManifest.xml
       - name: Версія
         run: |
           V=$(node -p "require('./package.json').version")
@@ -92,6 +109,8 @@ jobs:
           plutil -replace NSMicrophoneUsageDescription -string "Щоб записати відео зі звуком" $P
           plutil -replace NSPhotoLibraryAddUsageDescription -string "Щоб зберігати фото з постів" $P
           plutil -replace CFBundleDisplayName -string "Skybee" $P
+          plutil -replace CFBundleURLTypes -json '[{"CFBundleURLName":"io.github.vysocavnu.skybee","CFBundleURLSchemes":["skybee"]}]' $P
+          plutil -p $P | grep -A3 CFBundleURLTypes
       - name: Збірка IPA (без підпису)
         run: |
           V=$(node -p "require('./package.json').version")

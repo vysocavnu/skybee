@@ -18,7 +18,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   (Actions → Desktop → Run workflow, поле «version» = `vX.Y.Z`; з цієї сесії Claude тегів пушити не може) — викладе `.exe`, `.blockmap`, `latest.yml`, Linux і Flatpak.
   Встановлення на всіх користувачів (perMachine), тож Windows один раз попросить дозвіл адміністратора на оновлення.
   Закриття вікна ховає Skybee в трей (сповіщення й далі приходять; «Вийти» — у меню трею; там же «Запускати разом із Windows» → `--hidden`).
-  `preload.js` — єдиний міст: `skybeeDesktop.captcha(url, state)` (капча bsky.social при реєстрації: дочірнє вікно ловить редирект на bsky.app з `code`) і `version()`
+  `preload.js` — єдиний міст: `skybeeDesktop.captcha(url, state)` (не використовується), `version()`, `update()`, `onLink(cb)` (посилання `skybee://`)
   Версія — у `desktop/package.json`. **Linux**: той самий workflow збирає AppImage (оновлюється сам, `latest-linux.yml`) і tar.gz,
   а з tar.gz — **Flatpak** (`flatpak/`: маніфест на `org.electronjs.Electron2.BaseApp` + zypak, `.desktop`, metainfo, іконка; README — як подати у Flathub).
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
@@ -57,7 +57,11 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   конструктор стрічок `#/myfeeds`, `#/myfeeds/<id|new>`, перегляд `#/myfeed/<id>`
 - `js/splash.js` — заставка при вході (раз за сесію, ~3,5 с, дотик пропускає): кремове небо, сонце, пагорби, луки з квітами (векторні, під комп'ютер і телефон),
   золота бджола летить і сідає над «Skybee». Вимкнена при «Зменшити анімацію» чи системному reduce motion. Імпортується першою в `app.js`, помилка в ній застосунок не зупиняє
-- Реєстрація `#/signup` (`signupScreen` в app.js, `api.signup`): сервер (bsky.social чи свій), describeServer, капча bsky.social — лише в десктопі.
+- Реєстрація `#/signup` (`signupScreen` в app.js, `api.signup`): у **застосунках** (десктоп, Android, iOS) — лише кнопка, що відкриває в браузері сайт `#/signup?app=1`;
+  після реєстрації сайт відкриває `skybee://login?handle=…`, і застосунок показує вхід із новим ніком (основний пароль; сесія посиланням не передається).
+  `skybee://` реєструють: десктоп (`setAsDefaultProtocolClient`, `protocols` в electron-builder, MimeType у Flatpak; `second-instance`/`open-url` → `skybeeDesktop.onLink`),
+  Android (intent-filter) та iOS (CFBundleURLTypes) — дописує CI; у JS — `onLink` з `native.js` → `handleLink` в app.js (якщо вже ввійшли — «Додати акаунт»).
+  bsky.social вимагає капчу, яку проводить лише Bluesky, тож для нього сайт веде на bsky.app і дає кнопку «Повернутися в Skybee»; інші сервери — форма на сайті. Капча в десктопі (`skybeeDesktop.captcha`) лишилася, але не використовується.
   GIF: кнопка «GIF» у редакторі, Tenor API з ключем користувача (`skybee.tenorKey`, Налаштування → Вміст і медіа), пост — зовнішнє посилання на media.tenor.com
 - `js/notify.js` — системні сповіщення, поки застосунок відкритий (опитування раз на хвилину)
 - `desktop/` — оболонка Electron: `main.js` (вікно, схема `app://skybee/` для вебфайлів, зовнішні посилання → системний браузер,

@@ -1,7 +1,7 @@
 // Skybee — app shell, router, global actions
 import { errText } from "./errors.js";
 import "./splash.js"; // the welcome scene, first of all
-import "./native.js"; // Android/iOS app: links to the browser, the Back button (nothing in a browser)
+import { isNative, onLink } from "./native.js"; // Android/iOS app: links to the browser, the Back button, skybee:// links
 import * as api from "./api.js";
 import * as V from "./views.js";
 import * as M from "./more.js";
@@ -21,6 +21,18 @@ let cleanup = null;
 
 // Caches, timers and open screens all belong to the active account: when it changes, start from a clean page
 const restart = () => { location.hash = "#/"; location.reload(); };
+const hashQuery = () => new URLSearchParams(location.hash.split("?")[1] || "");
+// the Skybee site: the apps open sign-up there, in the browser; it sends the user back with skybee://login?handle=…
+const SITE = "https://vysocavnu.github.io/skybee/";
+const inApp = () => !!window.skybeeDesktop || isNative;
+const fullHandle = (h) => { h = String(h || "").trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9.@-]/g, ""); return !h || h.includes(".") || h.includes("@") ? h : h + ".bsky.social"; };
+// a login form opened after sign-up: the new handle is filled in, the main password chosen (there is no app password yet)
+function prefillLogin(f, handle) {
+  if (handle) f.handle.value = handle;
+  f.kind.value = "main"; f.dispatchEvent(new Event("change"));
+  $("[data-hint]", f).innerHTML = "🎉 <b>Акаунт створено!</b> Увійди з паролем, який щойно задав(-ла) під час реєстрації. Пізніше можна перейти на пароль застосунку." ;
+  setTimeout(() => (handle ? f.pass : f.handle).focus(), 50);
+}
 
 /* ---------- login ---------- */
 const LOGIN_FIELDS = `
@@ -87,6 +99,8 @@ function loginScreen() {
     </form>
   </div>`;
   bindLogin($("form", app));
+  const q = hashQuery();
+  if (q.has("new")) prefillLogin($("form", app), fullHandle(q.get("handle")));
   const peek = $("#peek", app);
   peek.onsubmit = (e) => {
     e.preventDefault();
@@ -96,51 +110,78 @@ function loginScreen() {
   };
 }
 
-/* ---------- sign-up ---------- */
-// bsky.social asks for a captcha, which only the desktop app can pass on to Skybee (it sees where the captcha page
-// redirects to); other servers (Eurosky, your own PDS) usually do not need one
+/* ---------- sign-up ----------
+   In the apps (desktop, Android, iOS) sign-up opens in the browser: the Skybee site with ?app=1. When it is done, the
+   site opens skybee://login?handle=… and the app shows the login form with the new handle filled in.
+   bsky.social asks for a captcha that only Bluesky itself can run, so there the site sends the user to bsky.app and
+   offers «back to Skybee» afterwards; other servers (Eurosky, your own PDS) are signed up right here. */
 const needsCaptcha = (pds) => /(^|\.)bsky\.social$/.test(new URL(pds).hostname);
 function signupScreen() {
   document.body.classList.remove("guest");
+  if (inApp()) {
+    app.innerHTML = `
+    <div class="login">
+      <div class="loginbee">${bee(90)}</div><h1>Новий акаунт</h1>
+      <div class="card loginform">
+        <p>Реєстрація відкриється в браузері. Коли закінчиш, браузер поверне тебе в Skybee — залишиться лише ввести пароль.</p>
+        <button class="btn wide" data-open>Зареєструватися в браузері ↗</button>
+        <p class="hint">Браузер спитає, чи відкрити Skybee, — дозволь.</p>
+        <a class="ghost wide" href="#/login">← У мене вже є акаунт</a>
+      </div>
+    </div>`;
+    $("[data-open]", app).onclick = () => window.open(SITE + "#/signup?app=1", "_blank");
+    return;
+  }
+  const fromApp = hashQuery().get("app") === "1";
+  const back = (h) => fromApp ? `skybee://login?handle=${encodeURIComponent(h)}` : `#/login?new=1&handle=${encodeURIComponent(h)}`;
   app.innerHTML = `
   <div class="login">
     <div class="loginbee">${bee(90)}</div><h1>Новий акаунт</h1>
+    ${fromApp ? `<p class="muted">Реєстрація для застосунку Skybee — після неї повернешся в нього.</p>` : ""}
     <form class="card loginform" id="su" novalidate>
       <label class="field">Сервер<select name="srv"><option value="https://bsky.social">bsky.social — Bluesky</option><option value="other">Інший сервер…</option></select></label>
       <input name="custom" placeholder="https://мій-сервер.example" autocapitalize="none" hidden>
-      <input name="email" type="email" placeholder="Email" autocomplete="email" required>
-      <div class="row"><input name="handle" placeholder="нік" autocapitalize="none" autocorrect="off" spellcheck="false" required><select name="domain" style="width:auto"></select></div>
-      <input name="pass" type="password" placeholder="Пароль (від 8 символів)" autocomplete="new-password" required>
-      <label class="field">Дата народження<input name="birth" type="date" max="${new Date().toISOString().slice(0, 10)}" required></label>
-      <input name="invite" placeholder="Код запрошення" hidden>
-      <label class="check"><input type="checkbox" name="agree"> <span>Погоджуюся з <a data-terms target="_blank" rel="noopener">умовами</a> і <a data-privacy target="_blank" rel="noopener">політикою конфіденційності</a> сервера</span></label>
-      <p class="hint" data-cap></p><p class="err"></p>
-      <button class="btn wide">Створити акаунт</button>
-      <a class="ghost wide" href="#/login">← У мене вже є акаунт</a>
+      <div data-steps hidden>
+        <p class="small"><b>1.</b> На bsky.social потрібна перевірка «я не робот», яку проводить лише сам Bluesky, тож акаунт там створюється на bsky.app.</p>
+        <a class="btn wide" href="https://bsky.app/" target="_blank" rel="noopener">Зареєструватися на bsky.app ↗</a>
+        <p class="small"><b>2.</b> Коли акаунт буде готовий, повернися на цю вкладку${fromApp ? " — і назад у Skybee" : " й увійди"}:</p>
+        <input name="newhandle" placeholder="твій новий нік (можна пропустити)" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <button type="button" class="btn wide" data-back>${fromApp ? "Повернутися в Skybee" : "Я зареєструвався(-лася) — увійти"}</button>
+      </div>
+      <div data-fields>
+        <input name="email" type="email" placeholder="Email" autocomplete="email" required>
+        <div class="row"><input name="handle" placeholder="нік" autocapitalize="none" autocorrect="off" spellcheck="false" required><select name="domain" style="width:auto"></select></div>
+        <input name="pass" type="password" placeholder="Пароль (від 8 символів)" autocomplete="new-password" required>
+        <label class="field">Дата народження<input name="birth" type="date" max="${new Date().toISOString().slice(0, 10)}" required></label>
+        <input name="invite" placeholder="Код запрошення" hidden>
+        <label class="check"><input type="checkbox" name="agree"> <span>Погоджуюся з <a data-terms target="_blank" rel="noopener">умовами</a> і <a data-privacy target="_blank" rel="noopener">політикою конфіденційності</a> сервера</span></label>
+        <button class="btn wide">Створити акаунт</button>
+      </div>
+      <p class="err"></p>
+      <a class="ghost wide" href="${fromApp ? "skybee://login" : "#/login"}">← У мене вже є акаунт</a>
     </form>
   </div>`;
-  const f = $("#su", app), err = $(".err", f), cap = $("[data-cap]", f), btn = $("button.btn", f);
+  const f = $("#su", app), err = $(".err", f), btn = $("[data-fields] button.btn", f), steps = $("[data-steps]", f), fields = $("[data-fields]", f);
   let info = null, pds = "";
-  const desktop = !!window.skybeeDesktop;
+  $("[data-back]", f).onclick = () => { location.href = back(fullHandle(f.newhandle.value)); };
   const load = async () => {
     f.custom.hidden = f.srv.value !== "other";
     pds = f.srv.value === "other" ? f.custom.value.trim().replace(/\/$/, "") : f.srv.value;
-    info = null; err.textContent = ""; cap.textContent = "";
-    if (!/^https:\/\/[^/]+$/.test(pds)) { f.domain.innerHTML = ""; return; }
+    info = null; err.textContent = "";
+    const captcha = /^https:\/\/[^/]+$/.test(pds) && needsCaptcha(pds);
+    steps.hidden = !captcha; fields.hidden = captcha;
+    if (captcha || !/^https:\/\/[^/]+$/.test(pds)) { f.domain.innerHTML = ""; return; }
     try {
       info = await api.describeServer(pds);
       f.domain.innerHTML = (info.availableUserDomains || []).map(d => `<option>${esc(d)}</option>`).join("");
       f.invite.hidden = !info.inviteCodeRequired;
       $("[data-terms]", f).href = info.links?.termsOfService || pds; $("[data-privacy]", f).href = info.links?.privacyPolicy || pds;
-      const blocked = needsCaptcha(pds) && !desktop;
-      cap.innerHTML = needsCaptcha(pds) ? (desktop ? "Після натискання відкриється коротка перевірка «я не робот»."
-        : `На bsky.social потрібна перевірка «я не робот», яку браузер не може передати в Skybee. Зареєструйся в застосунку Skybee для Windows, або <a href="https://bsky.app" target="_blank" rel="noopener">на bsky.app ↗</a>, або обери інший сервер — і потім увійди тут.`) : "";
-      btn.disabled = blocked;
     } catch (ex) { err.textContent = errText(ex); }
   };
   f.srv.onchange = load; f.custom.onchange = load; load();
   f.onsubmit = async (e) => {
     e.preventDefault(); err.textContent = "";
+    if (!steps.hidden) return;
     const handle = f.handle.value.trim().toLowerCase().replace(/^@/, "");
     const birth = f.birth.value, age = birth ? (Date.now() - Date.parse(birth)) / 31557600000 : 0;
     if (!info) return err.textContent = "Обери сервер, що працює";
@@ -152,17 +193,14 @@ function signupScreen() {
     if (!f.agree.checked) return err.textContent = "Потрібна згода з умовами сервера";
     btn.disabled = true; btn.textContent = "Створення…";
     try {
-      let verificationCode;
-      if (needsCaptcha(pds)) {
-        const state = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 7);
-        const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
-        verificationCode = await window.skybeeDesktop.captcha(`${pds}/gate/signup?state=${state}&colorScheme=${theme}`, state);
-        if (!verificationCode) throw new Error("Перевірку не пройдено — спробуй ще раз");
-      }
-      await api.signup(pds, { email: f.email.value.trim(), handle: handle + f.domain.value, password: f.pass.value, inviteCode: f.invite.value.trim(), verificationCode });
+      const full = handle + f.domain.value;
+      await api.signup(pds, { email: f.email.value.trim(), handle: full, password: f.pass.value, inviteCode: f.invite.value.trim() });
       await api.updatePref("personalDetailsPref", { birthDate: new Date(birth).toISOString() }).catch(() => {});
-      toast("Акаунт створено 🐝 Підтвердь email з листа, коли зможеш");
-      restart();
+      if (!fromApp) { toast("Акаунт створено 🐝 Підтвердь email з листа, коли зможеш"); restart(); return; }
+      // back to the app: it asks for the password once more (a session is not passed through a link)
+      f.innerHTML = `<h3>Акаунт створено 🐝</h3><p class="small">Повертаємо тебе в Skybee… Якщо нічого не сталося, натисни кнопку. Не забудь підтвердити email з листа.</p>
+        <a class="btn wide" href="${back(full)}">Відкрити Skybee</a>`;
+      location.href = back(full);
     } catch (ex) { err.textContent = errText(ex); btn.disabled = false; btn.textContent = "Створити акаунт"; }
   };
 }
@@ -180,11 +218,24 @@ function guestShell() {
 }
 
 // One more account: after signing in it becomes the active one
-function addAccountDialog() {
+function addAccountDialog(newHandle) {
   const m = modal(`<h3>Додати акаунт</h3><form class="loginform">${LOGIN_FIELDS}</form>`);
   bindLogin($("form", m));
-  $("input", m).focus();
+  if (newHandle !== undefined) prefillLogin($("form", m), newHandle); else $("input", m).focus();
 }
+
+/* ---------- skybee://login?handle=… — back from sign-up in the browser ---------- */
+function handleLink(url) {
+  let u; try { u = new URL(url); } catch { return; }
+  if (u.protocol !== "skybee:") return;
+  const what = (u.host || u.pathname.replace(/^\/+/, "")).toLowerCase();
+  if (what !== "login") return;
+  const handle = fullHandle(u.searchParams.get("handle")).slice(0, 253);
+  if (api.session) { addAccountDialog(handle); return; } // already signed in: the new account joins the others
+  location.hash = `#/login?new=1${handle ? "&handle=" + encodeURIComponent(handle) : ""}`;
+  loginScreen();
+}
+onLink(handleLink);
 
 /* ---------- shell ---------- */
 const NAV = [
@@ -257,7 +308,7 @@ window.addEventListener("skybee:badge", badges);
 /* ---------- router ---------- */
 async function route() {
   await api.prefsReady; // muted words must be known before the first post is drawn
-  if (!api.session && location.hash.startsWith("#/signup")) return signupScreen();
+  if (location.hash.startsWith("#/signup") && (!api.session || hashQuery().get("app") === "1")) return signupScreen();
   if (!api.session && !guestRoute()) return loginScreen();
   if (!api.session && !$("#main")) guestShell();
   cleanup?.(); cleanup = null;
@@ -818,6 +869,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 /* ---------- boot ---------- */
 function boot() {
   api.loadSession();
+  if (location.hash.startsWith("#/signup") && hashQuery().get("app") === "1" && !inApp()) return signupScreen(); // sign-up for an app, in the browser
   if (!api.session) return location.hash.startsWith("#/signup") ? signupScreen() : guestRoute() ? (guestShell(), route()) : loginScreen();
   document.body.classList.remove("guest");
   api.primePrefs();
