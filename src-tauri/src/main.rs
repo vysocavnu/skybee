@@ -5,7 +5,37 @@ use tauri::webview::NewWindowResponse;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
+/// `%TEMP%\skybee.log`: what the last launch got through, and why it died if it did.
+fn log(line: &str) {
+    use std::io::Write;
+    let path = std::env::temp_dir().join("skybee.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{line}");
+    }
+}
+
+/// A release build has no console: without this a crash is a window that just disappears.
+fn report_crashes() {
+    let _ = std::fs::remove_file(std::env::temp_dir().join("skybee.log"));
+    std::panic::set_hook(Box::new(|info| {
+        let text = format!("Skybee {} впав:\n{info}", env!("CARGO_PKG_VERSION"));
+        log(&text);
+        #[cfg(windows)]
+        {
+            #[link(name = "user32")]
+            extern "system" {
+                fn MessageBoxW(hwnd: *mut std::ffi::c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
+            }
+            let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+            let (text, caption) = (wide(&text), wide("Skybee"));
+            unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x10) };
+        }
+    }));
+}
+
 fn main() {
+    report_crashes();
+    log("запуск");
     tauri::Builder::default()
         // a second launch only brings the running window to the front
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -32,8 +62,10 @@ fn main() {
                     NewWindowResponse::Deny
                 })
                 .build()?;
+            log("вікно створено");
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Skybee");
+        .expect("не вдалося запустити Skybee");
+    log("вихід");
 }
