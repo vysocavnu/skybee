@@ -380,7 +380,7 @@ main { overflow-x: clip; }
 .srow { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; background: none; border: 0; color: var(--text); text-align: left; font-size: 1.05em; }
 .srow:hover { background: var(--hover); text-decoration: none; }
 .srow.danger { color: var(--danger); }
-.sicon svg { width: 24px; height: 24px; display: block; }
+.sicon { width: 26px; flex: none; text-align: center; font-size: 20px; line-height: 1; }
 .schev { color: var(--muted); } .schev svg { width: 18px; height: 18px; display: block; }
 .savas { display: flex; } .savas .avatar + .avatar { margin-left: -8px; }
 .savas .avatar { border: 2px solid var(--bg); }
