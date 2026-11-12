@@ -196,6 +196,8 @@ export function openComposer(opts = {}, onDone) {
       gate ||= gateForm(gateBox, allow, v => { allow = v; gateBtn.textContent = gateLabel(v); });
     }
     if (c === "send" && !busy) {
+      let needAlt = false; try { needAlt = localStorage.getItem("skybee.requireAlt") === "1"; } catch {}
+      if (needAlt && [...images, video].some(x => x && !x.alt.trim())) { err.textContent = "Додай опис (ALT) до кожного фото чи відео — так задано в налаштуваннях"; return; }
       const ctrl = busy = new AbortController();
       const status = (text) => { send.textContent = text; };
       send.disabled = true; err.textContent = ""; status("Надсилання…");

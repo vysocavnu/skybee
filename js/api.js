@@ -428,6 +428,34 @@ export async function saveFeed(uri, pinned = false) {
   await setSavedFeeds(items);
 }
 export async function unsaveFeed(uri) { await setSavedFeeds((await getSavedFeeds()).filter(i => i.value !== uri)); }
+// dir: -1 up, +1 down. The order of saved feeds is the order of tabs on the home screen
+export async function moveFeed(uri, dir) {
+  const items = await getSavedFeeds(), i = items.findIndex(x => x.value === uri);
+  let j = i + dir;
+  while (items[j]?.type === "timeline") j += dir; // «Підписки» is not in the list on screen: step over it
+  if (i < 0 || !items[j]) return;
+  [items[i], items[j]] = [items[j], items[i]];
+  await setSavedFeeds(items);
+}
+
+/* ---------- single settings stored in the account ---------- */
+// type: "threadViewPref", or "feedViewPref" with feed = "home"
+const samePref = (type, feed) => (p) => p.$type === PREF + type && (!feed || p.feed === feed);
+export const pref = (type, feed) => (prefsCache || []).filter(samePref(type, feed)).pop() || {};
+export async function updatePref(type, patch, feed) {
+  const prefs = await getPrefs(true), cur = prefs.filter(samePref(type, feed)).pop() || {};
+  await putPrefs(prefs.filter(p => !samePref(type, feed)(p)).concat({ ...cur, $type: PREF + type, ...(feed ? { feed } : {}), ...patch }));
+}
+
+// Who may start a chat with me: "all" | "following" | "none"
+const CHAT_DECL = "chat.bsky.actor.declaration";
+export async function getChatAccess() {
+  try { return (await get("com.atproto.repo.getRecord", { repo: session.did, collection: CHAT_DECL, rkey: "self" })).value.allowIncoming || "following"; }
+  catch { return "following"; }
+}
+export const setChatAccess = (allowIncoming) =>
+  post("com.atproto.repo.putRecord", { repo: session.did, collection: CHAT_DECL, rkey: "self", record: { $type: CHAT_DECL, allowIncoming } });
+
 export async function togglePin(uri) {
   const items = await getSavedFeeds();
   const it = items.find(i => i.value === uri);

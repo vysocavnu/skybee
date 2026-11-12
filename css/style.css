@@ -60,7 +60,14 @@ nav.bottom, .fab, .only-mobile { display: none; }
 @media (max-width: 1100px) { #app { grid-template-columns: 80px minmax(0, 600px); } aside.right { display: none; } nav.side .nl, nav.side .logo span, .compose-side span { display: none; } nav.side a, .me { justify-content: center; } }
 @media (max-width: 640px) {
   #app { display: block; }
-  nav.side { display: none; }
+  /* the side menu becomes a drawer opened with the ☰ button */
+  nav.side { position: fixed; z-index: 60; left: 0; top: 0; bottom: 0; height: auto; width: min(300px, 84vw); background: var(--bg); border-right: 1px solid var(--line);
+    overflow-y: auto; transform: translateX(-105%); transition: transform .2s; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  body.drawer nav.side { transform: none; }
+  body.drawer::after { content: ""; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); }
+  nav.side .nl, nav.side .logo span, .compose-side span { display: inline; }
+  nav.side a, .me { justify-content: flex-start; }
+  nav.side .me .nl { display: flex; }
   .only-mobile { display: inline-flex; }
   main { border: 0; padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   nav.bottom { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: var(--bg); border-top: 1px solid var(--line);

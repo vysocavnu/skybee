@@ -5,7 +5,7 @@ import * as notify from "./notify.js";
 import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
-try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; } catch {}
+try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; document.body.style.fontSize = (localStorage.getItem("skybee.font") || "15") + "px"; } catch {}
 
 const app = $("#app");
 let cleanup = null;
@@ -130,6 +130,7 @@ async function route() {
   await api.prefsReady; // muted words must be known before the first post is drawn
   if (!api.session) return loginScreen();
   cleanup?.(); cleanup = null;
+  document.body.classList.remove("drawer");
   document.querySelector(".popmenu")?.remove();
   document.querySelectorAll(".modal-bg").forEach(m => m.close ? m.close() : m.remove());
   const main = $("#main");
@@ -195,6 +196,11 @@ function editGate(p) {
 document.addEventListener("click", async (e) => {
   // unblur / lightbox / video first
   const t = e.target;
+  // phones: the side menu is a drawer; a tap outside it (or on one of its links) closes it
+  if (document.body.classList.contains("drawer") && !t.closest("[data-act=drawer], .me") && (!t.closest("nav.side") || t.closest("a, .compose-side"))) {
+    document.body.classList.remove("drawer");
+    if (!t.closest("nav.side")) return;
+  }
   const actEl = t.closest("[data-act]");
   const act = actEl?.dataset.act;
 
@@ -212,6 +218,7 @@ document.addEventListener("click", async (e) => {
     switch (act) {
       case "back": history.length > 1 ? history.back() : (location.hash = "#/"); break;
       case "compose": openComposer({}, reloadView); break;
+      case "drawer": document.body.classList.toggle("drawer"); break;
       case "unblur": actEl.parentElement.classList.add("shown"); actEl.remove(); break;
       case "showMuted": actEl.closest(".post").classList.remove("mw-hidden"); actEl.remove(); break;
       case "lightbox": {
@@ -336,6 +343,7 @@ document.addEventListener("click", async (e) => {
         break;
       }
       case "unsaveFeed": await api.unsaveFeed(actEl.dataset.uri); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); break;
+      case "moveFeed": await api.moveFeed(actEl.dataset.uri, +actEl.dataset.dir); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); break;
       case "pinFeed": await api.togglePin(actEl.dataset.uri); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); break;
       case "likeFeed": {
         if (actEl.dataset.like) { await api.deleteRecord("app.bsky.feed.like", actEl.dataset.like); actEl.dataset.like = ""; actEl.textContent = "♡"; }
@@ -357,9 +365,6 @@ document.addEventListener("click", async (e) => {
       case "accountMenu": {
         const others = api.accounts.filter(a => a.did !== api.session.did);
         const c = await menu(actEl, [
-          // the phone layout has no side menu: these screens are reachable only from here
-          ...(matchMedia("(max-width: 640px)").matches
-            ? [{ act: "#/feeds", label: "#️⃣ Фіди" }, { act: "#/bookmarks", label: "🔖 Закладки" }, { act: "#/settings", label: "⚙️ Налаштування" }, "-"] : []),
           ...others.map(a => ({ act: a.did, label: `↔️ @${esc(a.handle)}` })),
           { act: "add", label: "➕ Додати акаунт" },
         ]);

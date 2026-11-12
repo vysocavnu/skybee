@@ -8,8 +8,9 @@ import {
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
 
+const MENU_BTN = `<button class="ghost icon only-mobile" data-act="drawer" title="Меню">☰</button>`; // phones: opens the side menu
 const header = (title, back = false, right = "") =>
-  `<div class="topbar">${back ? `<button class="ghost icon" data-act="back">←</button>` : ""}<h2>${title}</h2><div class="grow"></div>${right}</div>`;
+  `<div class="topbar">${back ? `<button class="ghost icon" data-act="back">←</button>` : MENU_BTN}<h2>${title}</h2><div class="grow"></div>${right}</div>`;
 
 /* ---------- generic paginated list ---------- */
 function paged(el, fetchPage) {
@@ -34,8 +35,15 @@ const feedItems = (feed, hideMuted = false) => feed.map(it => {
 });
 
 /* ================= HOME ================= */
+// «Підписки» without replies / reposts / quotes, as chosen in the settings
+function homeFilter(d) {
+  const v = api.pref("feedViewPref", "home");
+  d.feed = d.feed.filter(it => !(v.hideReplies && it.reply && !it.reason) && !(v.hideReposts && it.reason?.$type === "app.bsky.feed.defs#reasonRepost")
+    && !(v.hideQuotePosts && /app\.bsky\.embed\.record(WithMedia)?#view/.test(it.post?.embed?.$type || "")));
+  return d;
+}
 export async function home(el) {
-  el.innerHTML = `<div class="topbar"><button class="ghost icon only-mobile" data-act="accountMenu" title="Меню">☰</button><h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
+  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
   let tabs = [{ label: "Підписки", kind: "timeline" }];
   try {
     const saved = (await api.getSavedFeeds()).filter(i => i.pinned && i.type !== "timeline");
@@ -64,7 +72,7 @@ export async function home(el) {
     stop?.(); body.innerHTML = ""; body.parentElement.querySelectorAll(".sentinel").forEach(s => s.remove());
     const t = tabs[i];
     stop = paged(body, async (cursor) => {
-      const d = t.kind === "timeline" ? await api.get("app.bsky.feed.getTimeline", { limit: 30, cursor })
+      const d = t.kind === "timeline" ? await api.get("app.bsky.feed.getTimeline", { limit: 30, cursor }).then(homeFilter)
         : t.kind === "list" ? await api.get("app.bsky.feed.getListFeed", { list: t.uri, limit: 30, cursor })
         : await api.get("app.bsky.feed.getFeed", { feed: t.uri, limit: 30, cursor });
       return { html: feedItems(d.feed, true), cursor: d.cursor };
@@ -135,9 +143,11 @@ export async function thread(el, { actor, rkey }) {
     if (p.$type === "app.bsky.feed.defs#threadViewPost") parents.unshift(renderPost(p.post, { thread: true, line: true }));
     else { parents.unshift(`<div class="muted pad small">${p.$type?.includes("Blocked") ? "Заблокований пост" : "Пост видалено"}</div>`); break; }
   }
+  const sort = api.pref("threadViewPref").sort; // the author's own replies always come first
+  const order = (a, b) => sort === "oldest" ? a.indexedAt.localeCompare(b.indexedAt) : sort === "newest" ? b.indexedAt.localeCompare(a.indexedAt) : (b.likeCount || 0) - (a.likeCount || 0);
   const replies = (node, depth = 0) => (node.replies || [])
     .filter(r => r.$type === "app.bsky.feed.defs#threadViewPost")
-    .sort((a, b) => (b.post.author.did === t.post.author.did) - (a.post.author.did === t.post.author.did) || (b.post.likeCount || 0) - (a.post.likeCount || 0))
+    .sort((a, b) => (b.post.author.did === t.post.author.did) - (a.post.author.did === t.post.author.did) || order(a.post, b.post))
     .map(r => `<div class="reply d${Math.min(depth, 4)}">${renderPost(r.post, { thread: true, line: !!r.replies?.length && depth < 5 })}${depth < 5 ? replies(r, depth + 1) : ""}</div>`).join("");
   // the gate belongs to the first post of the thread, which may be above the opened one
   let root = t;
@@ -363,6 +373,8 @@ export async function feeds(el) {
       if (i.type === "feed") { const g = gens.find(g => g.uri === i.value); if (!g) continue; title = g.displayName; ava = g.avatar; href = `#/feed/${enc(g.uri)}`; }
       else { try { const l = (await api.get("app.bsky.graph.getList", { list: i.value, limit: 1 })).list; title = l.name; ava = l.avatar; href = `#/list/${enc(l.uri)}`; } catch { continue; } }
       rows.push(`<div class="actor" data-href="${href}">${avatar({ avatar: ava, displayName: title }, 36)}<div class="who"><b>${esc(title)}</b><span class="muted small">${i.type === "list" ? "Список" : "Фід"}</span></div>
+        <button class="ghost sm" data-act="moveFeed" data-dir="-1" data-uri="${esc(i.value)}" title="Вище">↑</button>
+        <button class="ghost sm" data-act="moveFeed" data-dir="1" data-uri="${esc(i.value)}" title="Нижче">↓</button>
         <button class="ghost sm" data-act="pinFeed" data-uri="${esc(i.value)}" title="${i.pinned ? "Відкріпити з головної" : "Закріпити на головній"}">${i.pinned ? "📌" : "📍"}</button>
         <button class="ghost sm" data-act="unsaveFeed" data-uri="${esc(i.value)}" title="Видалити">✕</button></div>`);
     }
@@ -486,6 +498,10 @@ export async function startDm(did) {
 /* ================= SETTINGS ================= */
 export async function settings(el) {
   const theme = document.documentElement.dataset.theme || "dark";
+  const store = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const font = store("skybee.font") || "15", home = api.pref("feedViewPref", "home");
+  const tsort = ["oldest", "newest"].includes(api.pref("threadViewPref").sort) ? api.pref("threadViewPref").sort : "most-likes";
+  const saved = (promise, input) => promise.then(() => toast("Збережено"), (ex) => { toast(ex.message); if (input) input.checked = !input.checked; });
   // every account signed in on this device; avatars and names arrive a moment later
   const accountRows = (profiles = []) => api.accounts.map(a => {
     const p = profiles.find(p => p.did === a.did) || a, active = a.did === session.did;
@@ -507,6 +523,29 @@ export async function settings(el) {
     <div class="card">
       <h3>Вигляд</h3>
       <div class="seg">${[["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]].map(([k, l]) => `<button data-theme-set="${k}" class="${k === theme ? "on" : ""}">${l}</button>`).join("")}</div>
+    </div>
+    <div class="card">
+      <h3>Розмір тексту</h3>
+      <div class="seg">${[["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]].map(([k, l]) => `<button data-font="${k}" class="${k === font ? "on" : ""}">${l}</button>`).join("")}</div>
+    </div>
+    <div class="card">
+      <h3>Стрічка «Підписки»</h3>
+      ${[["hideReplies", "Приховувати відповіді"], ["hideReposts", "Приховувати поширення"], ["hideQuotePosts", "Приховувати цитати"]].map(([k, l]) =>
+        `<label class="radio"><input type="checkbox" data-home="${k}" ${home[k] ? "checked" : ""}> ${l}</label>`).join("")}
+      <a class="rowlink" href="#/feeds">Мої фіди та їхній порядок →</a>
+    </div>
+    <div class="card">
+      <h3>Гілки</h3>
+      <label class="field">Порядок відповідей<select id="tsort">${[["most-likes", "Спершу популярні"], ["oldest", "Спершу старіші"], ["newest", "Спершу новіші"]].map(([v, l]) =>
+        `<option value="${v}" ${v === tsort ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    </div>
+    <div class="card">
+      <h3>Конфіденційність</h3>
+      <label class="field">Хто може написати мені в чат<select id="chatacc" disabled><option value="all">Усі</option><option value="following">Ті, за ким я стежу</option><option value="none">Ніхто</option></select></label>
+    </div>
+    <div class="card">
+      <h3>Доступність</h3>
+      <label class="radio"><input type="checkbox" id="reqalt" ${store("skybee.requireAlt") === "1" ? "checked" : ""}> Не публікувати фото й відео без опису (ALT)</label>
     </div>
     <div class="card">
       <h3>Мова постів за замовчуванням</h3>
@@ -532,6 +571,15 @@ export async function settings(el) {
     try { localStorage.setItem("skybee.theme", t); } catch {}
     el.querySelectorAll("[data-theme-set]").forEach(x => x.classList.toggle("on", x === b));
   });
+  el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => {
+    document.body.style.fontSize = b.dataset.font + "px";
+    try { localStorage.setItem("skybee.font", b.dataset.font); } catch {}
+    el.querySelectorAll("[data-font]").forEach(x => x.classList.toggle("on", x === b));
+  });
+  el.querySelectorAll("[data-home]").forEach(c => c.onchange = () => saved(api.updatePref("feedViewPref", { [c.dataset.home]: c.checked }, "home"), c));
+  $("#tsort", el).onchange = (e) => saved(api.updatePref("threadViewPref", { sort: e.target.value }));
+  $("#reqalt", el).onchange = (e) => { try { e.target.checked ? localStorage.setItem("skybee.requireAlt", "1") : localStorage.removeItem("skybee.requireAlt"); } catch {} toast("Збережено"); };
+  api.getChatAccess().then(v => { const s = $("#chatacc", el); if (!s) return; s.value = v; s.disabled = false; s.onchange = () => saved(api.setChatAccess(s.value)); });
   $("#deflang", el).onchange = (e) => { try { localStorage.setItem("skybee.lang", e.target.value); } catch {} toast("Збережено"); };
   $("#sysnotify", el).onchange = async (e) => {
     if (!e.target.checked) { notify.disable(); return toast("Сповіщення вимкнено"); }
