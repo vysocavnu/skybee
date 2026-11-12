@@ -239,6 +239,8 @@ async function route() {
   }
 }
 window.addEventListener("hashchange", route);
+// pinned feeds changed: the right column's list and the home tabs are built again
+window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
 addEventListener("scroll", () => { try { sessionStorage.setItem("skybee.scroll:" + location.hash, scrollY); } catch {} }, { passive: true });
 
 /* ---------- helpers for actions ---------- */
@@ -460,11 +462,12 @@ document.addEventListener("click", async (e) => {
         if (saved) { await api.unsaveFeed(uri); actEl.textContent = "+"; toast("Фід прибрано"); }
         else { await api.saveFeed(uri, true); actEl.textContent = "✓"; toast("Фід збережено і закріплено на головній"); }
         document.querySelector("#main")?.dispatchEvent(new Event("skybee:feedsChanged"));
+        window.dispatchEvent(new Event("skybee:tabsChanged"));
         break;
       }
-      case "unsaveFeed": await api.unsaveFeed(actEl.dataset.uri); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); break;
-      case "moveFeed": await api.moveFeed(actEl.dataset.uri, +actEl.dataset.dir); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); break;
-      case "pinFeed": await api.togglePin(actEl.dataset.uri); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); break;
+      case "unsaveFeed": await api.unsaveFeed(actEl.dataset.uri); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); window.dispatchEvent(new Event("skybee:tabsChanged")); break;
+      case "moveFeed": await api.moveFeed(actEl.dataset.uri, +actEl.dataset.dir); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); window.dispatchEvent(new Event("skybee:tabsChanged")); break;
+      case "pinFeed": await api.togglePin(actEl.dataset.uri); $("#main").dispatchEvent(new Event("skybee:feedsChanged")); window.dispatchEvent(new Event("skybee:tabsChanged")); break;
       case "likeFeed": {
         if (actEl.dataset.like) { await api.deleteRecord("app.bsky.feed.like", actEl.dataset.like); actEl.dataset.like = ""; actEl.textContent = "♡"; }
         else { const r = await api.createRecord("app.bsky.feed.like", { subject: { uri: actEl.dataset.uri, cid: actEl.dataset.cid } }); actEl.dataset.like = r.uri; actEl.textContent = "♥"; }

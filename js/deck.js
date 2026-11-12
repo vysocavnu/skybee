@@ -217,7 +217,7 @@ export async function myFeeds(el) {
     const list = await src.myFeeds(), f = list.find(x => x.id === b.dataset.id);
     if (!f) return;
     try {
-      if (b.dataset.f === "pin") { f.pinned = !f.pinned; await src.saveMyFeeds(list); toast(f.pinned ? "Закріплено на головній" : "Прибрано з головної"); }
+      if (b.dataset.f === "pin") { f.pinned = !f.pinned; await src.saveMyFeeds(list); window.dispatchEvent(new Event("skybee:tabsChanged")); toast(f.pinned ? "Закріплено на головній" : "Прибрано з головної"); }
       if (b.dataset.f === "deck") {
         const cols = loadCols(); cols.push({ id: api.tid(), type: "myfeed", value: f.id, label: f.name }); saveCols(cols);
         toast("Додано в колонки"); location.hash = "#/deck"; return;

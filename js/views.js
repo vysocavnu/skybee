@@ -60,9 +60,13 @@ function homeFilter(d) {
     && !(v.hideQuotePosts && /app\.bsky\.embed\.record(WithMedia)?#view/.test(it.post?.embed?.$type || "")));
   return d;
 }
-export async function home(el) {
-  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div>${gridBtn("home")}<button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
-  let tabs = [{ label: "Підписки", kind: "timeline" }];
+// The home screen's feeds: pinned feeds and lists, then own feeds pinned in Skybee. Shared with the right column
+let tabsCache = null, tabsAt = 0;
+export function homeTabs() {
+  if (tabsCache && Date.now() - tabsAt < 60000) return tabsCache;
+  tabsAt = Date.now();
+  return tabsCache = (async () => {
+  const tabs = [{ label: "Підписки", kind: "timeline" }];
   try {
     const saved = (await api.getSavedFeeds()).filter(i => i.pinned && i.type !== "timeline");
     const feedUris = saved.filter(i => i.type === "feed").map(i => i.value);
@@ -83,11 +87,20 @@ export async function home(el) {
   }
   // own feeds built in Skybee, pinned to the home screen
   try { for (const f of await src.myFeeds()) if (f.pinned) tabs.push({ label: f.name, kind: "my", uri: f.id }); } catch {}
+  return tabs;
+  })();
+}
+export const forgetHomeTabs = () => { tabsCache = null; };
+
+export async function home(el) {
+  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div>${gridBtn("home")}<button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
+  const tabs = await homeTabs();
   let sel = 0; try { sel = Math.min(+sessionStorage.getItem("skybee.tab") || 0, tabs.length - 1); } catch {}
   const tabEl = $("#feedTabs", el), body = $("#feedBody", el);
   let stop;
   const show = (i) => {
     sel = i; try { sessionStorage.setItem("skybee.tab", i); } catch {}
+    window.dispatchEvent(new CustomEvent("skybee:hometab", { detail: i }));
     tabEl.innerHTML = tabs.map((t, n) => `<button class="${n === i ? "on" : ""}" data-tab="${n}">${esc(t.label)}</button>`).join("");
     stop?.(); body.innerHTML = ""; body.parentElement.querySelectorAll(".sentinel").forEach(s => s.remove());
     const t = tabs[i], grid = isGrid("home");
@@ -102,8 +115,11 @@ export async function home(el) {
   onGrid(el, () => show(sel));
   tabEl.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) show(+b.dataset.tab); });
   el.querySelector("[data-act=refresh]").onclick = () => { scrollTo(0, 0); show(sel); };
+  // a feed picked in the right column
+  const pick = (e) => { scrollTo(0, 0); show(Math.min(e.detail, tabs.length - 1)); };
+  window.addEventListener("skybee:pickfeed", pick);
   show(sel);
-  return () => stop?.();
+  return () => { stop?.(); window.removeEventListener("skybee:pickfeed", pick); };
 }
 
 /* ================= SINGLE FEED / LIST ================= */
