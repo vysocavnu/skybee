@@ -324,3 +324,29 @@ main { overflow-x: clip; }
 .reason svg { vertical-align: -2px; }
 /* iOS zooms the whole page (and keeps it zoomed) when a focused field has text smaller than 16px */
 @media (max-width: 640px) { input, textarea, select, .pvimg input { font-size: max(16px, 1em); } }
+
+/* ---------- every block fits the screen width: long words wrap, rows shrink ---------- */
+.imgs.n2, .imgs.n3, .imgs.n4 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.imgs.n3 img:first-child { aspect-ratio: auto; max-height: none; }
+.imgs img, .ext img, .video { max-width: 100%; }
+.actions { max-width: 100%; }
+.actions button { min-width: 0; flex: 0 1 auto; }
+.actions button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.post.focus .row { min-width: 0; }
+.post.focus .who { min-width: 0; overflow: hidden; }
+.post.focus .who a, .post.focus .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.post.focus .row > button { flex: none; }
+.phead, .bio, .card-row .grow, .desc, .text, .ext, .quote, .bubble, .who { min-width: 0; overflow-wrap: anywhere; }
+.phead a, .card-row a, .ext b, .ext small { overflow-wrap: anywhere; word-break: break-word; }
+.phead .row.between { flex-wrap: wrap; }
+.stats { flex-wrap: wrap; row-gap: 4px; }
+.counts { flex-wrap: wrap; row-gap: 4px; }
+.topbar h2 { min-width: 0; flex: 0 1 auto; }
+.topbar > button { flex: none; }
+@media (max-width: 400px) {
+  .post { padding: 10px 12px; gap: 10px; }
+  .actions { margin-left: -6px; }
+  .actions button { padding: 6px 5px; gap: 3px; }
+  .stats { gap: 10px; }
+}
+.pill { white-space: nowrap; display: inline-block; }
