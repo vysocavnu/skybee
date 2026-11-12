@@ -74,7 +74,7 @@ function loginScreen() {
       ${LOGIN_FIELDS}
       <hr>
       <p class="hint">Ще немає акаунта в Bluesky?</p>
-      <a class="ghost wide" href="https://bsky.app" target="_blank" rel="noopener">Зареєструватися на bsky.app ↗</a>
+      <a class="ghost wide" href="#/signup">Створити акаунт</a>
     </form>
     <form class="card loginform" id="peek">
       <p class="hint"><b>Переглянути без входу.</b> Встав посилання на пост чи профіль з bsky.app або Skybee — гілку можна прочитати й поділитися нею без акаунта.</p>
@@ -93,13 +93,84 @@ function loginScreen() {
   };
 }
 
+/* ---------- sign-up ---------- */
+// bsky.social asks for a captcha, which only the desktop app can pass on to Skybee (it sees where the captcha page
+// redirects to); other servers (Eurosky, your own PDS) usually do not need one
+const needsCaptcha = (pds) => /(^|\.)bsky\.social$/.test(new URL(pds).hostname);
+function signupScreen() {
+  document.body.classList.remove("guest");
+  app.innerHTML = `
+  <div class="login">
+    <div class="loginbee">${bee(90)}</div><h1>Новий акаунт</h1>
+    <form class="card loginform" id="su" novalidate>
+      <label class="field">Сервер<select name="srv"><option value="https://bsky.social">bsky.social — Bluesky</option><option value="other">Інший сервер…</option></select></label>
+      <input name="custom" placeholder="https://мій-сервер.example" autocapitalize="none" hidden>
+      <input name="email" type="email" placeholder="Email" autocomplete="email" required>
+      <div class="row"><input name="handle" placeholder="нік" autocapitalize="none" autocorrect="off" spellcheck="false" required><select name="domain" style="width:auto"></select></div>
+      <input name="pass" type="password" placeholder="Пароль (від 8 символів)" autocomplete="new-password" required>
+      <label class="field">Дата народження<input name="birth" type="date" max="${new Date().toISOString().slice(0, 10)}" required></label>
+      <input name="invite" placeholder="Код запрошення" hidden>
+      <label class="check"><input type="checkbox" name="agree"> <span>Погоджуюся з <a data-terms target="_blank" rel="noopener">умовами</a> і <a data-privacy target="_blank" rel="noopener">політикою конфіденційності</a> сервера</span></label>
+      <p class="hint" data-cap></p><p class="err"></p>
+      <button class="btn wide">Створити акаунт</button>
+      <a class="ghost wide" href="#/login">← У мене вже є акаунт</a>
+    </form>
+  </div>`;
+  const f = $("#su", app), err = $(".err", f), cap = $("[data-cap]", f), btn = $("button.btn", f);
+  let info = null, pds = "";
+  const desktop = !!window.skybeeDesktop;
+  const load = async () => {
+    f.custom.hidden = f.srv.value !== "other";
+    pds = f.srv.value === "other" ? f.custom.value.trim().replace(/\/$/, "") : f.srv.value;
+    info = null; err.textContent = ""; cap.textContent = "";
+    if (!/^https:\/\/[^/]+$/.test(pds)) { f.domain.innerHTML = ""; return; }
+    try {
+      info = await api.describeServer(pds);
+      f.domain.innerHTML = (info.availableUserDomains || []).map(d => `<option>${esc(d)}</option>`).join("");
+      f.invite.hidden = !info.inviteCodeRequired;
+      $("[data-terms]", f).href = info.links?.termsOfService || pds; $("[data-privacy]", f).href = info.links?.privacyPolicy || pds;
+      const blocked = needsCaptcha(pds) && !desktop;
+      cap.innerHTML = needsCaptcha(pds) ? (desktop ? "Після натискання відкриється коротка перевірка «я не робот»."
+        : `На bsky.social потрібна перевірка «я не робот», яку браузер не може передати в Skybee. Зареєструйся в застосунку Skybee для Windows, або <a href="https://bsky.app" target="_blank" rel="noopener">на bsky.app ↗</a>, або обери інший сервер — і потім увійди тут.`) : "";
+      btn.disabled = blocked;
+    } catch (ex) { err.textContent = ex.message; }
+  };
+  f.srv.onchange = load; f.custom.onchange = load; load();
+  f.onsubmit = async (e) => {
+    e.preventDefault(); err.textContent = "";
+    const handle = f.handle.value.trim().toLowerCase().replace(/^@/, "");
+    const birth = f.birth.value, age = birth ? (Date.now() - Date.parse(birth)) / 31557600000 : 0;
+    if (!info) return err.textContent = "Обери сервер, що працює";
+    if (!/^\S+@\S+\.\S+$/.test(f.email.value.trim())) return err.textContent = "Введи email";
+    if (!/^[a-z0-9]([a-z0-9-]{1,16}[a-z0-9])$/.test(handle)) return err.textContent = "Нік: 3–18 латинських літер, цифр чи дефісів";
+    if (f.pass.value.length < 8) return err.textContent = "Пароль — щонайменше 8 символів";
+    if (!birth || age < 13) return err.textContent = birth ? "Bluesky можна користуватися з 13 років" : "Вкажи дату народження";
+    if (info.inviteCodeRequired && !f.invite.value.trim()) return err.textContent = "Потрібен код запрошення";
+    if (!f.agree.checked) return err.textContent = "Потрібна згода з умовами сервера";
+    btn.disabled = true; btn.textContent = "Створення…";
+    try {
+      let verificationCode;
+      if (needsCaptcha(pds)) {
+        const state = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 7);
+        const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+        verificationCode = await window.skybeeDesktop.captcha(`${pds}/gate/signup?state=${state}&colorScheme=${theme}`, state);
+        if (!verificationCode) throw new Error("Перевірку не пройдено — спробуй ще раз");
+      }
+      await api.signup(pds, { email: f.email.value.trim(), handle: handle + f.domain.value, password: f.pass.value, inviteCode: f.invite.value.trim(), verificationCode });
+      await api.updatePref("personalDetailsPref", { birthDate: new Date(birth).toISOString() }).catch(() => {});
+      toast("Акаунт створено 🐝 Підтвердь email з листа, коли зможеш");
+      restart();
+    } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = "Створити акаунт"; }
+  };
+}
+
 /* ---------- guest: reading shared threads and profiles without an account ---------- */
 // Everything here comes from the public AppView; anything that writes asks to sign in
 const guestRoute = () => {
   const seg = location.hash.slice(1).split("?")[0].split("/").filter(Boolean);
   return seg[0] === "profile" && seg[1] && seg[1] !== "me" && !["known", "likes"].includes(seg[2]) || seg[0] === "tag" && !!seg[1];
 };
-const GUEST_ACTS = new Set(["back", "unblur", "showMuted", "lightbox", "lightboxOne", "translate", "player"]);
+const GUEST_ACTS = new Set(["back", "unblur", "showMuted", "lightbox", "lightboxOne", "translate", "player", "retryVideo"]);
 function guestShell() {
   document.body.classList.add("guest");
   app.innerHTML = `<header class="guestbar"><a class="logo" href="#/login">${bee(26)} <b>Skybee</b></a><span class="muted small grow">перегляд без входу</span><a class="btn sm" href="#/login">Увійти</a></header><main id="main"></main>`;
@@ -183,6 +254,7 @@ window.addEventListener("skybee:badge", badges);
 /* ---------- router ---------- */
 async function route() {
   await api.prefsReady; // muted words must be known before the first post is drawn
+  if (!api.session && location.hash.startsWith("#/signup")) return signupScreen();
   if (!api.session && !guestRoute()) return loginScreen();
   if (!api.session && !$("#main")) guestShell();
   cleanup?.(); cleanup = null;
@@ -386,6 +458,7 @@ document.addEventListener("click", async (e) => {
         break;
       }
       case "lightboxOne": lightbox([actEl.dataset.full]); break;
+      case "retryVideo": { const box = actEl.closest(".video"); box.querySelector(".verr")?.remove(); attachVideo(box.querySelector("video")); break; }
       case "player": { // a video or music player from the link, in place of its card
         const w = actEl.closest(".playwrap");
         const f = document.createElement("iframe");
@@ -741,7 +814,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 /* ---------- boot ---------- */
 function boot() {
   api.loadSession();
-  if (!api.session) return guestRoute() ? (guestShell(), route()) : loginScreen();
+  if (!api.session) return location.hash.startsWith("#/signup") ? signupScreen() : guestRoute() ? (guestShell(), route()) : loginScreen();
   document.body.classList.remove("guest");
   api.primePrefs();
   shell();

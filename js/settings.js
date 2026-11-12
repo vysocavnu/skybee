@@ -356,6 +356,8 @@ export async function media(el) {
     <div class="card">
       <h3>Медіа</h3>
       ${toggle("autogif", "Автоматично відтворювати GIF", store.get("skybee.autogif") === "1")}
+      <label class="field">Ключ Tenor API — для пошуку GIF<input id="tenorkey" autocomplete="off" spellcheck="false" placeholder="AIza…" value="${esc(store.get("skybee.tenorKey") || "")}"></label>
+      <p class="small muted">Безплатний: Google Cloud Console → новий проєкт → увімкнути «Tenor API» → «Облікові дані» → «Створити ключ API». Зберігається лише на цьому пристрої.</p>
       ${toggle("players", "Вбудовані плеєри", store.get("skybee.players") !== "0", "YouTube, Spotify, SoundCloud, Vimeo, Twitch, Apple Music грають прямо в пості — після натискання ▶")}
       ${toggle("extmedia", "Показувати картки посилань із зображеннями", store.get("skybee.noLinkThumbs") !== "1")}
     </div>`;
@@ -368,6 +370,7 @@ export async function media(el) {
     saved(api.updatePref("postInteractionSettingsPref", { threadgateAllowRules: rules }));
   };
   $("#autogif", el).onchange = (e) => { store.set("skybee.autogif", e.target.checked ? "1" : null); toast("Збережено"); };
+  $("#tenorkey", el).onchange = (e) => { store.set("skybee.tenorKey", e.target.value.trim() || null); toast(e.target.value.trim() ? "Ключ збережено — шукай GIF кнопкою «GIF» у редакторі" : "Ключ прибрано"); };
   $("#players", el).onchange = (e) => { store.set("skybee.players", e.target.checked ? null : "0"); toast("Збережено"); };
   $("#extmedia", el).onchange = (e) => { store.set("skybee.noLinkThumbs", e.target.checked ? null : "1"); document.body.classList.toggle("nolinkthumbs", !e.target.checked); toast("Збережено"); };
 }
@@ -471,7 +474,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }

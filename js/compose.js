@@ -117,7 +117,7 @@ export function openComposer(opts = {}, onDone) {
   let sentAny = false;
   const lang = getLang();
   const sendLabel = () => thread.length > 1 ? `Опублікувати все (${thread.length})` : replyTo ? "Відповісти" : "Опублікувати";
-  const filled = (x) => x.text.trim() || x.images.length || x.video;
+  const filled = (x) => x.text.trim() || x.images.length || x.video || x.card?.gif;
   const snapshot = () => ({ text: ta.value, images: [...images], video, card, cardFor });
   const all = () => thread.map((x, i) => i === cur ? snapshot() : x);
   const dirty = () => all().some(filled);
@@ -142,6 +142,7 @@ export function openComposer(opts = {}, onDone) {
       <div class="row between tools">
         <div class="row">
           <label class="ghost icon" title="Додати фото, відео або GIF">🖼️<input type="file" accept="image/*,${VIDEO_TYPES.join(",")}" multiple hidden></label>
+          <button class="ghost icon gifbtn" data-c="gif" title="Знайти GIF">GIF</button>
           <select data-lang title="Мова поста">${LANGS.map(([c, n]) => `<option value="${c}" ${c === lang ? "selected" : ""}>${n}</option>`).join("")}</select>
           <select data-warn title="Попередження про вміст медіа">${WARNINGS.map(([v, l]) => `<option value="${v}">${v ? "⚠️ " : ""}${l}</option>`).join("")}</select>
           ${replyTo ? "" : `<button class="ghost sm" data-c="gate" title="Хто може відповідати й цитувати">${gateLabel(allow)}</button>`}
@@ -198,6 +199,7 @@ export function openComposer(opts = {}, onDone) {
     addBtn.disabled = !!busy || n > 300 || !filled(snapshot()) || thread.length >= MAX_THREAD;
     clearTimeout(cardTimer);
     const url = ta.value.match(/https?:\/\/[^\s]+/)?.[0]?.replace(/[.,;:!?)"']+$/, "");
+    if (card?.gif) return; // a picked GIF stays until it is removed
     if (url && url !== cardFor) cardTimer = setTimeout(async () => {
       cardFor = url; const c = await api.fetchLinkCard(url); if (cardFor === url) { card = c; renderCard(); }
     }, 600);
@@ -296,7 +298,12 @@ export function openComposer(opts = {}, onDone) {
     if (part && !busy) return open(+part.dataset.part);
     const c = e.target.closest("[data-c]")?.dataset.c;
     if (c === "cancel") { if (busy) busy.abort(); else if (mayClose()) m.close(); }
-    if (c === "nocard") { card = null; renderCard(); }
+    if (c === "nocard") { card = null; cardFor = null; renderCard(); update(); }
+    if (c === "gif" && !busy) {
+      if (images.length || video) return toast("GIF не можна поєднати з фото чи відео");
+      const g = await gifPicker();
+      if (g) { card = g; cardFor = null; renderCard(); update(); }
+    }
     if (c === "addpart" && !busy) {
       thread.splice(cur + 1, 0, { text: "", images: [], video: null, card: null, cardFor: null });
       open(cur + 1);
@@ -346,6 +353,45 @@ export function openComposer(opts = {}, onDone) {
 }
 
 // → the published post as { uri, cid, record }, enough to reply to it
+/* ---------- GIF search (Tenor) ----------
+   Like the official app: the post carries a link to the GIF on media.tenor.com (with its size), and the clients show it animated.
+   Tenor needs an API key: each user puts their own free key in Settings → Content and media (it stays on the device). */
+export const tenorKey = () => { try { return localStorage.getItem("skybee.tenorKey") || ""; } catch { return ""; } };
+function gifPicker() {
+  return new Promise((resolve) => {
+    const key = tenorKey();
+    if (!key) {
+      toast("Щоб шукати GIF, додай свій ключ Tenor у Налаштування → Вміст і медіа", 5000);
+      return resolve(null);
+    }
+    let done = false;
+    const m = modal(`<h3>GIF</h3><input type="search" placeholder="Пошук GIF" autofocus><div class="gifgrid"></div><p class="hint">Через Tenor</p>`,
+      { wide: true, onClose: () => { if (!done) resolve(null); } });
+    const grid = m.querySelector(".gifgrid"), inp = m.querySelector("input");
+    let items = [], tm;
+    const load = async (q) => {
+      grid.innerHTML = spinner();
+      try {
+        const u = new URL(`https://tenor.googleapis.com/v2/${q ? "search" : "featured"}`);
+        for (const [k, v] of Object.entries({ key, client_key: "skybee", limit: 40, media_filter: "gif,tinygif", contentfilter: "medium", locale: "uk_UA", ...(q ? { q } : {}) })) u.searchParams.set(k, v);
+        const r = await fetch(u);
+        if (!r.ok) throw new Error(r.status === 400 || r.status === 403 ? "Ключ Tenor не підходить — перевір його в налаштуваннях" : `Помилка ${r.status}`);
+        items = ((await r.json()).results || []).filter(x => x.media_formats?.gif && x.media_formats?.tinygif);
+        grid.innerHTML = items.map((x, i) => `<button class="gifitem" data-g="${i}" title="${esc(x.content_description || "")}"><img src="${esc(x.media_formats.tinygif.url)}" alt="${esc(x.content_description || "")}" loading="lazy"></button>`).join("") || `<p class="muted center pad">Нічого не знайдено</p>`;
+      } catch (ex) { grid.innerHTML = `<p class="err">${esc(ex.message)}</p>`; }
+    };
+    inp.addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(() => load(inp.value.trim()), 350); });
+    grid.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-g]"); if (!b) return;
+      const x = items[+b.dataset.g], g = x.media_formats.gif, [w, h] = g.dims || [0, 0];
+      const title = x.content_description || x.title || "GIF";
+      done = true; m.close();
+      resolve({ gif: true, uri: `${g.url}?hh=${h}&ww=${w}`, title, description: `Alt: ${title}`, image: x.media_formats.tinygif.url });
+    });
+    load("");
+  });
+}
+
 async function publish({ text, images, video, card, replyTo, quote, lang, warn, allow, noQuote, signal, status }) {
   const record = { text, langs: [lang] };
   const facets = await api.detectFacets(text);

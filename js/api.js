@@ -107,6 +107,35 @@ export async function login(handle, password, { main = false, code = "" } = {}) 
   return session;
 }
 
+/* ---------- sign-up ---------- */
+// What a server needs for a new account: its handle domains, an invite code, its terms
+export async function describeServer(pds) {
+  const r = await fetch(`${pds.replace(/\/$/, "")}/xrpc/com.atproto.server.describeServer`);
+  if (!r.ok) throw new Error("Не вдалося зв'язатися з цим сервером");
+  return r.json();
+}
+// Creates the account and signs in to it (it becomes the active one)
+export async function signup(pds, { email, handle, password, inviteCode, verificationCode }) {
+  pds = pds.replace(/\/$/, "");
+  const body = { email, handle, password };
+  if (inviteCode) body.inviteCode = inviteCode;
+  if (verificationCode) body.verificationCode = verificationCode;
+  let r, d;
+  try {
+    r = await fetch(`${pds}/xrpc/com.atproto.server.createAccount`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    d = await r.json().catch(() => ({}));
+  } catch { throw new Error("Немає зв'язку із сервером"); }
+  if (!r.ok) {
+    const e = new Error({ InvalidHandle: "Такий нік не підходить: лише латинські літери, цифри й дефіс", HandleNotAvailable: "Цей нік уже зайнятий",
+      InvalidPassword: "Пароль не підходить", InvalidInviteCode: "Код запрошення не підходить", UnsupportedDomain: "Цей сервер не дає таких ніків",
+      IncompatibleDidDoc: "Помилка сервера" }[d.error] || d.message || d.error || `Помилка ${r.status}`);
+    e.code = d.error; throw e;
+  }
+  session = { did: d.did, handle: d.handle, accessJwt: d.accessJwt, refreshJwt: d.refreshJwt, pds: pdsOfDoc(d.didDoc) || pds };
+  forgetPrefs(); saveSession();
+  return session;
+}
+
 // `s` is the account the request belongs to: the active one may change while the request is in flight
 async function refresh(s) {
   const r = await fetch(`${s.pds}/xrpc/com.atproto.server.refreshSession`, {

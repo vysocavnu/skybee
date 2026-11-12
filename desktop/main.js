@@ -1,6 +1,6 @@
 // Skybee desktop shell (Electron): one window with the web app inside, on its own Chromium —
 // nothing from Edge or WebView2 is needed.
-const { app, BrowserWindow, Menu, protocol, net, shell, dialog } = require("electron");
+const { app, BrowserWindow, Menu, protocol, net, shell, dialog, Tray, nativeImage, ipcMain } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
@@ -94,6 +94,7 @@ function setupShellUpdates() {
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowPrerelease = false;
   let asked = false;
+  autoUpdater.on("before-quit-for-update", () => { quitting = true; });
   autoUpdater.on("download-progress", (p) => win?.setProgressBar(Math.max(0.01, (p.percent || 0) / 100)));
   autoUpdater.on("error", () => win?.setProgressBar(-1)); // offline, GitHub down…: quietly try again later
   autoUpdater.on("update-downloaded", async (info) => {
@@ -118,7 +119,56 @@ protocol.registerSchemesAsPrivileged([
   { scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
 ]);
 
-let win = null;
+let win = null, tray = null, quitting = false;
+const startHidden = process.argv.includes("--hidden"); // started with Windows: straight to the tray
+
+// The window shows again (from the tray, a second launch or a notification click)
+function show() {
+  if (!win) return createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+
+/* ---------- tray: Skybee keeps running after the window is closed ----------
+   so system notifications keep coming (the web app polls once a minute). «Вийти» in the tray menu quits for real. */
+function setupTray() {
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, "icon.png")).resize({ width: 16, height: 16 }));
+  tray.setToolTip("Skybee");
+  const build = () => Menu.buildFromTemplate([
+    { label: "Відкрити Skybee", click: show },
+    { label: "Запускати разом із Windows", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin,
+      click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked, args: ["--hidden"] }) },
+    { type: "separator" },
+    { label: "Вийти", click: () => { quitting = true; app.quit(); } },
+  ]);
+  tray.setContextMenu(build());
+  tray.on("click", show);
+  tray.on("right-click", () => tray.setContextMenu(build()));
+}
+
+/* ---------- sign-up captcha ----------
+   bsky.social asks new accounts to pass a captcha at /gate/signup; when solved it redirects to bsky.app with ?state&code.
+   A child window watches for that redirect and hands the code back to the web app. */
+ipcMain.handle("skybee:version", () => app.getVersion());
+ipcMain.handle("skybee:captcha", (_e, url, state) => new Promise((resolve) => {
+  let u; try { u = new URL(url); } catch { return resolve(null); }
+  if (u.protocol !== "https:" || !u.pathname.startsWith("/gate/")) return resolve(null);
+  const w = new BrowserWindow({ parent: win, modal: true, width: 480, height: 720, title: "Перевірка", autoHideMenuBar: true,
+    backgroundColor: "#ffffff", webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  let done = false;
+  const finish = (code) => { if (done) return; done = true; resolve(code); if (!w.isDestroyed()) w.close(); };
+  const look = (e, next) => {
+    let n; try { n = new URL(next); } catch { return; }
+    if (n.host === u.host) return; // still the captcha page
+    e?.preventDefault?.();
+    finish(n.searchParams.get("state") === state ? n.searchParams.get("code") : null);
+  };
+  w.webContents.on("will-navigate", look);
+  w.webContents.on("will-redirect", look);
+  w.webContents.setWindowOpenHandler(({ url: x }) => { external(x); return { action: "deny" }; });
+  w.on("closed", () => finish(null));
+  w.loadURL(url);
+}));
 const external = (url) => { if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); };
 
 function createWindow() {
@@ -126,8 +176,19 @@ function createWindow() {
     width: 1200, height: 820, minWidth: 360, minHeight: 520,
     title: "Skybee", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0f1218",
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
+    show: !startHidden,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true,
+      preload: path.join(__dirname, "preload.js"), backgroundThrottling: false }, // keeps polling for notifications while hidden
   });
+  // closing the window only hides it: Skybee stays in the tray and keeps notifying
+  let told = false;
+  win.on("close", (e) => {
+    if (quitting) return;
+    e.preventDefault(); win.hide();
+    if (!told && tray) { told = true; tray.displayBalloon?.({ title: "Skybee працює у фоні", content: "Сповіщення й далі приходитимуть. Вийти — правою кнопкою на значку Skybee біля годинника.", iconType: "info" }); }
+  });
+  // a click on a notification switches the page (location.hash): bring the hidden window back
+  win.webContents.on("did-navigate-in-page", () => { if (win && !win.isVisible()) show(); });
   // target=_blank links and window.open go to the system browser
   win.webContents.setWindowOpenHandler(({ url }) => { external(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(HOME)) { e.preventDefault(); external(url); } });
@@ -153,7 +214,8 @@ function createWindow() {
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   // a second launch only brings the running window to the front
-  app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+  app.on("second-instance", show);
+  app.on("before-quit", () => { quitting = true; });
   app.setAppUserModelId("io.github.vysocavnu.skybee"); // Windows shows notifications under this name
   Menu.setApplicationMenu(null);
   app.whenReady().then(() => {
@@ -168,9 +230,10 @@ else {
       return new Response("", { status: 404 });
     });
     createWindow();
+    try { setupTray(); } catch { /* no tray on this system: closing the window quits */ quitting = true; }
     setTimeout(() => updateWeb(root).catch(() => { /* offline or the site is down: try again next start */ }), 3000);
     setupShellUpdates();
     app.on("activate", () => { if (!win) createWindow(); });
   });
-  app.on("window-all-closed", () => app.quit());
+  app.on("window-all-closed", () => { if (quitting) app.quit(); });
 }

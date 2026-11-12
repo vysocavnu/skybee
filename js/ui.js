@@ -492,17 +492,37 @@ export async function attachVideo(video) {
   video.dataset.ready = "1";
   if (gif) video.autoplay = true; // starts as soon as the stream is attached
   const src = video.dataset.src;
-  if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = src; return; }
-  await loadHls();
+  const play = () => video.play().catch(() => {}); // the click that attached the stream also starts it
+  // hls.js first: new Chromium (Chrome, the desktop app) says it plays HLS itself, but its own player fails on many Bluesky streams.
+  // The browser's player only where hls.js cannot work (Safari, iPhone) or could not be loaded.
+  let hlsOk = false;
+  try { await loadHls(); hlsOk = window.Hls?.isSupported(); } catch {}
+  if (!hlsOk) {
+    if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = src; play(); }
+    else videoError(video);
+    return;
+  }
   const hls = new window.Hls({ subtitleDisplay: true });
   // captions come inside the stream: turn on the one in the reader's language (or the first one); the player's CC button switches them
   hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+    play();
     const t = hls.subtitleTracks || [];
     if (!t.length) return;
     const i = t.findIndex(x => (x.lang || "").startsWith("uk"));
     hls.subtitleTrack = i >= 0 ? i : 0;
   });
+  let retried = false;
+  hls.on(window.Hls.Events.ERROR, (_e, d) => {
+    if (!d.fatal) return;
+    if (d.type === window.Hls.ErrorTypes.MEDIA_ERROR && !retried) { retried = true; hls.recoverMediaError(); return; }
+    if (d.type === window.Hls.ErrorTypes.NETWORK_ERROR && !retried) { retried = true; hls.startLoad(); return; }
+    hls.destroy(); videoError(video);
+  });
   hls.loadSource(src); hls.attachMedia(video);
+}
+function videoError(video) {
+  video.dataset.ready = "";
+  video.closest(".video")?.insertAdjacentHTML("beforeend", `<div class="verr">Не вдалося відтворити відео. <button class="linklike" data-act="retryVideo">Спробувати ще</button></div>`);
 }
 
 /* ---------- infinite scroll ---------- */

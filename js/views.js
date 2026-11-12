@@ -782,9 +782,25 @@ export async function convo(el, { id }) {
     const counts = new Map();
     for (const r of m.reactions || []) counts.set(r.value, { n: (counts.get(r.value)?.n || 0) + 1, mine: counts.get(r.value)?.mine || r.sender?.did === session.did });
     return `<div class="msg${mine ? " mine" : ""}" data-mid="${m.id}" title="${esc(new Date(m.sentAt).toLocaleString("uk-UA"))}">
-      <div class="mcol">${!del && quoteOf(m) ? `<div class="mquote" data-jump="${esc(quoteOf(m).text)}">↩︎ ${esc(quoteOf(m).text)}</div>` : ""}<div class="bubble${del ? " muted" : ""}">${del ? "Повідомлення видалено" : quoteOf(m) ? richText(quoteOf(m).rest) : richText(m.text, m.facets)}</div>
+      <div class="mcol">${del ? "" : replyHead(m, mine)}<div class="bubble${del ? " muted" : ""}">${del ? "Повідомлення видалено" : quoteOf(m) ? richText(quoteOf(m).rest) : richText(m.text, m.facets)}</div>
       ${m.embed && !del ? `<div class="membed">${renderEmbed(m.embed)}</div>` : ""}
       ${counts.size ? `<div class="reacts">${[...counts].map(([v, x]) => `<button class="react${x.mine ? " on" : ""}" data-react="${esc(v)}">${esc(v)}${x.n > 1 ? " " + x.n : ""}</button>`).join("")}</div>` : ""}</div></div>`;
+  };
+  // a reply: «↪ X відповів(-ла) Y» and the message it answers, as in the official app (replyTo in the chat lexicon);
+  // old Skybee replies (a «> quote» first line) are shown the same way
+  const who = (did) => did === session.did ? "собі" : name(c.members.find(x => x.did === did) || other);
+  const replyHead = (m, mine) => {
+    const r = m.replyTo;
+    if (r) {
+      const gone = r.$type !== "chat.bsky.convo.defs#messageView";
+      const by = r.sender?.did, me = m.sender?.did === session.did;
+      const line = me ? (by === session.did ? "Ви відповіли собі" : `Ви відповіли ${name(c.members.find(x => x.did === by) || other)}`)
+        : `${name(other)} відповів(-ла) ${by === m.sender?.did ? "собі" : "вам"}`;
+      return `<div class="rhead small muted">↪ ${line}</div><div class="rquote${mine ? " mine" : ""}" ${gone ? "" : `data-jumpid="${esc(r.id)}"`}>
+        ${gone ? `<span class="muted">Повідомлення недоступне</span>` : `<b>${by === session.did ? "Ви" : name(c.members.find(x => x.did === by) || other)}</b><span>${esc(excerpt(r.text || ""))}</span>`}</div>`;
+    }
+    const q = quoteOf(m);
+    return q ? `<div class="mquote" data-jump="${esc(q.text)}">↩︎ ${esc(q.text)}</div>` : "";
   };
   const render = (msgs, prepend = false) => {
     const html = msgs.filter(m => !seen.has(m.id)).map(m => { seen.add(m.id); byId.set(m.id, m); return bubble(m); }).join("");
@@ -846,9 +862,9 @@ export async function convo(el, { id }) {
     document.body.appendChild(wrap);
   };
   box.addEventListener("click", async (e) => {
-    const jump = e.target.closest("[data-jump]");
+    const jump = e.target.closest("[data-jump], [data-jumpid]");
     if (jump) { // the replied message, when it is loaded
-      const t = [...byId.values()].find(x => x.text && excerpt(x.text) === jump.dataset.jump);
+      const t = jump.dataset.jumpid ? byId.get(jump.dataset.jumpid) : [...byId.values()].find(x => x.text && excerpt(x.text) === jump.dataset.jump);
       const n = t && box.querySelector(`[data-mid="${CSS.escape(t.id)}"]`);
       if (n) { n.scrollIntoView({ block: "center", behavior: "smooth" }); n.classList.add("flash"); setTimeout(() => n.classList.remove("flash"), 1200); }
       return;
@@ -877,13 +893,13 @@ export async function convo(el, { id }) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const typed = ta.value.trim(); if (!typed) return;
-    // a reply goes as a quoted first line («> …»), which reads well in any other client too
-    const text = replyTo ? `> ${excerpt(replyTo.text)}\n${typed}` : typed;
-    const was = replyTo;
+    const text = typed, was = replyTo;
     ta.value = ""; setReply(null);
     try {
       const facets = await api.detectFacets(text);
-      const m = await api.chatPost("chat.bsky.convo.sendMessage", { convoId: id, message: facets.length ? { text, facets } : { text } });
+      const message = facets.length ? { text, facets } : { text };
+      if (was) message.replyTo = { messageId: was.id }; // a real reply, seen as one in every client
+      const m = await api.chatPost("chat.bsky.convo.sendMessage", { convoId: id, message });
       render([m]); scrollTo(0, document.body.scrollHeight);
     } catch (ex) { toast(ex.message); ta.value = typed; setReply(was); }
   };

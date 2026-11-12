@@ -661,3 +661,16 @@ nav.side .logo, .guestbar .logo { display: flex; align-items: center; gap: 10px;
 .sp-title b { display: block; font-size: clamp(34px, 7vmin, 64px); font-weight: 800; letter-spacing: .01em; }
 .sp-title span { font-size: clamp(14px, 2.2vmin, 18px); color: #8a7d68; }
 #splash.landed .sp-title { opacity: 1; transform: none; }
+.rhead { margin: 4px 6px 2px; }
+.msg.mine .rhead { text-align: right; }
+.rquote { max-width: min(320px, 75vw); padding: 6px 10px; margin-bottom: -10px; padding-bottom: 14px; border-radius: 14px 14px 4px 4px; background: var(--hover);
+  border: 1px solid var(--line); font-size: 13px; cursor: pointer; display: flex; flex-direction: column; opacity: .9; }
+.rquote span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.rquote.mine { background: color-mix(in srgb, var(--accent) 35%, var(--bg)); border-color: transparent; }
+.rquote.mine span { color: var(--text); }
+.video { position: relative; } .verr { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.75); color: #fff; font-size: 13px; }
+.gifbtn { font-size: 12px; font-weight: 800; letter-spacing: .03em; }
+.gifgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; max-height: 60vh; overflow-y: auto; margin-top: 10px; }
+.gifitem { padding: 0; border: 0; background: var(--hover); border-radius: 8px; overflow: hidden; aspect-ratio: 1; cursor: pointer; }
+.gifitem img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gifitem:hover { outline: 2px solid var(--accent); }
