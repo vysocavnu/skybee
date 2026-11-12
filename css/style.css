@@ -431,3 +431,6 @@ body.sb-tint .phead .bigava { border-color: var(--accent); }
 .sb-toy { position: absolute; right: 16px; bottom: 10px; max-width: 96px; max-height: 96px; border-radius: 14px; transform: rotate(6deg); cursor: zoom-in;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,.45)); transition: transform .2s; z-index: 1; }
 .sb-toy:hover { transform: rotate(-4deg) scale(1.08); }
+
+/* wide screens show «my profile» as a card in the right column, so the side menu does not repeat it */
+@media (min-width: 1101px) { nav.side a[data-nav^="#/profile"] { display: none; } }
