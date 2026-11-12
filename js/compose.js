@@ -1,6 +1,6 @@
 // Skybee — post composer
 import * as api from "./api.js";
-import { esc, modal, toast, avatar, name, richText, spinner } from "./ui.js";
+import { esc, modal, toast, avatar, name, richText, spinner, at } from "./ui.js";
 
 const LANGS = [["uk", "Українська"], ["en", "English"], ["pl", "Polski"], ["be", "Беларуская"], ["ru", "Русский"], ["de", "Deutsch"], ["cs", "Čeština"], ["es", "Español"], ["ja", "日本語"]];
 export const getLang = () => { try { return localStorage.getItem("skybee.lang") || "uk"; } catch { return "uk"; } };
@@ -135,7 +135,7 @@ export function openComposer(opts = {}, onDone) {
       <div class="previews"></div>
       <div class="cardpv"></div>
       <div class="parts" data-parts="after"></div>
-      ${quote ? `<div class="quote"><div class="meta">${avatar(quote.author, 18)} <b>${name(quote.author)}</b> <span>@${esc(quote.author.handle)}</span></div><div class="text">${richText(quote.record?.text, quote.record?.facets)}</div></div>` : ""}
+      ${quote ? `<div class="quote"><div class="meta">${avatar(quote.author, 18)} <b>${name(quote.author)}</b> <span>${at(quote.author.handle)}</span></div><div class="text">${richText(quote.record?.text, quote.record?.facets)}</div></div>` : ""}
       <p class="err"></p>
       <div class="gatebox" hidden><p class="small muted">Хто може відповідати</p><div data-gateform></div>
         <label class="radio"><input type="checkbox" data-noquote> Заборонити цитувати цей пост</label></div>
@@ -226,7 +226,7 @@ export function openComposer(opts = {}, onDone) {
       try {
         const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q: hit[2], limit: 5 });
         if (mentionAt()?.[2] !== hit[2]) return;
-        mentions.innerHTML = d.actors.map(a => `<button type="button" class="actor plain" data-handle="${esc(a.handle)}">${avatar(a, 28)}<div class="who"><b>${name(a)}</b><span class="muted small">@${esc(a.handle)}</span></div></button>`).join("");
+        mentions.innerHTML = d.actors.map(a => `<button type="button" class="actor plain" data-handle="${esc(a.handle)}">${avatar(a, 28)}<div class="who"><b>${name(a)}</b><span class="muted small">${at(a.handle)}</span></div></button>`).join("");
       } catch { mentions.innerHTML = ""; }
     }, 200);
   });

@@ -1,7 +1,7 @@
 // Skybee — more screens: lists, starter packs, content filters, account, app passwords
 import * as api from "./api.js";
 import { session } from "./api.js";
-import { $, esc, enc, num, name, vname, avatar, richText, renderActor, renderFeedCard, empty, spinner, toast, modal, menu, confirmBox, profileHref, actors } from "./ui.js";
+import { $, esc, enc, num, name, vname, avatar, richText, renderActor, renderFeedCard, empty, spinner, toast, modal, menu, confirmBox, profileHref, actors, at } from "./ui.js";
 import { header, paged, renderListCard } from "./views.js";
 
 const reload = () => window.dispatchEvent(new Event("hashchange"));
@@ -81,7 +81,7 @@ export function addPeopleDialog(listUri) {
       const q = inp.value.trim(); if (!q) { res.innerHTML = ""; return; }
       try {
         const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q, limit: 8 });
-        res.innerHTML = d.actors.map(a => `<div class="actor static">${avatar(a, 36)}<div class="who"><b>${name(a)}</b><span class="muted small">@${esc(a.handle)}</span></div>
+        res.innerHTML = d.actors.map(a => `<div class="actor static">${avatar(a, 36)}<div class="who"><b>${name(a)}</b><span class="muted small">${at(a.handle)}</span></div>
           <button class="ghost sm" data-add="${esc(a.did)}">Додати</button></div>`).join("");
       } catch (ex) { toast(ex.message); }
     }, 250);
@@ -96,7 +96,7 @@ export function addPeopleDialog(listUri) {
 
 // Tick the lists of mine that an account belongs to
 export async function addToListsDialog(actor) {
-  const m = modal(`<h3>Списки для @${esc(actor.handle)}</h3><div class="results">${spinner()}</div>
+  const m = modal(`<h3>Списки для ${at(actor.handle)}</h3><div class="results">${spinner()}</div>
     <div class="row between" style="margin-top:12px"><button class="ghost sm" data-act="newList">＋ Новий список</button><button class="btn" data-x>Готово</button></div>`);
   const res = $(".results", m);
   m.addEventListener("click", e => { if (e.target.closest("[data-x]")) m.close(); });
@@ -124,7 +124,7 @@ export async function starterPack(el, { actor, rkey }) {
   el.innerHTML = header(esc(rec.name || "Стартовий набір"), true) + `
     <div class="card-row pad"><span class="bigemoji">🎒</span>
       <div class="grow"><b>${esc(rec.name || "")}</b>
-        <div class="muted small">Стартовий набір від <a href="${profileHref(sp.creator)}">@${esc(sp.creator.handle)}</a>${sp.joinedAllTimeCount ? ` · приєдналися: ${num(sp.joinedAllTimeCount)}` : ""}</div>
+        <div class="muted small">Стартовий набір від <a href="${profileHref(sp.creator)}">${at(sp.creator.handle)}</a>${sp.joinedAllTimeCount ? ` · приєдналися: ${num(sp.joinedAllTimeCount)}` : ""}</div>
         ${rec.description ? `<div class="small">${richText(rec.description, rec.descriptionFacets)}</div>` : ""}</div>
       ${sp.list ? `<button class="btn sm" data-followall>Стежити за всіма</button>` : ""}
     </div>
@@ -197,7 +197,7 @@ export async function account(el) {
   el.innerHTML = header("Акаунт", true) + `
     <div class="card">
       <h3>Нік</h3>
-      <p>@${esc(a.handle)}</p>
+      <p>${at(a.handle)}</p>
       <form class="row" id="handleform"><input name="handle" placeholder="новий-нік або власний домен" autocapitalize="none" spellcheck="false" required><button class="btn sm">Змінити</button></form>
       <p class="small muted">Короткий нік отримає закінчення .bsky.social. Для власного домену спершу додай DNS-запис <code>_atproto</code> зі значенням <code>did=${esc(a.did)}</code>.</p>
     </div>
@@ -311,7 +311,7 @@ export async function sidebar(el) {
     `<a class="chip" href="#/search?q=${enc(t.topic)}">${esc(t.topic)}</a>`).join("")}</div></div>`;
   if (sug?.actors?.length) html += `<div class="card small"><h3>Кого почитати</h3>${sug.actors.map(a => {
     actors.set(a.did, a);
-    return `<a class="sugg" href="${profileHref(a)}">${avatar(a, 32)}<span class="who"><b>${vname(a)}</b><span class="muted clip">@${esc(a.handle)}</span></span></a>`;
+    return `<a class="sugg" href="${profileHref(a)}">${avatar(a, 32)}<span class="who"><b>${vname(a)}</b><span class="muted clip">${at(a.handle)}</span></span></a>`;
   }).join("")}<a class="rowlink" href="#/search">Більше →</a></div>`;
   el.innerHTML = html;
 }

@@ -26,6 +26,9 @@ export function num(n = 0) {
   if (n < 1e6) return (n / 1000).toFixed(n < 1e4 ? 1 : 0).replace(/\.0$/, "") + " тис.";
   return (n / 1e6).toFixed(1).replace(/\.0$/, "") + " млн";
 }
+// «@lejk309» instead of «@lejk309.bsky.social»; other domains stay whole. Escaped, ready for HTML
+export const shortHandle = (h = "") => h.replace(/\.bsky\.social$/i, "");
+export const at = (h) => "@" + esc(shortHandle(h));
 export const name = (a) => esc(a?.displayName || a?.handle || "");
 // the name with a verification mark, for places where HTML is allowed
 export const vname = (a) => name(a) + (a?.verification?.trustedVerifierStatus === "valid" ? ` <span class="verified" title="Довірений верифікатор">✪</span>`
@@ -181,11 +184,11 @@ function renderRecord(r) {
   if (t === "app.bsky.embed.record#viewBlocked") return `<div class="quote muted">Пост заблоковано</div>`;
   if (t === "app.bsky.embed.record#viewDetached") return `<div class="quote muted">Автор від'єднав цитату</div>`;
   if (t === "app.bsky.feed.defs#generatorView")
-    return `<a class="quote card-row" href="#/feed/${enc(r.uri)}">${avatar({ avatar: r.avatar, displayName: r.displayName }, 36)}<div><b>${esc(r.displayName)}</b><small>Фід від @${esc(r.creator.handle)}</small></div></a>`;
+    return `<a class="quote card-row" href="#/feed/${enc(r.uri)}">${avatar({ avatar: r.avatar, displayName: r.displayName }, 36)}<div><b>${esc(r.displayName)}</b><small>Фід від ${at(r.creator.handle)}</small></div></a>`;
   if (t === "app.bsky.graph.defs#listView")
-    return `<a class="quote card-row" href="#/list/${enc(r.uri)}">${avatar({ avatar: r.avatar, displayName: r.name }, 36)}<div><b>${esc(r.name)}</b><small>Список від @${esc(r.creator.handle)}</small></div></a>`;
+    return `<a class="quote card-row" href="#/list/${enc(r.uri)}">${avatar({ avatar: r.avatar, displayName: r.name }, 36)}<div><b>${esc(r.name)}</b><small>Список від ${at(r.creator.handle)}</small></div></a>`;
   if (t === "app.bsky.graph.defs#starterPackViewBasic")
-    return `<a class="quote card-row" href="#/starter-pack/${enc(r.creator.did)}/${r.uri.split("/").pop()}"><span class="bigemoji">🎒</span><div><b>${esc(r.record?.name || "Стартовий набір")}</b><small>Стартовий набір від @${esc(r.creator.handle)}</small></div></a>`;
+    return `<a class="quote card-row" href="#/starter-pack/${enc(r.creator.did)}/${r.uri.split("/").pop()}"><span class="bigemoji">🎒</span><div><b>${esc(r.record?.name || "Стартовий набір")}</b><small>Стартовий набір від ${at(r.creator.handle)}</small></div></a>`;
   if (t === "app.bsky.labeler.defs#labelerView")
     return `<a class="quote card-row" href="${profileHref(r.creator)}">${avatar(r.creator, 36)}<div><b>${name(r.creator)}</b><small>Сервіс модерації</small></div></a>`;
   if (t === "app.bsky.embed.record#viewRecord") {
@@ -194,7 +197,7 @@ function renderRecord(r) {
     const media = (r.embeds || []).map(e => e.$type === "app.bsky.embed.record#view" || e.$type === "app.bsky.embed.recordWithMedia#view"
       ? renderEmbed(e.media ? { ...e.media } : null, label) : renderEmbed(e, label)).join("");
     return `<div class="quote" data-href="${postHref(fake)}">
-      <div class="meta">${avatar(r.author, 18)} <b>${vname(r.author)}</b> <span>@${esc(r.author.handle)} · ${ago(r.indexedAt)}</span></div>
+      <div class="meta">${avatar(r.author, 18)} <b>${vname(r.author)}</b> <span>${at(r.author.handle)} · ${ago(r.indexedAt)}</span></div>
       <div class="text">${richText(r.value?.text, r.value?.facets)}</div>${media}</div>`;
   }
   return "";
@@ -256,7 +259,7 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
   if (focus) return `
   <article class="post focus" data-uri="${esc(p.uri)}">
     <div class="row">${avatar(a, 48)}
-      <div class="who"><a href="${profileHref(a)}"><b>${vname(a)}</b></a><span class="muted">@${esc(a.handle)}</span></div>
+      <div class="who"><a href="${profileHref(a)}"><b>${vname(a)}</b></a><span class="muted">${at(a.handle)}</span></div>
       ${followBtn(a)}
     </div>
     <div class="text big">${richText(rec.text, rec.facets)}</div>
@@ -272,11 +275,11 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
   </article>`;
   return `
   <article class="post${line ? " has-line" : ""}${muted ? " mw-hidden" : ""}" data-uri="${esc(p.uri)}" data-href="${postHref(p)}">
-    ${muted ? `<button class="mw-note linklike small" data-act="showMuted">🙈 @${esc(a.handle)} · приховано через слово «${esc(muted.value)}» · Показати</button>` : ""}
+    ${muted ? `<button class="mw-note linklike small" data-act="showMuted">🙈 ${at(a.handle)} · приховано через слово «${esc(muted.value)}» · Показати</button>` : ""}
     <div class="left"><a href="${profileHref(a)}">${avatar(a)}</a>${line ? `<div class="tline"></div>` : ""}</div>
     <div class="body">
       ${top.join("")}
-      <div class="meta"><a href="${profileHref(a)}"><b>${vname(a)}</b></a> <span>@${esc(a.handle)}</span> · <a href="${postHref(p)}" title="${esc(fullDate(p.indexedAt))}">${ago(p.indexedAt)}</a></div>
+      <div class="meta"><a href="${profileHref(a)}"><b>${vname(a)}</b></a> <span>${at(a.handle)}</span> · <a href="${postHref(p)}" title="${esc(fullDate(p.indexedAt))}">${ago(p.indexedAt)}</a></div>
       <div class="text">${richText(rec.text, rec.facets)}</div>
       ${renderEmbed(p.embed, label)}
       ${langs}
@@ -297,7 +300,7 @@ export function renderActor(a, extra = "") {
   actors.set(a.did, a);
   return `<div class="actor" data-href="${profileHref(a)}">
     ${avatar(a, 44)}
-    <div class="who"><b>${vname(a)}</b><span class="muted">@${esc(a.handle)}${a.viewer?.followedBy ? ' <span class="pill">Стежить за вами</span>' : ""}</span>
+    <div class="who"><b>${vname(a)}</b><span class="muted">${at(a.handle)}${a.viewer?.followedBy ? ' <span class="pill">Стежить за вами</span>' : ""}</span>
       ${a.description ? `<div class="desc">${esc(a.description.slice(0, 160))}</div>` : ""}${extra}</div>
     ${followBtn(a)}
   </div>`;
@@ -306,7 +309,7 @@ export function renderActor(a, extra = "") {
 export function renderFeedCard(f) {
   return `<div class="actor" data-href="#/feed/${enc(f.uri)}">
     ${avatar({ avatar: f.avatar, displayName: f.displayName }, 44)}
-    <div class="who"><b>${esc(f.displayName)}</b><span class="muted">Фід від @${esc(f.creator.handle)} · ♥ ${num(f.likeCount)}</span>
+    <div class="who"><b>${esc(f.displayName)}</b><span class="muted">Фід від ${at(f.creator.handle)} · ♥ ${num(f.likeCount)}</span>
       ${f.description ? `<div class="desc">${esc(f.description.slice(0, 200))}</div>` : ""}</div>
     <button class="ghost sm" data-act="saveFeed" data-uri="${esc(f.uri)}">${f.viewer?.saved ? "✓" : "+"}</button>
   </div>`;

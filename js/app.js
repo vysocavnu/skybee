@@ -3,7 +3,7 @@ import * as api from "./api.js";
 import * as V from "./views.js";
 import * as M from "./more.js";
 import * as notify from "./notify.js";
-import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies } from "./ui.js";
+import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; document.body.style.fontSize = (localStorage.getItem("skybee.font") || "15") + "px"; } catch {}
@@ -89,7 +89,7 @@ const NAV = [
 ];
 const meChip = () => {
   const me = actors.get(api.session.did) || api.session;
-  return `${avatar(me, 36)}<span class="nl"><b>${name(me)}</b><small>@${esc(api.session.handle)}</small></span>`;
+  return `${avatar(me, 36)}<span class="nl"><b>${name(me)}</b><small>${at(api.session.handle)}</small></span>`;
 };
 function shell() {
   app.innerHTML = `
@@ -280,8 +280,8 @@ document.addEventListener("click", async (e) => {
             { act: "gate", label: "💬 Хто може відповідати й цитувати" },
             { act: "delete", label: "🗑️ Видалити пост", danger: true },
           ] : [
-            { act: "muteUser", label: `🙈 Приховати @${p.author.handle}` },
-            { act: "blockUser", label: `⛔ Заблокувати @${p.author.handle}`, danger: true },
+            { act: "muteUser", label: `🙈 Приховати ${at(p.author.handle)}` },
+            { act: "blockUser", label: `⛔ Заблокувати ${at(p.author.handle)}`, danger: true },
             { act: "report", label: "🚩 Поскаржитись", danger: true },
           ]),
         ]);
@@ -313,7 +313,7 @@ document.addEventListener("click", async (e) => {
           await api.deletePost(p.uri); document.querySelectorAll(`[data-uri="${CSS.escape(p.uri)}"]`).forEach(x => x.remove()); toast("Пост видалено");
         }
         if (c === "muteUser") { await api.mute(p.author.did); toast("Акаунт приховано"); }
-        if (c === "blockUser" && await confirmBox(`Заблокувати @${p.author.handle}?`, "Заблокувати", true)) { await api.block(p.author.did); toast("Заблоковано"); }
+        if (c === "blockUser" && await confirmBox(`Заблокувати ${at(p.author.handle)}?`, "Заблокувати", true)) { await api.block(p.author.did); toast("Заблоковано"); }
         if (c === "report") reportDialog({ $type: "com.atproto.repo.strongRef", uri: p.uri, cid: p.cid });
         break;
       }
@@ -366,7 +366,7 @@ document.addEventListener("click", async (e) => {
         }
         if (c === "mute") { await api.mute(a.did); toast("Приховано"); reloadView(); }
         if (c === "unmute") { await api.unmute(a.did); toast("Знову видно"); reloadView(); }
-        if (c === "block" && await confirmBox(`Заблокувати @${a.handle}?`, "Заблокувати", true)) { await api.block(a.did); reloadView(); }
+        if (c === "block" && await confirmBox(`Заблокувати ${at(a.handle)}?`, "Заблокувати", true)) { await api.block(a.did); reloadView(); }
         if (c === "unblock") { await api.unblock(a.viewer.blocking); reloadView(); }
         if (c === "report") reportDialog({ $type: "com.atproto.admin.defs#repoRef", did: a.did });
         break;
@@ -411,7 +411,7 @@ document.addEventListener("click", async (e) => {
       case "accountMenu": {
         const others = api.accounts.filter(a => a.did !== api.session.did);
         const c = await menu(actEl, [
-          ...others.map(a => ({ act: a.did, label: `↔️ @${esc(a.handle)}` })),
+          ...others.map(a => ({ act: a.did, label: `↔️ ${at(a.handle)}` })),
           { act: "add", label: "➕ Додати акаунт" },
         ]);
         if (c?.startsWith("#/")) location.hash = c;
@@ -423,10 +423,10 @@ document.addEventListener("click", async (e) => {
       case "switchAccount": if (api.switchAccount(actEl.dataset.did)) restart(); break;
       case "removeAccount": {
         const a = api.accounts.find(a => a.did === actEl.dataset.did);
-        if (a && await confirmBox(`Вийти з акаунта @${a.handle}?`, "Вийти", true)) { api.removeAccount(a.did); reloadView(); }
+        if (a && await confirmBox(`Вийти з акаунта ${at(a.handle)}?`, "Вийти", true)) { api.removeAccount(a.did); reloadView(); }
         break;
       }
-      case "logout": if (await confirmBox(`Вийти з акаунта @${api.session.handle}?`, "Вийти", true)) { api.logout(); restart(); } break;
+      case "logout": if (await confirmBox(`Вийти з акаунта ${at(api.session.handle)}?`, "Вийти", true)) { api.logout(); restart(); } break;
       case "install": {
         const prompt = pwa.install; pwa.install = null; actEl.hidden = true;
         if (prompt) { prompt.prompt(); await prompt.userChoice; }
@@ -459,7 +459,7 @@ function reportDialog(subject) {
 function peopleDialog(title, onPick) {
   const m = modal(`<h3>${title}</h3><input type="search" placeholder="Пошук людей" autofocus><div class="results"></div>`);
   const inp = $("input", m), res = $(".results", m);
-  const row = (a) => `<button class="actor plain" data-did="${a.did}" ${a.associated?.chat?.allowIncoming === "none" ? "disabled title='Не приймає повідомлення'" : ""}>${avatar(a, 36)}<div class="who"><b>${esc(a.displayName || a.handle)}</b><span class="muted">@${esc(a.handle)}</span></div></button>`;
+  const row = (a) => `<button class="actor plain" data-did="${a.did}" ${a.associated?.chat?.allowIncoming === "none" ? "disabled title='Не приймає повідомлення'" : ""}>${avatar(a, 36)}<div class="who"><b>${esc(a.displayName || a.handle)}</b><span class="muted">${at(a.handle)}</span></div></button>`;
   // until something is typed: the people from recent chats
   api.chat("chat.bsky.convo.listConvos", { limit: 15 }).then(d => {
     if (inp.value.trim()) return;

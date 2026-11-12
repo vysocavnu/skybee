@@ -3,7 +3,7 @@ import * as api from "./api.js";
 import { session } from "./api.js";
 import {
   $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
-  infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed,
+  infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
 } from "./ui.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
@@ -90,7 +90,7 @@ export async function feed(el, { uri }) {
   const g = (await api.get("app.bsky.feed.getFeedGenerator", { feed: uri })).view;
   el.innerHTML = header(esc(g.displayName), true) + `
     <div class="card-row pad">${avatar({ avatar: g.avatar, displayName: g.displayName }, 56)}
-      <div class="grow"><b>${esc(g.displayName)}</b><div class="muted small">Фід від <a href="${profileHref(g.creator)}">@${esc(g.creator.handle)}</a> · ♥ ${num(g.likeCount)}</div>
+      <div class="grow"><b>${esc(g.displayName)}</b><div class="muted small">Фід від <a href="${profileHref(g.creator)}">${at(g.creator.handle)}</a> · ♥ ${num(g.likeCount)}</div>
       ${g.description ? `<div class="small">${richText(g.description, g.descriptionFacets)}</div>` : ""}</div>
       <div class="col"><button class="btn sm" data-act="saveFeed" data-uri="${esc(uri)}">${g.viewer?.saved ? "Збережено ✓" : "Зберегти"}</button>
       <button class="ghost sm" data-act="likeFeed" data-uri="${esc(uri)}" data-cid="${esc(g.cid)}" data-like="${esc(g.viewer?.like || "")}">${g.viewer?.like ? "♥" : "♡"}</button></div>
@@ -108,7 +108,7 @@ export async function list(el, { uri }) {
   const curate = l.purpose === "app.bsky.graph.defs#curatelist", mine = l.creator.did === session.did;
   el.innerHTML = header(esc(l.name), true, `<button class="ghost icon" data-act="listMenu" data-uri="${esc(uri)}">⋯</button>`) + `
     <div class="card-row pad">${avatar({ avatar: l.avatar, displayName: l.name }, 56)}
-      <div class="grow"><b>${esc(l.name)}</b><div class="muted small">${curate ? "Список" : "Модераційний список"} від <a href="${profileHref(l.creator)}">@${esc(l.creator.handle)}</a></div>
+      <div class="grow"><b>${esc(l.name)}</b><div class="muted small">${curate ? "Список" : "Модераційний список"} від <a href="${profileHref(l.creator)}">${at(l.creator.handle)}</a></div>
       ${l.description ? `<div class="small">${richText(l.description, l.descriptionFacets)}</div>` : ""}</div>
       <div class="col">${curate ? `<button class="btn sm" data-act="saveFeed" data-uri="${esc(uri)}">Закріпити</button>` : ""}
       ${mine ? `<button class="ghost sm" data-act="listAddPeople" data-uri="${esc(uri)}">＋ Люди</button>` : ""}</div>
@@ -205,7 +205,7 @@ export async function profile(el, { actor, tab = "posts" }) {
         </div>
       </div>
       <h1>${vname(p)}</h1>
-      <div class="muted">@${esc(p.handle)}${p.pronouns ? ` · ${esc(p.pronouns)}` : ""} ${v.followedBy && v.following ? '<span class="pill">Взаємна підписка</span>' : v.followedBy ? '<span class="pill">Стежить за вами</span>' : ""} ${v.muted ? '<span class="pill">Приховано</span>' : ""}${v.mutedByList ? ` <a class="pill" href="#/list/${enc(v.mutedByList.uri)}">Приховано списком «${esc(v.mutedByList.name)}»</a>` : ""}${v.blockingByList ? ` <a class="pill" href="#/list/${enc(v.blockingByList.uri)}">Заблоковано списком «${esc(v.blockingByList.name)}»</a>` : ""}</div>
+      <div class="muted">${at(p.handle)}${p.pronouns ? ` · ${esc(p.pronouns)}` : ""} ${v.followedBy && v.following ? '<span class="pill">Взаємна підписка</span>' : v.followedBy ? '<span class="pill">Стежить за вами</span>' : ""} ${v.muted ? '<span class="pill">Приховано</span>' : ""}${v.mutedByList ? ` <a class="pill" href="#/list/${enc(v.mutedByList.uri)}">Приховано списком «${esc(v.mutedByList.name)}»</a>` : ""}${v.blockingByList ? ` <a class="pill" href="#/list/${enc(v.blockingByList.uri)}">Заблоковано списком «${esc(v.blockingByList.name)}»</a>` : ""}</div>
       ${blocked ? "" : `<div class="counts">
         <a href="${profileHref(p)}/followers"><b>${num(p.followersCount)}</b> читачів</a>
         <a href="${profileHref(p)}/follows"><b>${num(p.followsCount)}</b> підписок</a>
@@ -361,7 +361,7 @@ export async function search(el, { q = "", tab = "top" }) {
     tm = setTimeout(async () => {
       try {
         const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q: v, limit: 5 });
-        if (inp.value.trim() === v) sug.innerHTML = d.actors.map(a => `<a class="actor" href="${profileHref(a)}">${avatar(a, 32)}<div class="who"><b>${vname(a)}</b><span class="muted small">@${esc(a.handle)}</span></div></a>`).join("");
+        if (inp.value.trim() === v) sug.innerHTML = d.actors.map(a => `<a class="actor" href="${profileHref(a)}">${avatar(a, 32)}<div class="who"><b>${vname(a)}</b><span class="muted small">${at(a.handle)}</span></div></a>`).join("");
       } catch {}
     }, 250);
   });
@@ -573,7 +573,7 @@ export async function settings(el) {
   const accountRows = (profiles = []) => api.accounts.map(a => {
     const p = profiles.find(p => p.did === a.did) || a, active = a.did === session.did;
     return `<div class="accrow">${avatar(p, 40)}
-      <div class="who"><b>${name(p)}</b><span class="muted small">@${esc(a.handle)}${active ? ` · сервер ${esc((a.pds || "").replace(/^https?:\/\//, ""))}` : ""}</span></div>
+      <div class="who"><b>${name(p)}</b><span class="muted small">${at(a.handle)}${active ? ` · сервер ${esc((a.pds || "").replace(/^https?:\/\//, ""))}` : ""}</span></div>
       ${active ? `<span class="pill">активний</span><button class="ghost sm danger" data-act="logout">Вийти</button>`
         : `<button class="ghost sm" data-act="switchAccount" data-did="${esc(a.did)}">Перемкнути</button><button class="ghost sm" data-act="removeAccount" data-did="${esc(a.did)}" title="Вийти з цього акаунта">✕</button>`}
     </div>`;
