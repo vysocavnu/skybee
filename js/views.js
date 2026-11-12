@@ -46,6 +46,7 @@ export async function home(el) {
   el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
   let tabs = [{ label: "Підписки", kind: "timeline" }];
   try {
+    await api.seedDefaultFeeds().catch(() => {});
     const saved = (await api.getSavedFeeds()).filter(i => i.pinned && i.type !== "timeline");
     const feedUris = saved.filter(i => i.type === "feed").map(i => i.value);
     const gens = feedUris.length ? (await api.get("app.bsky.feed.getFeedGenerators", { feeds: feedUris })).feeds : [];

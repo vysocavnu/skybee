@@ -564,6 +564,23 @@ export async function saveFeed(uri, pinned = false) {
   items.push({ id: Math.random().toString(36).slice(2, 12), type: uri.includes("/app.bsky.graph.list/") ? "list" : "feed", value: uri, pinned });
   await setSavedFeeds(items);
 }
+// A fresh Bluesky account comes with Discover and Video already pinned, so «nothing pinned yet» never happens for it.
+// Once per account, while its pins are still only Bluesky's stock ones, pin Skybee's default feeds; after that the user's choice rules.
+const STOCK_FEEDS = new Set(["whats-hot", "thevids", "with-friends"].map(n => feedUri("did:plc:z72i7hdynmk6r22z27h6tvur", n)));
+export async function seedDefaultFeeds() {
+  const key = `skybee.feedsSeeded.${session.did}`;
+  try { if (localStorage.getItem(key)) return; } catch { return; } // cannot remember it was done: do not repeat it on every start
+  const items = await getSavedFeeds();
+  if (items.filter(i => i.pinned && i.type !== "timeline").every(i => i.type === "feed" && STOCK_FEEDS.has(i.value))) {
+    const old = new Map(items.map(i => [i.value, i]));
+    const rest = items.filter(i => !DEFAULT_FEEDS.includes(i.value));
+    await setSavedFeeds([...rest.filter(i => i.type === "timeline"),
+      ...DEFAULT_FEEDS.map(value => ({ id: old.get(value)?.id || Math.random().toString(36).slice(2, 12), type: "feed", value, pinned: true })),
+      ...rest.filter(i => i.type !== "timeline")]);
+  }
+  try { localStorage.setItem(key, "1"); } catch { /* private mode */ }
+}
+
 export async function unsaveFeed(uri) { await setSavedFeeds((await getSavedFeeds()).filter(i => i.value !== uri)); }
 // dir: -1 up, +1 down. The order of saved feeds is the order of tabs on the home screen
 export async function moveFeed(uri, dir) {
