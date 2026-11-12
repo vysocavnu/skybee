@@ -8,15 +8,12 @@ export const NSID = "io.github.vysocavnu.skybee.profile";
 const STATUS_MAX = 60;
 const cache = new Map(); // did → Promise<{ rec, pds } | null>
 
+// Base colours; css/style.css mixes them into the theme, so the same pick is deep on dark themes and pale on the light one
+export const PALETTE = [["#e5484d", "Червоний"], ["#f76b15", "Помаранчевий"], ["#f5b301", "Жовтий"], ["#30a46c", "Зелений"], ["#12a594", "Бірюзовий"],
+  ["#0090ff", "Блакитний"], ["#6e56cf", "Фіолетовий"], ["#d6409f", "Рожевий"], ["#ad7f58", "Коричневий"], ["#8b8d98", "Сірий"]];
 const isColor = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 const isHttps = (u) => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u);
 const cut = (s, n) => (typeof s === "string" ? s.trim().slice(0, n) : "");
-// dark text on light colours, light on dark
-const inkFor = (c) => {
-  const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#1a1400" : "#ffffff";
-};
-
 // Records come from other people's repos: keep only well-formed fields
 function clean(v) {
   if (!v || typeof v !== "object") return null;
@@ -25,7 +22,7 @@ function clean(v) {
   if (isColor(v.color)) out.color = v.color.toLowerCase();
   if (v.music && isHttps(v.music.url) && cut(v.music.title, 120)) {
     out.music = { url: v.music.url, title: cut(v.music.title, 120), artist: cut(v.music.artist, 120) };
-    if (isHttps(v.music.cover)) out.music.cover = v.music.cover;
+    for (const k of ["cover", "preview"]) if (isHttps(v.music[k])) out.music[k] = v.music[k];
   }
   const cid = v.toy?.image?.ref?.$link;
   if (typeof cid === "string" && /^[a-z0-9]+$/i.test(cid)) out.toy = { image: v.toy.image };
@@ -45,6 +42,26 @@ export function load(did) {
 
 const toyUrl = (pds, did, toy) => `${pds}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(toy.image.ref.$link)}`;
 
+// One preview plays at a time and stops when the user leaves the page
+let audio = null;
+function stopAudio() { audio?.pause(); audio = null; document.querySelectorAll(".sb-play.on").forEach(b => { b.classList.remove("on"); b.textContent = "▶"; }); }
+window.addEventListener("hashchange", stopAudio);
+function togglePreview(btn, src) {
+  const mine = btn.classList.contains("on");
+  stopAudio();
+  if (mine) return;
+  audio = new Audio(src);
+  audio.onended = audio.onerror = stopAudio;
+  audio.play().catch(stopAudio);
+  btn.classList.add("on"); btn.textContent = "⏸";
+}
+const trackCard = (m, cls = "") => `<div class="sb-music ${cls}">
+  ${m.cover ? `<img src="${esc(m.cover)}" alt="" loading="lazy">` : `<span class="sb-note">🎵</span>`}
+  <a class="grow" href="${esc(m.url)}" target="_blank" rel="noopener" title="Відкрити в стрімінговому сервісі"><b class="clip">${esc(m.title)}</b><span class="muted small clip">${esc(m.artist || "Музика")}</span></a>
+  ${m.preview ? `<button type="button" class="sb-play" data-preview="${esc(m.preview)}" title="Послухати уривок">▶</button>` : `<a class="sb-play" href="${esc(m.url)}" target="_blank" rel="noopener" title="Слухати">▶</a>`}</div>`;
+// delegated: works for cards on the profile and inside the editor
+document.addEventListener("click", (e) => { const b = e.target.closest(".sb-play[data-preview]"); if (b) togglePreview(b, b.dataset.preview); });
+
 // Called right after the profile header is rendered; fills in the extras when they arrive
 export async function decorate(el, p) {
   const head = el.querySelector(".phead");
@@ -53,35 +70,51 @@ export async function decorate(el, p) {
   const { rec, pds } = got;
   const banner = el.querySelector(".banner");
   if (rec.color) {
-    for (const node of el.querySelectorAll(".banner, .phead, .tabs, #pbody")) {
-      node.style.setProperty("--accent", rec.color);
-      node.style.setProperty("--accent-ink", inkFor(rec.color));
-    }
-    head.classList.add("tinted");
+    // the whole page takes the colour until this profile is replaced by another screen
+    const body = document.body;
+    body.style.setProperty("--sb", rec.color); body.classList.add("sb-tint");
+    const mo = new MutationObserver(() => {
+      if (head.isConnected) return;
+      mo.disconnect();
+      if (!el.querySelector(".phead")) { body.classList.remove("sb-tint"); body.style.removeProperty("--sb"); }
+    });
+    mo.observe(el, { childList: true });
     if (banner && !banner.style.backgroundImage) banner.style.backgroundImage = `linear-gradient(135deg, ${rec.color}, color-mix(in srgb, ${rec.color} 35%, var(--bg)))`;
   }
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
-  if (rec.music) {
-    const m = rec.music;
-    (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend",
-      `<a class="sb-music" href="${esc(m.url)}" target="_blank" rel="noopener" title="Слухати">
-        ${m.cover ? `<img src="${esc(m.cover)}" alt="" loading="lazy">` : `<span class="sb-note">🎵</span>`}
-        <span class="grow"><b class="clip">${esc(m.title)}</b><span class="muted small clip">${esc(m.artist || "Музика")}</span></span>
-        <span class="sb-play">▶</span></a>`);
-  }
+  if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));
   if (rec.toy && banner) {
     const src = esc(toyUrl(pds, p.did, rec.toy));
     banner.insertAdjacentHTML("beforeend", `<img class="sb-toy" src="${src}" alt="Іграшка" data-act="lightboxOne" data-full="${src}">`);
   }
 }
 
-/* ---------- music lookup ---------- */
-// Any streaming link → title, artist, cover. song.link knows most services; oEmbed is the fallback.
+/* ---------- music search ---------- */
+// The iTunes catalogue needs no key and gives a 30-second preview; JSONP is the fallback where fetch is refused
+function jsonp(url) {
+  return new Promise((res, rej) => {
+    const cb = "skybeeJsonp" + Math.random().toString(36).slice(2), s = document.createElement("script");
+    const done = (fn, v) => { delete window[cb]; s.remove(); fn(v); };
+    window[cb] = (d) => done(res, d);
+    s.onerror = () => done(rej, new Error("Немає з'єднання з каталогом музики"));
+    s.src = `${url}&callback=${cb}`;
+    document.head.appendChild(s);
+  });
+}
+async function searchTracks(term) {
+  const url = `https://itunes.apple.com/search?media=music&entity=song&limit=15&term=${encodeURIComponent(term)}`;
+  let d;
+  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); } catch { d = await jsonp(url); }
+  return (d.results || []).filter(t => t.trackName && isHttps(t.trackViewUrl)).map(t => ({
+    url: t.trackViewUrl, title: cut(t.trackName, 120), artist: cut(t.artistName, 120),
+    cover: (t.artworkUrl100 || "").replace("100x100", "300x300"), preview: t.previewUrl || "" }));
+}
+// A pasted streaming link → title, artist, cover. song.link knows most services; oEmbed is the fallback.
 async function lookupTrack(url) {
   try {
     const d = await (await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}`)).json();
     const e = d.entitiesByUniqueId?.[d.entityUniqueId];
-    if (e?.title) return { title: e.title, artist: e.artistName || "", cover: e.thumbnailUrl || "" };
+    if (e?.title) return { url, title: cut(e.title, 120), artist: cut(e.artistName, 120), cover: e.thumbnailUrl || "" };
   } catch { /* try the service itself */ }
   const host = new URL(url).hostname.replace(/^www\./, "");
   const oembed = host.endsWith("spotify.com") ? "https://open.spotify.com/oembed?url="
@@ -89,8 +122,42 @@ async function lookupTrack(url) {
   if (!oembed) return null;
   try {
     const d = await (await fetch(oembed + encodeURIComponent(url))).json();
-    return d.title ? { title: d.title, artist: d.author_name || "", cover: d.thumbnail_url || "" } : null;
+    return d.title ? { url, title: cut(d.title, 120), artist: cut(d.author_name, 120), cover: d.thumbnail_url || "" } : null;
   } catch { return null; }
+}
+
+// «+»: search by name or paste a link; resolves with the chosen track (or null)
+function pickTrack() {
+  return new Promise((resolve) => {
+    let picked = null, list = [], seq = 0, timer;
+    const m = modal(`
+      <h3>🎵 Додати музику</h3>
+      <input data-f="q" placeholder="Назва пісні, виконавець або посилання на трек" autocomplete="off">
+      <div class="sb-results"><p class="muted small">Почніть вводити назву — пошук іде по каталогу Apple Music. Посилання зі Spotify, YouTube Music, Deezer чи SoundCloud теж підійде.</p></div>`,
+      { onClose: () => { stopAudio(); resolve(picked); } });
+    const box = m.querySelector(".sb-results"), q = m.querySelector("[data-f=q]");
+    q.focus();
+    const run = async () => {
+      const term = q.value.trim(), my = ++seq;
+      if (term.length < 2) return;
+      box.innerHTML = `<p class="muted small">Шукаю…</p>`;
+      try {
+        if (isHttps(term)) { const t = await lookupTrack(term); list = t ? [t] : []; }
+        else list = await searchTracks(term);
+        if (my !== seq) return; // a newer search is already running
+        box.innerHTML = list.length ? list.map((t, i) => `<div class="sb-pick" data-i="${i}">${trackCard(t, "flat")}</div>`).join("")
+          : `<p class="muted small">Нічого не знайдено</p>`;
+      } catch (ex) { if (my === seq) box.innerHTML = `<p class="err">${esc(ex.message || "Пошук не вдався")}</p>`; }
+    };
+    q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 400); });
+    q.addEventListener("keydown", (e) => { if (e.key === "Enter") { clearTimeout(timer); run(); } });
+    box.addEventListener("click", (e) => {
+      const row = e.target.closest(".sb-pick");
+      if (!row || e.target.closest(".sb-play")) return; // ▶ only plays the preview
+      e.preventDefault();
+      picked = list[row.dataset.i]; m.close();
+    });
+  });
 }
 
 /* ---------- toy image ---------- */
@@ -112,57 +179,46 @@ export async function edit(onDone) {
   cache.delete(did);
   const got = await load(did);
   const cur = got?.rec || {};
-  let cover = cur.music?.cover || "";
+  let music = cur.music || null, color = cur.color || "";
   const m = modal(`
     <h3>✨ Оформлення профілю</h3>
     <p class="muted small">Це бачать лише ті, хто користується Skybee. В інших застосунках Bluesky профіль виглядає як завжди.</p>
     <label class="field">Статус у бульбашці біля аватарки<input data-f="status" maxlength="${STATUS_MAX}" placeholder="Що у вас на думці?" value="${esc(cur.status || "")}"></label>
-    <div class="field">Колір сторінки
-      <div class="row"><input type="color" data-f="color" value="${cur.color || "#f5b301"}" style="width:64px;padding:2px;height:38px">
-      <label class="row small"><input type="checkbox" data-f="usecolor" style="width:auto" ${cur.color ? "checked" : ""}> використовувати свій колір</label></div></div>
-    <label class="field">Музика під біо — посилання на трек (Spotify, Apple Music, YouTube Music, Deezer, SoundCloud…)
-      <div class="row"><input data-f="murl" type="url" placeholder="https://open.spotify.com/track/…" value="${esc(cur.music?.url || "")}"><button type="button" class="ghost sm" data-x="find" style="flex:none;white-space:nowrap">Знайти</button></div></label>
-    <div class="row"><label class="field grow">Назва<input data-f="mtitle" maxlength="120" value="${esc(cur.music?.title || "")}"></label>
-      <label class="field grow">Виконавець<input data-f="martist" maxlength="120" value="${esc(cur.music?.artist || "")}"></label></div>
+    <div class="field">Колір сторінки — на світлій темі він світліший, на темній і в сутінках темніший
+      <div class="sb-swatches"><button type="button" class="sb-sw none" data-c="" title="Без кольору">✕</button>${
+        PALETTE.map(([c, n]) => `<button type="button" class="sb-sw" data-c="${c}" title="${n}" style="background:${c}"></button>`).join("")}</div></div>
+    <div class="field">Музика під біо<div data-f="music"></div></div>
     <label class="field">Іграшка — фото, яке сидітиме на банері (найкраще PNG з прозорим тлом)<input type="file" accept="image/*" data-f="toy"></label>
     ${cur.toy ? `<label class="row small"><input type="checkbox" data-f="notoy" style="width:auto"> прибрати іграшку</label>` : ""}
     <p class="err"></p>
     <div class="row end"><button class="ghost" data-x="0">Скасувати</button><button class="btn" data-x="1">Зберегти</button></div>`);
   const f = (k) => m.querySelector(`[data-f=${k}]`);
   const err = m.querySelector(".err");
-  f("color").addEventListener("input", () => { f("usecolor").checked = true; });
-  f("murl").addEventListener("input", () => { cover = ""; });
+  const drawColor = () => m.querySelectorAll(".sb-sw").forEach(b => b.classList.toggle("on", b.dataset.c === color));
+  const drawMusic = () => {
+    f("music").innerHTML = music
+      ? `<div class="row">${trackCard(music, "grow")}<button type="button" class="ghost sm icon" data-x="nomusic" title="Прибрати">✕</button></div>
+         <button type="button" class="linklike small" data-x="music">Замінити</button>`
+      : `<button type="button" class="ghost sb-add" data-x="music"><b>+</b> Додати музику</button>`;
+  };
+  drawColor(); drawMusic();
   m.addEventListener("click", async (e) => {
+    const sw = e.target.closest(".sb-sw");
+    if (sw) { color = sw.dataset.c; return drawColor(); }
     const x = e.target.closest("[data-x]"); if (!x) return;
     err.textContent = "";
     if (x.dataset.x === "0") return m.close();
-    if (x.dataset.x === "find") {
-      const url = f("murl").value.trim();
-      if (!isHttps(url)) { err.textContent = "Вставте посилання на трек (https://…)"; return; }
-      x.disabled = true; x.textContent = "Шукаю…";
-      const t = await lookupTrack(url);
-      x.disabled = false; x.textContent = "Знайти";
-      if (!t) { err.textContent = "Не вдалося розпізнати трек — впишіть назву й виконавця вручну"; return; }
-      f("mtitle").value = t.title; f("martist").value = t.artist; cover = isHttps(t.cover) ? t.cover : "";
-      return;
-    }
+    if (x.dataset.x === "nomusic") { stopAudio(); music = null; return drawMusic(); }
+    if (x.dataset.x === "music") { const t = await pickTrack(); if (t) { music = t; drawMusic(); } return; }
     x.disabled = true; x.textContent = "Збереження…";
     try {
       const record = { $type: NSID, updatedAt: new Date().toISOString() };
       const status = cut(f("status").value, STATUS_MAX);
       if (status) record.status = status;
-      if (f("usecolor").checked) record.color = f("color").value.toLowerCase();
-      const murl = f("murl").value.trim();
-      if (murl) {
-        if (!isHttps(murl)) throw new Error("Посилання на трек має починатися з https://");
-        let title = cut(f("mtitle").value, 120), artist = cut(f("martist").value, 120);
-        if (!title) { // saved without pressing «Знайти»
-          const t = await lookupTrack(murl);
-          if (!t) throw new Error("Не вдалося розпізнати трек — впишіть назву вручну");
-          title = t.title; artist = artist || t.artist; cover = isHttps(t.cover) ? t.cover : "";
-        }
-        record.music = { url: murl, title, artist };
-        if (cover) record.music.cover = cover;
+      if (isColor(color)) record.color = color;
+      if (music) {
+        record.music = { url: music.url, title: music.title, artist: music.artist || "" };
+        for (const k of ["cover", "preview"]) if (isHttps(music[k])) record.music[k] = music[k];
       }
       const file = f("toy").files[0];
       if (file) record.toy = { image: await api.uploadBlob(await prepareToy(file)) };
