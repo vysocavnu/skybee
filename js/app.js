@@ -3,7 +3,7 @@ import * as api from "./api.js";
 import * as V from "./views.js";
 import * as M from "./more.js";
 import * as notify from "./notify.js";
-import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at } from "./ui.js";
+import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; document.body.style.fontSize = (localStorage.getItem("skybee.font") || "15") + "px"; } catch {}
@@ -91,6 +91,16 @@ const meChip = () => {
   const me = actors.get(api.session.did) || api.session;
   return `${avatar(me, 36)}<span class="nl"><b>${name(me)}</b><small>${at(api.session.handle)}</small></span>`;
 };
+// The right column starts with my own profile: banner, avatar, name, counts
+const meCard = () => {
+  const me = actors.get(api.session.did) || api.session, href = `#/profile/${encodeURIComponent(api.session.handle)}`;
+  return `<a class="card mecard" href="${href}">
+    <div class="mebanner" ${me.banner ? `style="background-image:url('${esc(me.banner)}')"` : ""}></div>
+    <div class="mebody">${avatar(me, 64)}
+      <b class="clip">${name(me)}</b><span class="muted clip">${at(api.session.handle)}</span>
+      ${me.followersCount != null ? `<div class="counts"><span><b>${num(me.followersCount)}</b> читачів</span><span><b>${num(me.followsCount)}</b> підписок</span><span><b>${num(me.postsCount)}</b> постів</span></div>` : ""}
+    </div></a>`;
+};
 function shell() {
   app.innerHTML = `
   <nav class="side">
@@ -101,13 +111,12 @@ function shell() {
   </nav>
   <main id="main"></main>
   <aside class="right">
-    <form class="searchbar" id="sideSearch"><input type="search" placeholder="Пошук"></form>
+    <div id="mecard">${meCard()}</div>
     <div id="sidebox"></div>
     <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
   <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 7].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
   <button class="fab" data-act="compose">✏️</button>`;
-  $("#sideSearch").onsubmit = (e) => { e.preventDefault(); const v = $("input", e.target).value.trim(); if (v) location.hash = `#/search?q=${encodeURIComponent(v)}`; };
 }
 
 /* ---------- badges ---------- */
@@ -522,6 +531,6 @@ function boot() {
   window.__skybeeBadge = setInterval(badges, 60000);
   // own profile: the avatar for the account button and the reply box
   api.get("app.bsky.actor.getProfile", { actor: api.session.did })
-    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); }).catch(() => {});
+    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const c = $("#mecard"); if (c) c.innerHTML = meCard(); }).catch(() => {});
 }
 boot();

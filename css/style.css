@@ -350,3 +350,13 @@ main { overflow-x: clip; }
   .stats { gap: 10px; }
 }
 .pill { white-space: nowrap; display: inline-block; }
+
+/* ---------- right column: my profile card ---------- */
+.mecard { display: block; padding: 0; overflow: hidden; color: var(--text); }
+.mecard:hover { text-decoration: none; background: var(--hover); }
+.mebanner { height: 72px; background: linear-gradient(135deg, #f5b301, #4c9bff) center/cover; }
+.mebody { padding: 0 16px 14px; display: flex; flex-direction: column; min-width: 0; }
+.mebody .avatar { margin-top: -32px; border: 3px solid var(--panel); margin-bottom: 6px; }
+.mebody b.clip { font-size: 17px; }
+.mebody .counts { margin: 8px 0 0; font-size: 13px; }
+.mecard.card > * + * { margin-top: 0; }
