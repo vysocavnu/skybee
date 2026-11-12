@@ -687,3 +687,16 @@ details.nb[open] > summary { margin-bottom: 10px; }
 details.nb .rowlink { display: block; padding: 8px 0; border-top: 1px solid var(--line); }
 details.nb .actor { padding-left: 0; padding-right: 0; }
 .nbauthor { margin: 0 0 8px; color: var(--muted); }
+
+/* Status bar, notch, Dynamic Island: the iPhone app (and the PWA on the home screen) draws edge to edge
+   (viewport-fit=cover), so everything pinned to the top steps down by the safe area. In a browser tab it is 0. */
+:root { --sat: env(safe-area-inset-top, 0px); }
+.topbar { padding-top: calc(10px + var(--sat)); min-height: calc(54px + var(--sat)); }
+nav.side, aside.right { padding-top: calc(12px + var(--sat)); }
+.guestbar { padding-top: calc(8px + var(--sat)); }
+body.guest .topbar { top: calc(49px + var(--sat)); padding-top: 10px; min-height: 54px; }
+.newpill { top: calc(64px + var(--sat)); }
+.ptr { top: calc(6px + var(--sat)); }
+.modal-bg { padding-top: calc(6vh + var(--sat)); }
+.login { margin-top: calc(8vh + var(--sat)); }
+body.deckmode main { padding-top: var(--sat); }
