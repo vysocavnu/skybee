@@ -399,13 +399,16 @@ body.nolinkthumbs .ext img { display: none; }
 
 /* ---------- Skybee look: status bubble, music, page colour, toy (js/flair.js) ---------- */
 .banner { position: relative; }
-/* page colour: one base colour (--sb), mixed into whichever theme is on — deep on dark and dim, pale on light */
-body.sb-tint { --bg: color-mix(in srgb, var(--sb) 32%, #0f1218); --panel: color-mix(in srgb, var(--sb) 38%, #171b23); --hover: color-mix(in srgb, var(--sb) 46%, #1d222c);
-  --line: color-mix(in srgb, var(--sb) 54%, #262c38); --muted: color-mix(in srgb, var(--sb) 22%, #a7afbf); --accent: color-mix(in srgb, var(--sb) 72%, #fff); --accent-ink: #14110a; }
-[data-theme="dim"] body.sb-tint { --bg: color-mix(in srgb, var(--sb) 32%, #161e27); --panel: color-mix(in srgb, var(--sb) 38%, #1e2833); --hover: color-mix(in srgb, var(--sb) 46%, #24303c);
-  --line: color-mix(in srgb, var(--sb) 54%, #2e3b49); }
-[data-theme="light"] body.sb-tint { --bg: color-mix(in srgb, var(--sb) 22%, #fff); --panel: color-mix(in srgb, var(--sb) 30%, #f6f7f9); --hover: color-mix(in srgb, var(--sb) 38%, #f0f2f5);
-  --line: color-mix(in srgb, var(--sb) 46%, #e3e6ea); --muted: color-mix(in srgb, var(--sb) 18%, #4d5663); --accent: color-mix(in srgb, var(--sb) 78%, #000); --accent-ink: #fff; }
+/* page colour: the whole page takes one base colour (--sb). Dark and dim themes get its deep shade with light text,
+   the light theme gets the colour as it is; --sb-ink (set in js/flair.js) is the text colour that reads on it */
+body.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
+  --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
+  --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
+[data-theme="dim"] body.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
+[data-theme="light"] body.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
+  --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
+  --accent: var(--sb-ink); --accent-ink: var(--sb); }
+body.sb-tint .post a:not(.ghost):not(.btn), body.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 body.sb-tint { transition: background-color .25s; }
 body.sb-tint .phead .bigava { border-color: var(--accent); }
 .phead .bigava { position: relative; }

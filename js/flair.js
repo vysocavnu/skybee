@@ -14,6 +14,12 @@ export const PALETTE = [["#e5484d", "Червоний"], ["#f76b15", "Помар
 const isColor = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 const isHttps = (u) => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u);
 const cut = (s, n) => (typeof s === "string" ? s.trim().slice(0, n) : "");
+// text that reads on the plain colour: dark on yellow and the like, white on the rest
+const inkFor = (c) => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? "#14110a" : "#ffffff";
+};
+
 // Records come from other people's repos: keep only well-formed fields
 function clean(v) {
   if (!v || typeof v !== "object") return null;
@@ -72,11 +78,11 @@ export async function decorate(el, p) {
   if (rec.color) {
     // the whole page takes the colour until this profile is replaced by another screen
     const body = document.body;
-    body.style.setProperty("--sb", rec.color); body.classList.add("sb-tint");
+    body.style.setProperty("--sb", rec.color); body.style.setProperty("--sb-ink", inkFor(rec.color)); body.classList.add("sb-tint");
     const mo = new MutationObserver(() => {
       if (head.isConnected) return;
       mo.disconnect();
-      if (!el.querySelector(".phead")) { body.classList.remove("sb-tint"); body.style.removeProperty("--sb"); }
+      if (!el.querySelector(".phead")) { body.classList.remove("sb-tint"); body.style.removeProperty("--sb"); body.style.removeProperty("--sb-ink"); }
     });
     mo.observe(el, { childList: true });
     if (banner && !banner.style.backgroundImage) banner.style.backgroundImage = `linear-gradient(135deg, ${rec.color}, color-mix(in srgb, ${rec.color} 35%, var(--bg)))`;
@@ -184,7 +190,7 @@ export async function edit(onDone) {
     <h3>✨ Оформлення профілю</h3>
     <p class="muted small">Це бачать лише ті, хто користується Skybee. В інших застосунках Bluesky профіль виглядає як завжди.</p>
     <label class="field">Статус у бульбашці біля аватарки<input data-f="status" maxlength="${STATUS_MAX}" placeholder="Що у вас на думці?" value="${esc(cur.status || "")}"></label>
-    <div class="field">Колір сторінки — на світлій темі він світліший, на темній і в сутінках темніший
+    <div class="field">Колір сторінки — на світлій темі яскравий, на темній і в сутінках глибокий темний
       <div class="sb-swatches"><button type="button" class="sb-sw none" data-c="" title="Без кольору">✕</button>${
         PALETTE.map(([c, n]) => `<button type="button" class="sb-sw" data-c="${c}" title="${n}" style="background:${c}"></button>`).join("")}</div></div>
     <div class="field">Музика під біо<div data-f="music"></div></div>
