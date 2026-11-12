@@ -980,19 +980,18 @@ export async function mutedWords(el) {
    Accounts that are deleted or suspended have no profile any more — they are only counted. */
 export async function blockedBy(el) {
   el.innerHTML = header("Хто мене заблокував", true) + `
-    <p class="pad small muted">Bluesky не показує, хто вас заблокував, але блокування в мережі публічні. Список збирає сторонній сервіс
-      <a href="https://clearsky.app" target="_blank" rel="noopener">Clearsky</a> — він може запізнюватися на кілька годин.
+    <p class="pad small muted">Bluesky не показує, хто вас заблокував, але блокування в мережі публічні. Список бере відкритий індекс
+      <a href="https://constellation.microcosm.blue" target="_blank" rel="noopener">Constellation</a> — він може запізнюватися на кілька хвилин.
       Ці люди не бачать ваших постів, а ви — їхніх.</p><p class="pad small" data-total hidden></p>`;
-  api.blockedByCount(session.did).then((n) => {
-    if (n) Object.assign($("[data-total]", el), { hidden: false, textContent: `Усього: ${num(n)}` });
-  }).catch(() => {});
-  let gone = 0;
+  let gone = 0, first = true;
+  const date = (d) => d ? d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" }) : "";
   return paged(el, async (cursor) => {
-    const page = cursor || 1;
     let res;
-    try { res = await api.blockedByPage(session.did, page); }
-    catch (ex) { return { html: page === 1 ? [`<div class="pad muted">${esc(errText(ex))}</div>`] : [], cursor: null }; }
-    if (page === 1 && !res.items.length) return { html: [empty("Схоже, вас ніхто не заблокував 🐝")], cursor: null };
+    try { res = await api.blockedByPage(session.did, cursor); }
+    catch (ex) { return { html: first ? [`<div class="pad muted">${esc(errText(ex))}</div>`] : [], cursor: null }; }
+    if (first && res.total) Object.assign($("[data-total]", el), { hidden: false, textContent: `Усього: ${num(res.total)}` });
+    if (first && !res.items.length) { first = false; return { html: [empty("Схоже, вас ніхто не заблокував 🐝")], cursor: null }; }
+    first = false;
     const when = new Map(res.items.map(x => [x.did, x.date]));
     const profiles = [];
     for (let i = 0; i < res.items.length; i += 25) {
@@ -1000,10 +999,9 @@ export async function blockedBy(el) {
       profiles.push(...d.profiles);
     }
     gone += res.items.length - profiles.length;
-    const date = (s) => { const t = Date.parse(s); return t ? new Date(t).toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" }) : ""; };
-    const html = profiles.map(a => renderActor(a, when.get(a.did) && date(when.get(a.did)) ? `<div class="small muted">⛔ з ${date(when.get(a.did))}</div>` : ""));
-    if (!res.more && gone) html.push(`<p class="pad small muted">Ще ${num(gone)} — акаунти, яких уже немає (видалені чи призупинені).</p>`);
-    return { html: html.length ? html : [""], cursor: res.more ? page + 1 : null };
+    const html = profiles.map(a => renderActor(a, when.get(a.did) ? `<div class="small muted">⛔ з ${date(when.get(a.did))}</div>` : ""));
+    if (!res.cursor && gone) html.push(`<p class="pad small muted">Ще ${num(gone)} — акаунти, яких уже немає (видалені чи призупинені).</p>`);
+    return { html: html.length ? html : [""], cursor: res.cursor };
   });
 }
 

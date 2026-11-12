@@ -750,27 +750,30 @@ export async function putOwnProfileRecord(record) {
 }
 
 /* ---------- who has blocked me ----------
-   Bluesky has no query for this, but blocks are public records (app.bsky.graph.block) and Clearsky indexes them.
-   GET api.clearsky.services/api/v1/anon/single-blocklist/<did>[/<page>] → { data: { blocklist: [{ did, blocked_date }] } },
-   100 per page; …/single-blocklist/total/<did> → { data: { count } }. Free, no key, works from the browser. */
-const CLEARSKY = "https://api.clearsky.services/api/v1/anon/";
-async function clearsky(path) {
-  const r = await fetch(CLEARSKY + path, { signal: AbortSignal.timeout(25000) });
-  if (r.status === 404) return null; // nobody has blocked this account (or Clearsky has not seen it yet)
+   Bluesky has no query for this, but blocks are public records (app.bsky.graph.block, field subject) and the open
+   backlink index Constellation (microcosm.blue) counts every record that points at a DID. Free, no key, CORS open.
+   GET /links?target=<did>&collection=app.bsky.graph.block&path=.subject → { total, linking_records: [{ did, rkey }], cursor }.
+   (Clearsky, used before, has been shut down.) The block's date comes from its rkey: a TID starts with microseconds. */
+const CONSTELLATION = "https://constellation.microcosm.blue/links";
+const TID = "234567abcdefghijklmnopqrstuvwxyz";
+export function tidDate(rkey) {
+  if (!/^[2-7a-z]{13}$/.test(rkey || "")) return null;
+  let n = 0n;
+  for (const c of rkey) n = n * 32n + BigInt(TID.indexOf(c));
+  const ms = Number((n >> 10n) / 1000n);
+  return ms > 1.6e12 && ms < Date.now() + 864e5 ? new Date(ms) : null; // between 2020 and tomorrow, or it is no TID
+}
+export async function blockedByPage(did, cursor) {
+  const q = new URLSearchParams({ target: did, collection: "app.bsky.graph.block", path: ".subject", limit: "100" });
+  if (cursor) q.set("cursor", cursor);
+  const r = await fetch(`${CONSTELLATION}?${q}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(25000) });
   if (!r.ok) throw Object.assign(new Error(r.status === 429
-    ? "Сервіс Clearsky просить зачекати — забагато запитів. Спробуй за кілька хвилин"
-    : "Сервіс Clearsky, який рахує блокування, зараз не відповідає. Спробуй пізніше"), { status: r.status, code: "clearsky" });
-  return r.json();
-}
-export async function blockedByPage(did, page = 1) {
-  const j = await clearsky(`single-blocklist/${did}${page > 1 ? "/" + page : ""}`);
-  const list = j?.data?.blocklist || j?.data?.blocked_by || [];
-  const items = (Array.isArray(list) ? list : [])
-    .map(x => ({ did: x.did || x.blocked_by, date: x.blocked_date || x.date || "" }))
-    .filter(x => typeof x.did === "string" && x.did.startsWith("did:"));
-  return { items, more: items.length >= 100 };
-}
-export async function blockedByCount(did) {
-  const n = Number((await clearsky(`single-blocklist/total/${did}`))?.data?.count);
-  return Number.isFinite(n) ? n : null;
+    ? "Сервіс Constellation просить зачекати — забагато запитів. Спробуй за кілька хвилин"
+    : "Сервіс Constellation, який рахує блокування, зараз не відповідає. Спробуй пізніше"), { status: r.status, code: "constellation" });
+  const j = await r.json();
+  const seen = new Set();
+  const items = (j.linking_records || [])
+    .filter(x => typeof x?.did === "string" && x.did.startsWith("did:") && !seen.has(x.did) && seen.add(x.did))
+    .map(x => ({ did: x.did, date: tidDate(x.rkey) }));
+  return { items, total: Number.isFinite(j.total) ? j.total : null, cursor: j.cursor || null };
 }

@@ -674,3 +674,15 @@ nav.side .logo, .guestbar .logo { display: flex; align-items: center; gap: 10px;
 .gifitem { padding: 0; border: 0; background: var(--hover); border-radius: 8px; overflow: hidden; aspect-ratio: 1; cursor: pointer; }
 .gifitem img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gifitem:hover { outline: 2px solid var(--accent); }
+
+/* «Для новеньких»: collapsible sections */
+details.nb > summary { list-style: none; cursor: pointer; display: flex; align-items: center; }
+details.nb > summary::-webkit-details-marker { display: none; }
+details.nb > summary h3 { margin: 0; flex: 1; }
+details.nb > summary::after { content: "⌄"; color: var(--muted); font-size: 20px; transition: transform .2s; }
+details.nb[open] > summary::after { transform: rotate(180deg); }
+details.nb[open] > summary { margin-bottom: 10px; }
+.nbl { margin: 0; padding-left: 20px; } .nbl li { margin: 6px 0; font-size: 14px; line-height: 1.45; }
+.nbh { margin: 16px 0 4px; font-size: 14px; color: var(--muted); }
+details.nb .rowlink { display: block; padding: 8px 0; border-top: 1px solid var(--line); }
+details.nb .actor { padding-left: 0; padding-right: 0; }

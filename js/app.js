@@ -8,6 +8,7 @@ import * as S from "./settings.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
 import * as D from "./deck.js";
+import * as N from "./newbie.js";
 import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
@@ -297,6 +298,7 @@ async function route() {
     else if (seg[0] === "feed") r = V.feed(main, { uri: seg[1] });
     else if (seg[0] === "list") r = V.list(main, { uri: seg[1] });
     else if (seg[0] === "bookmarks") r = V.bookmarks(main);
+    else if (seg[0] === "newcomers") r = N.newcomers(main);
     else if (seg[0] === "settings") r = ({
       words: V.mutedWords, content: M.contentFilters, passwords: M.appPasswords, account: S.account, accounts: S.accounts, privacy: S.privacy,
       moderation: S.moderation, notifs: S.notifications, media: S.media, appearance: S.appearance, a11y: S.a11y, langs: S.langs, help: S.help, about: S.about,
@@ -826,7 +828,15 @@ function boot() {
   window.__skybeeBadge = setInterval(badges, 60000);
   // own profile: the avatar for the account button and the reply box
   api.get("app.bsky.actor.getProfile", { actor: api.session.did })
-    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const sp = $("#sideProf"); if (sp) sp.innerHTML = sideProfile(p); }).catch(() => {});
+    .then(p => {
+      actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const sp = $("#sideProf"); if (sp) sp.innerHTML = sideProfile(p);
+      // «Для новеньких»: in the menu for the first 6 months after sign-up (always reachable from Settings → Help)
+      const prof = $('nav.side [data-nav="#/profile/me"]');
+      if (N.isNewbie(p) && prof && !$('nav.side [data-nav="#/newcomers"]')) {
+        prof.insertAdjacentHTML("beforebegin", `<a href="#/newcomers" data-nav="#/newcomers"><span class="ni">🌱</span><span class="nl">Для новеньких</span></a>`);
+        if (location.hash.startsWith("#/newcomers")) $('nav.side [data-nav="#/newcomers"]').classList.add("on");
+      }
+    }).catch(() => {});
   const sp = $("#sideProf"); if (sp) flair.paint(sp, api.session.did); // own Skybee colour on the profile card
 }
 boot();

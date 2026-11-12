@@ -68,7 +68,8 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   «Поділитися» з QR (`shareDialog`, QR через api.qrserver.com), скарга на повідомлення в чаті, створення/видалення стартових наборів `#/starter-packs/new`,
   сторонні сервіси модерації (підписка й мітки на профілі сервісу, заголовок `atproto-accept-labelers`, список у «Модерації»),
   «Показувати більше/менше такого» у фідах з `acceptsInteractions` (`sendInteractions` через проксі `<did фіда>#bsky_fg`)
-- «Хто мене заблокував» `#/settings/blocked-by` (Модерація): Bluesky такого не віддає, тож список — з Clearsky (`api.blockedByPage`, `api.blockedByCount`, api.clearsky.services без ключа), профілі — з Bluesky; видалені акаунти лише рахуються
+- «Хто мене заблокував» `#/settings/blocked-by` (Модерація): Bluesky такого не віддає, тож список — з відкритого індексу Constellation (`api.blockedByPage`, constellation.microcosm.blue, без ключа; Clearsky закрився), дата — з rkey (TID, `api.tidDate`), профілі — з Bluesky; видалені акаунти лише рахуються
+- `js/newbie.js` — «🌱 Для новеньких» `#/newcomers`: гід за матеріалами info.bsky.one і uabluerail.org, переказаний під екрани Skybee (українські стрічки — живі картки `getFeedGenerators`, модераційні списки mobik.zip та ін., поради, пошук, чати, фольклор). Пункт у меню з'являється, поки акаунту < 6 міс. (`isNewbie`, `createdAt` профілю); завжди є в Довідці
 - «Перевірити оновлення» (Про Skybee, лише в десктопі, і пункт у треї): `skybeeDesktop.update()` → `checkUpdatesNow` у `desktop/main.js`
 - `js/app.js` — роутер на hash (`#/profile/<handle>/post/<rkey>` тощо), навігація, глобальні дії через `data-act`
 

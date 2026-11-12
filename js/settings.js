@@ -443,6 +443,7 @@ export async function langs(el) {
 /* ================= HELP ================= */
 export async function help(el) {
   el.innerHTML = header("Довідка", true) + `
+    <div class="sgroup">${row("#/newcomers", "help", "🌱 Для новеньких: як усе працює, українські стрічки й списки")}</div>
     <div class="card"><h3>Клавіатура</h3>
       <p><kbd>N</kbd> — новий пост<br><kbd>/</kbd> — пошук<br><kbd>Ctrl</kbd> + <kbd>Enter</kbd> — опублікувати з редактора<br><kbd>Esc</kbd> — закрити вікно</p></div>
     <div class="card"><h3>Пароль застосунку чи основний?</h3>
