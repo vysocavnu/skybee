@@ -1,6 +1,6 @@
 // Skybee desktop shell (Electron): one window with the web app inside, on its own Chromium —
 // nothing from Edge or WebView2 is needed.
-const { app, BrowserWindow, Menu, protocol, net, shell } = require("electron");
+const { app, BrowserWindow, Menu, protocol, net, shell, dialog } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
@@ -82,6 +82,37 @@ async function updateWeb(activeRoot) {
   }
 }
 
+/* ---------- self-updating shell (the EXE itself) ----------
+   On start and every 6 hours: electron-updater reads latest.yml from the newest GitHub release, downloads the new
+   installer in the background (progress on the taskbar button) and asks to restart. «Later» is fine too: the update
+   is installed when Skybee is closed. Only for the installed app — not when run from source (npm start). */
+function setupShellUpdates() {
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try { ({ autoUpdater } = require("electron-updater")); } catch { return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+  let asked = false;
+  autoUpdater.on("download-progress", (p) => win?.setProgressBar(Math.max(0.01, (p.percent || 0) / 100)));
+  autoUpdater.on("error", () => win?.setProgressBar(-1)); // offline, GitHub down…: quietly try again later
+  autoUpdater.on("update-downloaded", async (info) => {
+    win?.setProgressBar(-1);
+    if (asked) return;
+    asked = true;
+    const { response } = await dialog.showMessageBox(win, {
+      type: "info", title: "Оновлення Skybee", noLink: true, defaultId: 0, cancelId: 1,
+      message: `Завантажено нову версію Skybee ${info.version}`,
+      detail: "Перезапустити й оновити зараз? Якщо відкласти, оновлення встановиться саме, коли закриєш Skybee.",
+      buttons: ["Оновити зараз", "Пізніше"],
+    });
+    if (response === 0) setImmediate(() => autoUpdater.quitAndInstall(true, true)); // silently, then start Skybee again
+  });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 8000);
+  setInterval(check, 6 * 3600e3);
+}
+
 // ES modules and localStorage need a real origin, file:// gives neither
 protocol.registerSchemesAsPrivileged([
   { scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
@@ -138,6 +169,7 @@ else {
     });
     createWindow();
     setTimeout(() => updateWeb(root).catch(() => { /* offline or the site is down: try again next start */ }), 3000);
+    setupShellUpdates();
     app.on("activate", () => { if (!win) createWindow(); });
   });
   app.on("window-all-closed", () => app.quit());
