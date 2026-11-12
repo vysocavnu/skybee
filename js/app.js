@@ -91,16 +91,29 @@ const meChip = () => {
   const me = actors.get(api.session.did) || api.session;
   return `${avatar(me, 36)}<span class="nl"><b>${name(me)}</b><small>${at(api.session.handle)}</small></span>`;
 };
-// The right column starts with my own profile: banner, avatar, name, counts
-const meCard = () => {
-  const me = actors.get(api.session.did) || api.session, href = `#/profile/${encodeURIComponent(api.session.handle)}`;
-  return `<a class="card mecard" href="${href}">
-    <div class="mebanner" ${me.banner ? `style="background-image:url('${esc(me.banner)}')"` : ""}></div>
-    <div class="mebody">${avatar(me, 64)}
-      <b class="clip">${name(me)}</b><span class="muted clip">${at(api.session.handle)}</span>
-      ${me.followersCount != null ? `<div class="counts"><span><b>${num(me.followersCount)}</b> читачів</span><span><b>${num(me.followsCount)}</b> підписок</span><span><b>${num(me.postsCount)}</b> постів</span></div>` : ""}
-    </div></a>`;
-};
+// own profile card in the right column
+function sideProfile(p) {
+  if (!p) return `<div class="spinner"></div>`;
+  const href = `#/profile/${encodeURIComponent(p.handle)}`;
+  return `
+    <a class="sp-banner" href="${href}" ${p.banner ? `style="background-image:url('${esc(p.banner)}')"` : ""}></a>
+    <div class="sp-body">
+      <a class="sp-ava" href="${href}">${avatar(p, 64)}</a>
+      <a href="${href}" class="sp-name"><b>${name(p)}</b></a>
+      <div class="muted small">${at(p.handle)}</div>
+      <div class="sp-counts">
+        <a href="${href}/followers"><b>${num(p.followersCount)}</b> читачів</a>
+        <a href="${href}/follows"><b>${num(p.followsCount)}</b> підписок</a>
+        <span><b>${num(p.postsCount)}</b> постів</span>
+      </div>
+      ${p.description ? `<div class="sp-bio small">${esc(p.description)}</div>` : ""}
+      <div class="row sp-btns">
+        <a class="ghost sm" href="${href}">Мій профіль</a>
+        <button class="ghost sm" data-act="editProfile">Редагувати</button>
+      </div>
+    </div>`;
+}
+
 function shell() {
   app.innerHTML = `
   <nav class="side">
@@ -111,7 +124,7 @@ function shell() {
   </nav>
   <main id="main"></main>
   <aside class="right">
-    <div id="mecard">${meCard()}</div>
+    <div class="card sideprof" id="sideProf">${sideProfile(actors.get(api.session.did))}</div>
     <div id="sidebox"></div>
     <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
@@ -531,6 +544,6 @@ function boot() {
   window.__skybeeBadge = setInterval(badges, 60000);
   // own profile: the avatar for the account button and the reply box
   api.get("app.bsky.actor.getProfile", { actor: api.session.did })
-    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const c = $("#mecard"); if (c) c.innerHTML = meCard(); }).catch(() => {});
+    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const sp = $("#sideProf"); if (sp) sp.innerHTML = sideProfile(p); }).catch(() => {});
 }
 boot();
