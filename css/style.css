@@ -693,16 +693,33 @@ details.nb .actor { padding-left: 0; padding-right: 0; }
 /* older WebViews let ::-webkit-scrollbar win over scrollbar-width: keep the hidden bars hidden there too */
 nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollbar { display: none; width: 0; height: 0; }
 @media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
-  /* clear the notch and the rounded corners; slim menu rail, the column takes the rest of the width (no empty sides) */
-  #app { grid-template-columns: 64px minmax(0, 1fr); padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  /* laid out like the desktop: menu with labels on the left, posts in the middle, own profile and feeds on the right;
+     clear of the notch and the rounded corners */
+  #app { grid-template-columns: 168px minmax(0, 1fr) 236px; padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  body.deckmode #app { grid-template-columns: 168px minmax(0, 1fr); }
+  aside.right { display: block; padding: 6px 10px; }
+  aside.right .card { margin: 8px 0; padding: 12px; }
+  .sideprof { margin: 8px 0; }
+  nav.side .nl, nav.side .logo span, .compose-side span { display: inline; }
+  nav.side .me .nl { display: flex; }
+  nav.side a, .me { justify-content: flex-start; }
+  /* the right column holds the home feeds and the own profile, as on the desktop */
+  #feedTabs, nav.side a[data-nav^="#/profile"] { display: none; }
   nav.side { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 0; }
-  nav.side a { padding: 7px 0; font-size: 17px; }
-  nav.side .logo { margin-bottom: 2px; }
-  .compose-side { margin-top: 6px; padding: 8px; }
-  .me { padding: 4px; }
+  nav.side a { padding: 6px 10px; gap: 10px; font-size: 16px; }
+  nav.side .logo { font-size: 20px; margin-bottom: 2px; }
+  .compose-side { margin-top: 6px; padding: 8px; font-size: 15px; }
+  .me { padding: 4px 6px; }
   /* less chrome on top: more room for posts on a short screen */
   .topbar { min-height: 46px; padding: 5px 16px; }
   .tabs > * { padding: 10px 14px; }
   .imgs img, .video { max-height: 78vh; }
   .imgs.n2 img, .imgs.n3 img, .imgs.n4 img { max-height: 46vh; }
+}
+/* a smaller phone sideways: icons only in the menu, so the posts keep their width */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) and (max-width: 780px) {
+  #app { grid-template-columns: 60px minmax(0, 1fr) 220px; }
+  body.deckmode #app { grid-template-columns: 60px minmax(0, 1fr); }
+  nav.side .nl, nav.side .logo span, .compose-side span, nav.side .me .nl { display: none; }
+  nav.side a, .me { justify-content: center; }
 }
