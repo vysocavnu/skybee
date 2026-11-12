@@ -6,6 +6,7 @@ import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, con
 import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
+import { PALETTE, inkFor } from "./flair.js";
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -381,7 +382,15 @@ export async function media(el) {
 export function applyLook() {
   const t = store.get("skybee.theme") || "dark";
   const sys = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  document.documentElement.dataset.theme = t === "system" ? sys : t;
+  const root = document.documentElement, c = store.get("skybee.color");
+  root.dataset.theme = t === "system" ? sys : t;
+  // app colour: the same palette and look as the profile colour (js/flair.js), but for the whole app
+  const ok = PALETTE.some(([p]) => p === c);
+  root.classList.toggle("sb-theme", ok);
+  if (ok) { root.style.setProperty("--sb", c); root.style.setProperty("--sb-ink", inkFor(c)); }
+  else { root.style.removeProperty("--sb"); root.style.removeProperty("--sb-ink"); }
+  // light theme on a deep colour has white text: let the browser draw inputs and scrollbars for a dark page
+  root.style.colorScheme = ok && root.dataset.theme === "light" && inkFor(c) === "#ffffff" ? "dark" : "";
   document.body.style.fontSize = (store.get("skybee.font") || "15") + "px";
   document.body.classList.toggle("calm", store.get("skybee.calm") === "1");
   document.body.classList.toggle("nolinkthumbs", store.get("skybee.noLinkThumbs") === "1");
@@ -389,11 +398,14 @@ export function applyLook() {
 }
 export async function appearance(el) {
   const draw = () => {
-    const theme = store.get("skybee.theme") || "dark", font = store.get("skybee.font") || "15";
+    const theme = store.get("skybee.theme") || "dark", font = store.get("skybee.font") || "15", color = store.get("skybee.color") || "";
     el.innerHTML = header("Оформлення", true) + `
-      <div class="card"><h3>Тема</h3>${seg("theme", [["system", "Як у системі"], ["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]], theme)}</div>
+      <div class="card"><h3>Тема</h3>${seg("th", [["system", "Як у системі"], ["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]], theme)}</div>
+      <div class="card"><h3>Колір</h3><p class="muted small">Ті самі кольори, що й в оформленні профілю.</p><div class="sb-swatches">${
+        [["", "Звичайний (золотий)"], ...PALETTE].map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}" style="background:${c || "#f5b301"}"></button>`).join("")}</div></div>
       <div class="card"><h3>Розмір тексту</h3>${seg("font", [["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]], font)}</div>`;
-    el.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { store.set("skybee.theme", b.dataset.theme); applyLook(); draw(); });
+    el.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { store.set("skybee.theme", b.dataset.th); applyLook(); draw(); });
+    el.querySelectorAll("[data-color]").forEach(b => b.onclick = () => { store.set("skybee.color", b.dataset.color || null); applyLook(); draw(); });
     el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => { store.set("skybee.font", b.dataset.font); applyLook(); draw(); });
   };
   draw();
@@ -502,7 +514,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "color", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }

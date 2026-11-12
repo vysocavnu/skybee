@@ -407,12 +407,13 @@ body.nolinkthumbs .ext img { display: none; }
 .banner { position: relative; }
 /* page colour: the middle column (profile or post) takes one base colour (--sb) and it fades softly into the side menus.
    Dark and dim themes get its deep shade with light text, the light theme gets the colour as it is;
-   --sb-ink (set in js/flair.js) is the text colour that reads on it */
-main.sb-tint, .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
+   --sb-ink (set in js/flair.js) is the text colour that reads on it.
+   html.sb-theme: the same colours for the whole app (Settings → Appearance → Colour, skybee.color) */
+main.sb-tint, .sideprof.sb-tint, html.sb-theme { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
   --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
   --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
-[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
-[data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
+[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint, html.sb-theme[data-theme="dim"] { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
+[data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint, html.sb-theme[data-theme="light"] { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
   --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
   --accent: var(--sb-ink); --accent-ink: var(--sb); }
 main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }

@@ -16,7 +16,7 @@ const isColor = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 const isHttps = (u) => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u);
 const cut = (s, n) => (typeof s === "string" ? s.trim().slice(0, n) : "");
 // text that reads on the plain colour: dark on yellow and the like, white on the rest
-const inkFor = (c) => {
+export const inkFor = (c) => {
   const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
   return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? "#14110a" : "#ffffff";
 };
