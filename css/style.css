@@ -307,3 +307,20 @@ aside.right { overflow-y: auto; } aside.right .card { margin: 12px 0; }
 .part:hover { background: var(--hover); }
 .part .x { position: static; flex: none; }
 .composer .mentions .actor { padding: 6px 4px; align-items: center; }
+
+/* ---------- narrow screens: nothing may be wider than the page ---------- */
+html, body { overflow-x: hidden; max-width: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+main { overflow-x: clip; }
+.seg { flex-wrap: wrap; }
+.seg > * { flex: 1 1 auto; white-space: nowrap; overflow-wrap: normal; }
+.card, .modal { min-width: 0; overflow-wrap: anywhere; }
+/* the post header: a long name or handle is cut, the time always stays visible */
+.meta > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.meta > a:first-child { flex: 0 1 auto; max-width: 62%; }
+.meta > span { flex: 0 20 auto; }
+.meta > a:last-child, .meta > .avatar { flex: none; overflow: visible; }
+.reason { display: block; overflow-wrap: anywhere; }
+.reason svg { vertical-align: -2px; }
+/* iOS zooms the whole page (and keeps it zoomed) when a focused field has text smaller than 16px */
+@media (max-width: 640px) { input, textarea, select, .pvimg input { font-size: max(16px, 1em); } }
