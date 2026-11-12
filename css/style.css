@@ -380,7 +380,7 @@ main { overflow-x: clip; }
 .srow { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; background: none; border: 0; color: var(--text); text-align: left; font-size: 1.05em; }
 .srow:hover { background: var(--hover); text-decoration: none; }
 .srow.danger { color: var(--danger); }
-.sicon { width: 26px; flex: none; text-align: center; font-size: 20px; line-height: 1; }
+.sicon { flex: none; display: grid; place-items: center; width: 26px; color: var(--muted); }
 .schev { color: var(--muted); } .schev svg { width: 18px; height: 18px; display: block; }
 .savas { display: flex; } .savas .avatar + .avatar { margin-left: -8px; }
 .savas .avatar { border: 2px solid var(--bg); }
@@ -830,4 +830,68 @@ body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%
   .actions { max-width: 100%; }
   .actions button { min-width: 42px; min-height: 40px; }
   .text { font-size: 1.05em; }
+}
+
+/* ---------- Skybee 2.0, part 2: the brand's own icons, tabs, banner, status, workspace density ---------- */
+/* line icons (ico() in ui.js): muted at rest, text colour on hover, gold where you are */
+.ico { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ni { width: 26px; height: 26px; display: inline-grid; place-items: center; vertical-align: middle; }
+nav.side a { color: var(--muted); }
+nav.side a:hover, nav.side a.on { color: var(--text); }
+nav.side a.on .ico { color: var(--accent); stroke-width: 2.1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); }
+nav.side .logo { color: var(--text); }
+.compose-side { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.compose-side .ico { stroke-width: 2.2; }
+.fab { display: none; place-items: center; color: var(--accent-ink); }
+.fab .ico { margin: auto; stroke-width: 2.2; }
+.srow .sicon .ico { width: 22px; height: 22px; }
+.srow:hover .sicon { color: var(--accent); }
+
+/* tabs and top bar: thinner lines, a short glowing gold underline instead of a full-width bar */
+.topbar { border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.topbar h2 { letter-spacing: -.3px; font-weight: 800; }
+.tabs { border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.tabs > * { position: relative; border-bottom: 0; transition: color .15s, background .15s; }
+.tabs > .on::after { content: ""; position: absolute; left: 50%; bottom: 0; width: min(56px, 60%); height: 3px; transform: translateX(-50%); border-radius: 3px 3px 0 0;
+  background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
+.chip { transition: border-color .15s, background .15s; }
+.chip:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); text-decoration: none; }
+
+/* fewer frames: cards are surfaces with a hairline, not boxes */
+.card { border-color: color-mix(in srgb, var(--line) 65%, transparent); border-radius: 16px; }
+.modal { border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+.sgroup { border-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.post { border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+
+/* a profile without its own banner: warm honey light over honeycomb instead of the old gold-to-blue */
+.banner, .sp-banner { background: var(--honey) 0 0 / 44px 76px, radial-gradient(ellipse at 75% 0%, rgba(245,179,1,.38), transparent 60%),
+  linear-gradient(135deg, #3a2a08, #17130b 60%, #0f1218); }
+/* a real banner (or the profile colour from flair.js) replaces that: one picture, covering */
+.banner[style*="background-image"], .sp-banner[style*="background-image"] { background-size: cover; background-position: center; background-repeat: no-repeat; }
+
+/* Honey Status: the Skybee status bubble gets a small glowing honey drop */
+.sb-bubble { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); padding-left: 24px; }
+.sb-bubble::after { content: ""; position: absolute; left: 10px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.sb-bubble::before { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+
+/* Bee Trail on the welcome screen: the bee arrives along its dashed loop */
+.loginbee { position: relative; }
+.loginbee::before { content: ""; position: absolute; left: 50%; top: 50%; width: 260px; height: 130px; margin: -40px 0 0 -250px; pointer-events: none; opacity: .55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 130'%3E%3Cpath d='M4 122c26-4 42-26 34-48S6 60 16 78s52 20 82-6 70-58 130-50' fill='none' stroke='%23c9a24d' stroke-width='1.6' stroke-dasharray='5 6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+@media (max-width: 520px) { .loginbee::before { width: 180px; height: 90px; margin: -26px 0 0 -170px; } }
+
+/* «Колонки»: compact mode — narrower columns, denser posts */
+.deck.compact { gap: 8px; padding: 10px; }
+.deck.compact .dcol { flex-basis: 300px; }
+.deck.compact .dbody .post { padding: 8px 10px; gap: 8px; font-size: .93em; }
+.deck.compact .dbody .actions button { min-height: 30px; padding: 3px 6px; }
+.deck.compact .dhead { min-height: 42px; }
+
+/* phone: line icons in the bottom bar, gold for the current one */
+@media (max-width: 640px) {
+  nav.bottom a { opacity: 1; color: var(--muted); }
+  nav.bottom a.on { color: var(--accent); }
+  nav.bottom a.on .ico { stroke-width: 2.1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); }
+  .fab { display: grid; }
 }

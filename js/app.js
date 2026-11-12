@@ -10,7 +10,7 @@ import * as notify from "./notify.js";
 import * as flair from "./flair.js";
 import * as D from "./deck.js";
 import * as N from "./newbie.js";
-import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
+import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num, ico } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { S.applyLook(); } catch {}
@@ -239,9 +239,9 @@ onLink(handleLink);
 
 /* ---------- shell ---------- */
 const NAV = [
-  ["#/", "🏠", "Головна"], ["#/search", "🔍", "Пошук"], ["#/notifications", "🔔", "Сповіщення", "nbadge"],
-  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/deck", "📰", "Колонки"], ["#/lists", "📋", "Списки"], ["#/bookmarks", "🔖", "Закладки"],
-  ["#/profile/me", "👤", "Профіль"], ["#/settings", "⚙️", "Налаштування"],
+  ["#/", "home", "Головна"], ["#/search", "search", "Пошук"], ["#/notifications", "bell", "Сповіщення", "nbadge"],
+  ["#/messages", "chat", "Чати", "cbadge"], ["#/feeds", "hash", "Фіди"], ["#/deck", "deck", "Колонки"], ["#/lists", "list", "Списки"], ["#/bookmarks", "bookmark", "Закладки"],
+  ["#/profile/me", "user", "Профіль"], ["#/settings", "settings", "Налаштування"],
 ];
 const meChip = () => {
   const me = actors.get(api.session.did) || api.session;
@@ -274,8 +274,8 @@ function shell() {
   app.innerHTML = `
   <nav class="side">
     <a class="logo" href="#/">${bee(34)} <span>Skybee</span></a>
-    ${NAV.map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="${b}"></i>` : ""}</span><span class="nl">${l}</span></a>`).join("")}
-    <button class="btn compose-side" data-act="compose">✏️ <span>Новий пост</span></button>
+    ${NAV.map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${ico(i)}${b ? `<i class="dot" id="${b}"></i>` : ""}</span><span class="nl">${l}</span></a>`).join("")}
+    <button class="btn compose-side" data-act="compose">${ico("pen", 20)} <span>Новий пост</span></button>
     <button class="me" data-act="accountMenu" title="Акаунти">${meChip()}</button>
   </nav>
   <main id="main"></main>
@@ -284,8 +284,8 @@ function shell() {
     <div id="sidebox"></div>
     <div class="card small muted">${bee(16)} Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
-  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
-  <button class="fab" data-act="compose">✏️</button>`;
+  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${ico(i, 26)}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
+  <button class="fab" data-act="compose" title="Новий пост">${ico("pen", 24)}</button>`;
 }
 
 /* ---------- badges ---------- */
@@ -886,7 +886,7 @@ function boot() {
       // «Для новеньких»: in the menu for the first 6 months after sign-up (always reachable from Settings → Help)
       const prof = $('nav.side [data-nav="#/profile/me"]');
       if (N.isNewbie(p) && prof && !$('nav.side [data-nav="#/newcomers"]')) {
-        prof.insertAdjacentHTML("beforebegin", `<a href="#/newcomers" data-nav="#/newcomers"><span class="ni">🌱</span><span class="nl">Для новеньких</span></a>`);
+        prof.insertAdjacentHTML("beforebegin", `<a href="#/newcomers" data-nav="#/newcomers"><span class="ni">${ico("sprout")}</span><span class="nl">Для новеньких</span></a>`);
         if (location.hash.startsWith("#/newcomers")) $('nav.side [data-nav="#/newcomers"]').classList.add("on");
       }
     }).catch(() => {});

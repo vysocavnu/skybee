@@ -2,7 +2,7 @@
 import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
-import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors } from "./ui.js";
+import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors, ico } from "./ui.js";
 import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
@@ -17,11 +17,8 @@ const saved = (promise, undo) => promise.then(() => toast("Збережено"),
 const needMain = (ex) => ex.status === 401 || ex.status === 403 || /token|scope|privileged|Bad token/i.test(ex.message)
   ? "Ця дія потребує входу з основним паролем. Вийди й увійди знову, обравши «Основний пароль»." : errText(ex);
 
-/* ---------- section icons: ordinary emoji, as in the main menu; the arrow stays a line drawing ---------- */
-const IC = {
-  user: "👤", users: "👥", lock: "🔒", shield: "🛡️", bell: "🔔", media: "🖼️", brush: "🎨", a11y: "♿", globe: "🌐", help: "❓", info: "ℹ️",
-  chev: `<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>`,
-};
+/* ---------- section icons: the same line set as the main menu (ico in ui.js) ---------- */
+const IC = new Proxy({ chev: `<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>` }, { get: (o, k) => o[k] ?? ico(k) });
 const row = (href, icon, label, extra = "") =>
   `<a class="srow" href="${href}"><span class="sicon">${IC[icon]}</span><span class="grow">${label}</span>${extra}<span class="schev">${IC.chev}</span></a>`;
 const toggle = (id, label, on, hint = "", disabled = false) =>
