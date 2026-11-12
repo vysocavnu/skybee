@@ -278,3 +278,32 @@ label.icon { cursor: pointer; }
 .sentinel { padding: 24px; display: flex; justify-content: center; }
 .spinner { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- additions: verification, lists, chat reactions, thread composer ---------- */
+.verified { color: var(--link); font-size: .85em; }
+.bigemoji { font-size: 32px; line-height: 1; flex: none; }
+.results:empty { display: none; }
+.results { max-height: 50vh; overflow-y: auto; }
+.searchbar + .results { border-bottom: 1px solid var(--line); }
+.hidden-replies summary { cursor: pointer; }
+.filter { padding: 8px 0; } .filter .seg { margin-top: 6px; }
+.seg label { flex: 1; display: flex; gap: 6px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; cursor: pointer; }
+.seg label:has(:checked) { border-color: var(--accent); } .seg input { width: auto; }
+code { background: var(--hover); border-radius: 4px; padding: 1px 4px; overflow-wrap: anywhere; font-size: .9em; }
+a.pill:hover { text-decoration: none; }
+aside.right { overflow-y: auto; } aside.right .card { margin: 12px 0; }
+.sugg { display: flex; gap: 10px; align-items: center; padding: 6px 0; color: var(--text); min-width: 0; }
+.sugg .who { display: flex; flex-direction: column; min-width: 0; }
+.mcol { display: flex; flex-direction: column; max-width: 75%; min-width: 0; }
+.msg.mine .mcol { align-items: flex-end; }
+.mcol .bubble { max-width: 100%; cursor: pointer; }
+.mcol .bubble:empty { display: none; }
+.membed { width: min(360px, 100%); margin-top: 4px; }
+.reacts { display: flex; gap: 4px; margin-top: 2px; }
+.react { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; font-size: 13px; }
+.react.on { border-color: var(--accent); }
+.parts:empty { display: none; }
+.part { display: flex; gap: 8px; align-items: center; padding: 8px 10px; margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; position: relative; }
+.part:hover { background: var(--hover); }
+.part .x { position: static; flex: none; }
+.composer .mentions .actor { padding: 6px 4px; align-items: center; }

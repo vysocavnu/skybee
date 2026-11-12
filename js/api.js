@@ -211,17 +211,119 @@ export async function setThreadgate(postUri, allow) {
     record: { $type: GATE, post: postUri, allow: allow || undefined, hiddenReplies, createdAt: cur?.createdAt || now() } });
 }
 
-// A post and its gate are written in one commit, so the post is never public without the gate
-export async function createPost(record, allow) {
-  if (!allow) return createRecord("app.bsky.feed.post", record);
-  const rkey = tid(), createdAt = now(), uri = `at://${session.did}/app.bsky.feed.post/${rkey}`;
+// A post and its gates are written in one commit, so the post is never public without them.
+// allow: who can reply (see above); noQuote: nobody may quote the post. → { uri, cid }
+export async function createPost(record, allow, noQuote = false) {
+  const POST = "app.bsky.feed.post";
+  if (!allow && !noQuote) { const r = await createRecord(POST, record); return { uri: r.uri, cid: r.cid }; }
+  const rkey = tid(), createdAt = now(), uri = `at://${session.did}/${POST}/${rkey}`;
   const create = (collection, value) => ({ $type: "com.atproto.repo.applyWrites#create", collection, rkey, value: { $type: collection, ...value } });
-  await post("com.atproto.repo.applyWrites", { repo: session.did, writes: [
-    create("app.bsky.feed.post", { createdAt, ...record }),
-    create(GATE, { post: uri, allow, createdAt }),
-  ] });
-  return { uri };
+  const writes = [create(POST, { createdAt, ...record })];
+  if (allow) writes.push(create(GATE, { post: uri, allow, createdAt }));
+  if (noQuote) writes.push(create(PGATE, { post: uri, embeddingRules: [NOQUOTE], createdAt }));
+  const r = await post("com.atproto.repo.applyWrites", { repo: session.did, writes });
+  const cid = r?.results?.[0]?.cid || (await get("com.atproto.repo.getRecord", { repo: session.did, collection: POST, rkey })).cid;
+  return { uri, cid };
 }
+
+// The thread's author hides (or shows again) one reply for everyone; the list lives in the gate record
+export async function hideReply(rootUri, replyUri, hide) {
+  const cur = await getThreadgate(rootUri);
+  const set = new Set(cur?.hiddenReplies || []);
+  hide ? set.add(replyUri) : set.delete(replyUri);
+  const hiddenReplies = set.size ? [...set] : undefined;
+  if (!cur?.allow && !hiddenReplies) { if (cur) await deleteRecord(GATE, rootUri); return; }
+  await post("com.atproto.repo.putRecord", { repo: session.did, collection: GATE, rkey: rkeyOf(rootUri),
+    record: { $type: GATE, post: rootUri, allow: cur?.allow, hiddenReplies, createdAt: cur?.createdAt || now() } });
+}
+
+/* ---------- postgate: who can quote ---------- */
+const PGATE = "app.bsky.feed.postgate", NOQUOTE = { $type: PGATE + "#disableRule" };
+export async function getPostgate(postUri) {
+  try { return (await get("com.atproto.repo.getRecord", { repo: session.did, collection: PGATE, rkey: rkeyOf(postUri) })).value; }
+  catch (e) { if (e.code === "RecordNotFound") return null; throw e; }
+}
+async function editPostgate(postUri, change) {
+  const cur = await getPostgate(postUri);
+  const g = change({ rules: cur?.embeddingRules || [], detached: cur?.detachedEmbeddingUris || [] });
+  if (!g.rules.length && !g.detached.length) { if (cur) await deleteRecord(PGATE, postUri); return; }
+  await post("com.atproto.repo.putRecord", { repo: session.did, collection: PGATE, rkey: rkeyOf(postUri),
+    record: { $type: PGATE, post: postUri, createdAt: cur?.createdAt || now(),
+      embeddingRules: g.rules.length ? g.rules : undefined, detachedEmbeddingUris: g.detached.length ? g.detached : undefined } });
+}
+export const setQuotesDisabled = (postUri, off) => editPostgate(postUri, g => ({ ...g, rules: off ? [NOQUOTE] : [] }));
+// Removes my post from someone's quote of it
+export const detachQuote = (postUri, quoteUri) => editPostgate(postUri, g => ({ ...g, detached: [...new Set([...g.detached, quoteUri])] }));
+
+/* ---------- lists ---------- */
+const LIST = "app.bsky.graph.list", LISTITEM = "app.bsky.graph.listitem";
+export const CURATE = "app.bsky.graph.defs#curatelist", MODLIST = "app.bsky.graph.defs#modlist";
+export const createList = (name, description, purpose = CURATE) => createRecord(LIST, { name, description: description || undefined, purpose });
+export async function updateList(uri, patch) {
+  const cur = (await get("com.atproto.repo.getRecord", { repo: session.did, collection: LIST, rkey: rkeyOf(uri) })).value;
+  await post("com.atproto.repo.putRecord", { repo: session.did, collection: LIST, rkey: rkeyOf(uri), record: { ...cur, ...patch } });
+}
+// Every record of a collection in my repo (newest first), up to `max`
+async function myRecords(collection, max = 2000) {
+  const out = [];
+  for (let cursor; out.length < max;) {
+    const d = await get("com.atproto.repo.listRecords", { repo: session.did, collection, limit: 100, cursor });
+    out.push(...d.records); cursor = d.cursor;
+    if (!cursor || !d.records.length) break;
+  }
+  return out;
+}
+// The list goes together with its member records
+export async function deleteList(uri) {
+  const items = (await myRecords(LISTITEM)).filter(r => r.value?.list === uri);
+  const del = (collection, u) => ({ $type: "com.atproto.repo.applyWrites#delete", collection, rkey: rkeyOf(u) });
+  const writes = [...items.map(r => del(LISTITEM, r.uri)), del(LIST, uri)];
+  for (let i = 0; i < writes.length; i += 200) await post("com.atproto.repo.applyWrites", { repo: session.did, writes: writes.slice(i, i + 200) });
+}
+export const addToList = (listUri, did) => createRecord(LISTITEM, { subject: did, list: listUri });
+export const removeFromList = (itemUri) => deleteRecord(LISTITEM, itemUri);
+// My lists with the member record of `did` in each (item: uri or null)
+export async function listsWithMember(did) {
+  try {
+    const d = await get("app.bsky.graph.getListsWithMembership", { actor: did, limit: 100 });
+    return d.listsWithMembership.map(x => ({ list: x.list, item: x.listItem?.uri || null }));
+  } catch { // older servers: look through my own member records
+    const [lists, items] = await Promise.all([get("app.bsky.graph.getLists", { actor: session.did, limit: 100 }), myRecords(LISTITEM)]);
+    return lists.lists.map(list => ({ list, item: items.find(r => r.value?.list === list.uri && r.value?.subject === did)?.uri || null }));
+  }
+}
+export const muteList = (list, on) => post(on ? "app.bsky.graph.muteActorList" : "app.bsky.graph.unmuteActorList", { list });
+export const blockList = (list) => createRecord("app.bsky.graph.listblock", { subject: list });
+export const unblockList = (uri) => deleteRecord("app.bsky.graph.listblock", uri);
+// Follows many accounts at once
+export async function followAll(dids) {
+  const createdAt = now();
+  const writes = dids.map(subject => ({ $type: "com.atproto.repo.applyWrites#create", collection: "app.bsky.graph.follow", rkey: tid(),
+    value: { $type: "app.bsky.graph.follow", subject, createdAt } }));
+  for (let i = 0; i < writes.length; i += 100) await post("com.atproto.repo.applyWrites", { repo: session.did, writes: writes.slice(i, i + 100) });
+}
+
+/* ---------- account ---------- */
+export const getAccount = () => get("com.atproto.server.getSession");
+export async function changeHandle(handle) {
+  handle = normalizeHandle(handle);
+  await post("com.atproto.identity.updateHandle", { handle });
+  session.handle = handle; saveSession();
+}
+export const listAppPasswords = () => get("com.atproto.server.listAppPasswords").then(d => d.passwords);
+export const createAppPassword = (name, privileged) => post("com.atproto.server.createAppPassword", { name, privileged });
+export const revokeAppPassword = (name) => post("com.atproto.server.revokeAppPassword", { name });
+export const requestPasswordReset = (email) => post("com.atproto.server.requestPasswordReset", { email });
+export const resetPassword = (token, password) => post("com.atproto.server.resetPassword", { token: token.trim(), password });
+// The whole repository (posts, likes, follows…) as a CAR file
+export async function exportRepo() {
+  const r = await fetch(`${session.pds}/xrpc/com.atproto.sync.getRepo?did=${encodeURIComponent(session.did)}`);
+  if (!r.ok) throw new Error(`Помилка ${r.status}`);
+  return r.blob();
+}
+// Notify me about new posts (and replies) of an account
+export const subscribeActivity = (did, on) =>
+  post("app.bsky.notification.putActivitySubscription", { subject: did, activitySubscription: { post: on, reply: false } });
 
 // My own (non-moderation) lists — they can be used in a gate
 export async function getMyLists() {
@@ -447,6 +549,20 @@ export async function updatePref(type, patch, feed) {
   await putPrefs(prefs.filter(p => !samePref(type, feed)(p)).concat({ ...cur, $type: PREF + type, ...(feed ? { feed } : {}), ...patch }));
 }
 
+/* ---------- content filters ---------- */
+export const adultEnabled = () => !!lastPref(prefsCache || [], "adultContentPref")?.enabled;
+export const setAdult = (enabled) => updatePref("adultContentPref", { enabled });
+const LABEL_DEFAULT = { porn: "hide", sexual: "warn", "graphic-media": "warn", nudity: "ignore" };
+// → "ignore" | "warn" | "hide" for one of the global labels
+export function labelPref(label) {
+  const v = (prefsCache || []).filter(p => p.$type === PREF + "contentLabelPref" && !p.labelerDid && p.label === label).pop()?.visibility;
+  return v === "show" ? "ignore" : v || LABEL_DEFAULT[label] || "warn";
+}
+export async function setLabelPref(label, visibility) {
+  const prefs = (await getPrefs(true)).filter(p => !(p.$type === PREF + "contentLabelPref" && !p.labelerDid && p.label === label));
+  await putPrefs(prefs.concat({ $type: PREF + "contentLabelPref", label, visibility }));
+}
+
 // Who may start a chat with me: "all" | "following" | "none"
 const CHAT_DECL = "chat.bsky.actor.declaration";
 export async function getChatAccess() {
@@ -483,7 +599,12 @@ export const removeMutedWord = (word) =>
 export async function getOwnProfileRecord() {
   try {
     return (await get("com.atproto.repo.getRecord", { repo: session.did, collection: "app.bsky.actor.profile", rkey: "self" })).value;
-  } catch { return { $type: "app.bsky.actor.profile" }; }
+  } catch (e) { if (e.code === "RecordNotFound") return { $type: "app.bsky.actor.profile" }; throw e; } // never overwrite a profile that just failed to load
+}
+export async function pinPost(p, pin) {
+  const rec = await getOwnProfileRecord();
+  if (pin) rec.pinnedPost = strongRef(p); else delete rec.pinnedPost;
+  await putOwnProfileRecord(rec);
 }
 export async function putOwnProfileRecord(record) {
   await post("com.atproto.repo.putRecord", { repo: session.did, collection: "app.bsky.actor.profile", rkey: "self", record });

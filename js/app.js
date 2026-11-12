@@ -1,8 +1,9 @@
 // Skybee — app shell, router, global actions
 import * as api from "./api.js";
 import * as V from "./views.js";
+import * as M from "./more.js";
 import * as notify from "./notify.js";
-import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine } from "./ui.js";
+import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; document.body.style.fontSize = (localStorage.getItem("skybee.font") || "15") + "px"; } catch {}
@@ -83,7 +84,7 @@ function addAccountDialog() {
 /* ---------- shell ---------- */
 const NAV = [
   ["#/", "🏠", "Головна"], ["#/search", "🔍", "Пошук"], ["#/notifications", "🔔", "Сповіщення", "nbadge"],
-  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/bookmarks", "🔖", "Закладки"],
+  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/lists", "📋", "Списки"], ["#/bookmarks", "🔖", "Закладки"],
   ["#/profile/me", "👤", "Профіль"], ["#/settings", "⚙️", "Налаштування"],
 ];
 const meChip = () => {
@@ -101,9 +102,10 @@ function shell() {
   <main id="main"></main>
   <aside class="right">
     <form class="searchbar" id="sideSearch"><input type="search" placeholder="Пошук"></form>
+    <div id="sidebox"></div>
     <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
-  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 6].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
+  <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 7].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
   <button class="fab" data-act="compose">✏️</button>`;
   $("#sideSearch").onsubmit = (e) => { e.preventDefault(); const v = $("input", e.target).value.trim(); if (v) location.hash = `#/search?q=${encodeURIComponent(v)}`; };
 }
@@ -152,15 +154,18 @@ async function route() {
     if (path === "/") r = V.home(main);
     else if (seg[0] === "search") r = V.search(main, q);
     else if (seg[0] === "notifications") r = V.notifications(main, { filter: seg[1] });
-    else if (seg[0] === "messages") r = seg[1] ? V.convo(main, { id: seg[1] }) : V.messages(main);
+    else if (seg[0] === "messages") r = seg[1] === "requests" ? V.messages(main, { requests: true }) : seg[1] ? V.convo(main, { id: seg[1] }) : V.messages(main);
+    else if (seg[0] === "lists") r = M.lists(main);
+    else if (seg[0] === "starter-pack" && seg[2]) r = M.starterPack(main, { actor: seg[1], rkey: seg[2] });
     else if (seg[0] === "feeds") r = V.feeds(main);
     else if (seg[0] === "feed") r = V.feed(main, { uri: seg[1] });
     else if (seg[0] === "list") r = V.list(main, { uri: seg[1] });
     else if (seg[0] === "bookmarks") r = V.bookmarks(main);
-    else if (seg[0] === "settings") r = seg[1] === "words" ? V.mutedWords(main) : seg[1] ? V.modList(main, { kind: seg[1] }) : V.settings(main);
+    else if (seg[0] === "settings") r = seg[1] === "words" ? V.mutedWords(main) : seg[1] === "content" ? M.contentFilters(main) : seg[1] === "account" ? M.account(main)
+      : seg[1] === "passwords" ? M.appPasswords(main) : seg[1] ? V.modList(main, { kind: seg[1] }) : V.settings(main);
     else if (seg[0] === "profile" && seg[2] === "post" && seg[4]) r = V.postUsers(main, { actor: seg[1], rkey: seg[3], kind: seg[4] });
     else if (seg[0] === "profile" && seg[2] === "post") r = V.thread(main, { actor: seg[1], rkey: seg[3] });
-    else if (seg[0] === "profile" && (seg[2] === "followers" || seg[2] === "follows")) r = V.follows(main, { actor: seg[1], kind: seg[2] });
+    else if (seg[0] === "profile" && ["followers", "follows", "known"].includes(seg[2])) r = V.follows(main, { actor: seg[1], kind: seg[2] });
     else if (seg[0] === "profile") r = V.profile(main, { actor: seg[1], tab: seg[2] });
     else main.innerHTML = `<p class="pad">Сторінку не знайдено. <a href="#/">На головну</a></p>`;
     cleanup = await r;
@@ -242,7 +247,7 @@ document.addEventListener("click", async (e) => {
       case "repostMenu": {
         const c = await menu(actEl, [
           { act: p.viewer?.repost ? "unrepost" : "repost", label: p.viewer?.repost ? "🔁 Скасувати поширення" : "🔁 Поширити" },
-          { act: "quote", label: "❝ Цитувати" },
+          ...(p.viewer?.embeddingDisabled ? [] : [{ act: "quote", label: "❝ Цитувати" }]),
         ]);
         if (c === "repost") { const r = await api.repost(p); p.viewer = { ...(p.viewer || {}), repost: r.uri }; p.repostCount++; refreshPostEl(p.uri); toast("Поширено"); }
         if (c === "unrepost") { await api.unrepost(p.viewer.repost); p.viewer.repost = undefined; p.repostCount--; refreshPostEl(p.uri); }
@@ -257,16 +262,22 @@ document.addEventListener("click", async (e) => {
       case "translate": window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(p.record?.text || "")}`, "_blank"); break;
       case "editGate": editGate(p); break;
       case "postMenu": {
-        const mine = p.author.did === api.session.did;
+        const mine = p.author.did === api.session.did, my = `at://${api.session.did}/`;
+        const rootUri = p.record?.reply?.root?.uri;
+        const e = p.embed, quoted = e?.$type === "app.bsky.embed.record#view" ? e.record : e?.$type === "app.bsky.embed.recordWithMedia#view" ? e.record?.record : null;
         const c = await menu(actEl, [
           { act: "translate", label: "🌐 Перекласти" },
           { act: "copyText", label: "📋 Копіювати текст" },
           { act: "copyLink", label: "🔗 Копіювати посилання" },
-          { act: "muteThread", label: "🔕 Приховати гілку" },
+          { act: "sendDm", label: "✉️ Надіслати в чат" },
+          { act: "muteThread", label: p.viewer?.threadMuted ? "🔔 Не приховувати гілку" : "🔕 Приховати гілку" },
           "-",
+          // the thread's author may hide a reply for everyone, the author of a quoted post may detach the quote
+          ...(!mine && rootUri?.startsWith(my) ? [{ act: "hideReply", label: hiddenReplies.has(p.uri) ? "👁️ Показати відповідь усім" : "🙈 Приховати відповідь для всіх" }] : []),
+          ...(!mine && quoted?.uri?.startsWith(my) && quoted.$type === "app.bsky.embed.record#viewRecord" ? [{ act: "detach", label: "✂️ Від'єднати мій пост від цитати" }] : []),
           ...(mine ? [
-            // the gate belongs to the first post of a thread, replies have none
-            ...(p.record?.reply ? [] : [{ act: "gate", label: "💬 Хто може відповідати" }]),
+            { act: "pin", label: p.viewer?.pinned ? "📌 Відкріпити з профілю" : "📌 Закріпити в профілі" },
+            { act: "gate", label: "💬 Хто може відповідати й цитувати" },
             { act: "delete", label: "🗑️ Видалити пост", danger: true },
           ] : [
             { act: "muteUser", label: `🙈 Приховати @${p.author.handle}` },
@@ -274,10 +285,29 @@ document.addEventListener("click", async (e) => {
             { act: "report", label: "🚩 Поскаржитись", danger: true },
           ]),
         ]);
+        if (c === "sendDm") peopleDialog("Надіслати пост у чат", async (did) => {
+          const { convo } = await api.chat("chat.bsky.convo.getConvoForMembers", { members: [did] });
+          await api.chatPost("chat.bsky.convo.sendMessage", { convoId: convo.id, message: { text: "", embed: { $type: "app.bsky.embed.record", record: api.strongRef(p) } } });
+          toast("Надіслано ✉️");
+        });
+        if (c === "pin") { const on = !p.viewer?.pinned; await api.pinPost(p, on); p.viewer = { ...(p.viewer || {}), pinned: on }; toast(on ? "Закріплено в профілі" : "Відкріплено"); }
+        if (c === "hideReply") {
+          const hide = !hiddenReplies.has(p.uri);
+          await api.hideReply(rootUri, p.uri, hide);
+          hide ? hiddenReplies.add(p.uri) : hiddenReplies.delete(p.uri);
+          toast(hide ? "Відповідь приховано для всіх" : "Відповідь знову видно"); reloadView();
+        }
+        if (c === "detach" && await confirmBox("Від'єднати ваш пост від цієї цитати? Замість нього там буде позначка «від'єднано».", "Від'єднати", true)) {
+          await api.detachQuote(quoted.uri, p.uri); toast("Цитату від'єднано"); setTimeout(reloadView, 800);
+        }
         if (c === "translate") window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(p.record?.text || "")}`, "_blank");
         if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
         if (c === "copyLink") { await navigator.clipboard.writeText(webUrl(p)); toast("Посилання скопійовано"); }
-        if (c === "muteThread") { await api.muteThread(p.record?.reply?.root?.uri || p.uri); toast("Гілку приховано"); }
+        if (c === "muteThread") {
+          const on = !p.viewer?.threadMuted;
+          await api.post(on ? "app.bsky.graph.muteThread" : "app.bsky.graph.unmuteThread", { root: rootUri || p.uri });
+          p.viewer = { ...(p.viewer || {}), threadMuted: on }; toast(on ? "Гілку приховано: сповіщень із неї не буде" : "Гілку знову видно");
+        }
         if (c === "gate") editGate(p);
         if (c === "delete" && await confirmBox("Видалити цей пост назавжди?", "Видалити", true)) {
           await api.deletePost(p.uri); document.querySelectorAll(`[data-uri="${CSS.escape(p.uri)}"]`).forEach(x => x.remove()); toast("Пост видалено");
@@ -318,7 +348,9 @@ document.addEventListener("click", async (e) => {
         const c = await menu(actEl, [
           { act: "copy", label: "🔗 Копіювати посилання" },
           { act: "search", label: "🔍 Шукати в постах" },
+          { act: "lists", label: "📋 Додати до списків" },
           ...(mine ? [] : [
+            ...(a.viewer?.following ? [{ act: "bell", label: a.viewer?.activitySubscription?.post ? "🔕 Не сповіщати про пости" : "🔔 Сповіщати про нові пости" }] : []),
             a.viewer?.muted ? { act: "unmute", label: "👁️ Показувати" } : { act: "mute", label: "🙈 Приховати" },
             a.viewer?.blocking ? { act: "unblock", label: "Розблокувати" } : { act: "block", label: "⛔ Заблокувати", danger: true },
             { act: "report", label: "🚩 Поскаржитись", danger: true },
@@ -326,6 +358,12 @@ document.addEventListener("click", async (e) => {
         ]);
         if (c === "copy") { await navigator.clipboard.writeText(`https://bsky.app/profile/${a.handle}`); toast("Скопійовано"); }
         if (c === "search") location.hash = `#/search?q=${encodeURIComponent("from:" + a.handle + " ")}`;
+        if (c === "lists") M.addToListsDialog(a);
+        if (c === "bell") {
+          const on = !a.viewer?.activitySubscription?.post;
+          await api.subscribeActivity(a.did, on);
+          a.viewer.activitySubscription = { post: on, reply: false }; toast(on ? "Сповіщатимемо про нові пости 🔔" : "Сповіщення вимкнено");
+        }
         if (c === "mute") { await api.mute(a.did); toast("Приховано"); reloadView(); }
         if (c === "unmute") { await api.unmute(a.did); toast("Знову видно"); reloadView(); }
         if (c === "block" && await confirmBox(`Заблокувати @${a.handle}?`, "Заблокувати", true)) { await api.block(a.did); reloadView(); }
@@ -351,8 +389,16 @@ document.addEventListener("click", async (e) => {
         break;
       }
 
+      case "newList": M.listDialog(); break;
+      case "listMenu": { const subject = await M.listMenu(actEl, actEl.dataset.uri); if (subject) reportDialog(subject); break; }
+      case "listAddPeople": M.addPeopleDialog(actEl.dataset.uri); break;
+      case "listRemove": await api.removeFromList(actEl.dataset.item); actEl.closest(".actor")?.remove(); toast("Прибрано зі списку"); break;
+      case "convoLeave":
+        if (await confirmBox("Відхилити запит і вийти з цього чату?", "Відхилити", true)) { await api.chatPost("chat.bsky.convo.leaveConvo", { convoId: actEl.dataset.id }); location.hash = "#/messages"; }
+        break;
+
       case "markRead": await api.post("app.bsky.notification.updateSeen", { seenAt: new Date().toISOString() }); document.querySelectorAll(".unread").forEach(x => x.classList.remove("unread")); badges(); break;
-      case "newDm": newDmDialog(); break;
+      case "newDm": peopleDialog("Нове повідомлення", (did) => V.startDm(did)); break;
       case "convoMenu": {
         const id = actEl.dataset.id, muted = actEl.dataset.muted === "1";
         const c = await menu(actEl, [{ act: "mute", label: muted ? "🔔 Увімкнути сповіщення" : "🔕 Вимкнути сповіщення" }, { act: "leave", label: "🚪 Вийти з чату", danger: true }]);
@@ -409,21 +455,29 @@ function reportDialog(subject) {
   });
 }
 
-function newDmDialog() {
-  const m = modal(`<h3>Нове повідомлення</h3><input type="search" placeholder="Пошук людей" autofocus><div class="results"></div>`);
+// Pick a person to write to; onPick(did) may throw, the dialog then stays open
+function peopleDialog(title, onPick) {
+  const m = modal(`<h3>${title}</h3><input type="search" placeholder="Пошук людей" autofocus><div class="results"></div>`);
   const inp = $("input", m), res = $(".results", m);
+  const row = (a) => `<button class="actor plain" data-did="${a.did}" ${a.associated?.chat?.allowIncoming === "none" ? "disabled title='Не приймає повідомлення'" : ""}>${avatar(a, 36)}<div class="who"><b>${esc(a.displayName || a.handle)}</b><span class="muted">@${esc(a.handle)}</span></div></button>`;
+  // until something is typed: the people from recent chats
+  api.chat("chat.bsky.convo.listConvos", { limit: 15 }).then(d => {
+    if (inp.value.trim()) return;
+    res.innerHTML = d.convos.map(c => c.members.find(x => x.did !== api.session.did)).filter(Boolean).map(row).join("");
+  }).catch(() => {});
   let tm;
   inp.addEventListener("input", () => {
     clearTimeout(tm);
     tm = setTimeout(async () => {
       const q = inp.value.trim(); if (!q) { res.innerHTML = ""; return; }
       const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q, limit: 8 });
-      res.innerHTML = d.actors.map(a => `<button class="actor plain" data-did="${a.did}" ${a.associated?.chat?.allowIncoming === "none" ? "disabled title='Не приймає повідомлення'" : ""}>${avatar(a, 36)}<div class="who"><b>${esc(a.displayName || a.handle)}</b><span class="muted">@${esc(a.handle)}</span></div></button>`).join("");
+      res.innerHTML = d.actors.map(row).join("");
     }, 250);
   });
   res.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-did]"); if (!b) return;
-    try { await V.startDm(b.dataset.did); m.close(); } catch (ex) { toast(ex.message); }
+    b.disabled = true;
+    try { await onPick(b.dataset.did); m.close(); } catch (ex) { toast(ex.message); b.disabled = false; }
   });
 }
 
@@ -463,6 +517,7 @@ function boot() {
   shell();
   route();
   badges();
+  M.sidebar($("#sidebox")).catch(() => {});
   clearInterval(window.__skybeeBadge);
   window.__skybeeBadge = setInterval(badges, 60000);
   // own profile: the avatar for the account button and the reply box

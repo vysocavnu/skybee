@@ -1,5 +1,5 @@
 // Skybee — rendering helpers
-import { session, mutedWords } from "./api.js";
+import { session, mutedWords, adultEnabled, labelPref } from "./api.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -27,6 +27,10 @@ export function num(n = 0) {
   return (n / 1e6).toFixed(1).replace(/\.0$/, "") + " млн";
 }
 export const name = (a) => esc(a?.displayName || a?.handle || "");
+// the name with a verification mark, for places where HTML is allowed
+export const vname = (a) => name(a) + (a?.verification?.trustedVerifierStatus === "valid" ? ` <span class="verified" title="Довірений верифікатор">✪</span>`
+  : a?.verification?.verifiedStatus === "valid" ? ` <span class="verified" title="Верифіковано">✔</span>` : "");
+export const hiddenReplies = new Set(); // replies hidden by the author of the thread on screen
 export const avatar = (a, size = 44) =>
   a?.avatar ? `<img class="avatar" style="width:${size}px;height:${size}px" src="${esc(a.avatar)}" alt="" loading="lazy">`
             : `<div class="avatar ph" style="width:${size}px;height:${size}px">${esc((a?.displayName || a?.handle || "?")[0].toUpperCase())}</div>`;
@@ -62,14 +66,30 @@ export function richText(text = "", facets) {
 }
 
 /* ---------- moderation labels ---------- */
-const ADULT = new Set(["porn", "sexual", "nudity", "graphic-media", "gore"]);
-const LABEL_UA = { porn: "Контент для дорослих", sexual: "Відвертий контент", nudity: "Оголеність", "graphic-media": "Жорсткий контент", gore: "Жорсткий контент" };
+// label → [text, adults only]. The visibility of each one is set in «Фільтри контенту»
+const LABELS = { porn: ["Контент для дорослих", true], sexual: ["Відвертий контент", true], nudity: ["Оголеність", false], "graphic-media": ["Жорсткий контент", true] };
+const LABEL_ALIAS = { gore: "graphic-media", nsfl: "graphic-media", nsfw: "porn" };
+// → null (show as is) or { text, hide, locked }: `hide` removes the post from feeds, `locked` cannot be opened without the adult setting
 export function warnLabel(p) {
-  const l = [...(p.labels || []), ...(p.author?.labels || [])].find(l => ADULT.has(l.val) && !l.neg);
-  return l ? LABEL_UA[l.val] : null;
+  if (p.author?.did === session?.did) return null;
+  let found = null;
+  for (const l of [...(p.labels || []), ...(p.author?.labels || [])]) {
+    if (l.neg) continue;
+    if (l.val === "!hide") return { text: "Приховано модерацією", hide: true };
+    if (l.val === "!warn") { found ||= { text: "Попередження про вміст" }; continue; }
+    const key = LABEL_ALIAS[l.val] || l.val, def = LABELS[key];
+    if (!def) continue;
+    if (def[1] && !adultEnabled()) return { text: def[0], hide: true, locked: true };
+    const vis = labelPref(key);
+    if (vis === "hide") return { text: def[0], hide: true };
+    if (vis === "warn") found ||= { text: def[0] };
+  }
+  return found;
 }
-const blurWrap = (html, label) => label
-  ? `<div class="blurbox"><div class="blurred">${html}</div><button class="ghost unblur" data-act="unblur">⚠️ ${esc(label)} · Показати</button></div>` : html;
+const blurWrap = (html, label) => !label || !html ? html
+  : `<div class="blurbox"><div class="blurred">${html}</div>${label.locked
+    ? `<a class="ghost unblur" href="#/settings/content">🔞 ${esc(label.text)} · увімкнути в налаштуваннях</a>`
+    : `<button class="ghost unblur" data-act="unblur">⚠️ ${esc(label.text)} · Показати</button>`}</div>`;
 
 /* ---------- muted words ---------- */
 // Same matching rules as the official client, so a word muted there hides the same posts here.
@@ -164,13 +184,17 @@ function renderRecord(r) {
     return `<a class="quote card-row" href="#/feed/${enc(r.uri)}">${avatar({ avatar: r.avatar, displayName: r.displayName }, 36)}<div><b>${esc(r.displayName)}</b><small>Фід від @${esc(r.creator.handle)}</small></div></a>`;
   if (t === "app.bsky.graph.defs#listView")
     return `<a class="quote card-row" href="#/list/${enc(r.uri)}">${avatar({ avatar: r.avatar, displayName: r.name }, 36)}<div><b>${esc(r.name)}</b><small>Список від @${esc(r.creator.handle)}</small></div></a>`;
+  if (t === "app.bsky.graph.defs#starterPackViewBasic")
+    return `<a class="quote card-row" href="#/starter-pack/${enc(r.creator.did)}/${r.uri.split("/").pop()}"><span class="bigemoji">🎒</span><div><b>${esc(r.record?.name || "Стартовий набір")}</b><small>Стартовий набір від @${esc(r.creator.handle)}</small></div></a>`;
+  if (t === "app.bsky.labeler.defs#labelerView")
+    return `<a class="quote card-row" href="${profileHref(r.creator)}">${avatar(r.creator, 36)}<div><b>${name(r.creator)}</b><small>Сервіс модерації</small></div></a>`;
   if (t === "app.bsky.embed.record#viewRecord") {
     const fake = { uri: r.uri, cid: r.cid, author: r.author, record: r.value, labels: r.labels };
     const label = warnLabel(fake);
     const media = (r.embeds || []).map(e => e.$type === "app.bsky.embed.record#view" || e.$type === "app.bsky.embed.recordWithMedia#view"
       ? renderEmbed(e.media ? { ...e.media } : null, label) : renderEmbed(e, label)).join("");
     return `<div class="quote" data-href="${postHref(fake)}">
-      <div class="meta">${avatar(r.author, 18)} <b>${name(r.author)}</b> <span>@${esc(r.author.handle)} · ${ago(r.indexedAt)}</span></div>
+      <div class="meta">${avatar(r.author, 18)} <b>${vname(r.author)}</b> <span>@${esc(r.author.handle)} · ${ago(r.indexedAt)}</span></div>
       <div class="text">${richText(r.value?.text, r.value?.facets)}</div>${media}</div>`;
   }
   return "";
@@ -227,11 +251,12 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
     top.push(`<div class="reason">${I.repost} <a href="${profileHref(reason.by)}">${name(reason.by)}</a> поширив(-ла)</div>`);
   if (reason?.$type === "app.bsky.feed.defs#reasonPin") top.push(`<div class="reason">📌 Закріплено</div>`);
   if (parent?.author && !thread) top.push(`<div class="reason">↩︎ У відповідь <a href="${profileHref(parent.author)}">${name(parent.author)}</a></div>`);
+  if (hiddenReplies.has(p.uri)) top.push(`<div class="reason">🙈 Автор гілки приховав цю відповідь</div>`);
   const langs = rec.langs?.length && !rec.langs.includes("uk") ? `<button class="linklike small" data-act="translate">Перекласти</button>` : "";
   if (focus) return `
   <article class="post focus" data-uri="${esc(p.uri)}">
     <div class="row">${avatar(a, 48)}
-      <div class="who"><a href="${profileHref(a)}"><b>${name(a)}</b></a><span class="muted">@${esc(a.handle)}</span></div>
+      <div class="who"><a href="${profileHref(a)}"><b>${vname(a)}</b></a><span class="muted">@${esc(a.handle)}</span></div>
       ${followBtn(a)}
     </div>
     <div class="text big">${richText(rec.text, rec.facets)}</div>
@@ -251,7 +276,7 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
     <div class="left"><a href="${profileHref(a)}">${avatar(a)}</a>${line ? `<div class="tline"></div>` : ""}</div>
     <div class="body">
       ${top.join("")}
-      <div class="meta"><a href="${profileHref(a)}"><b>${name(a)}</b></a> <span>@${esc(a.handle)}</span> · <a href="${postHref(p)}" title="${esc(fullDate(p.indexedAt))}">${ago(p.indexedAt)}</a></div>
+      <div class="meta"><a href="${profileHref(a)}"><b>${vname(a)}</b></a> <span>@${esc(a.handle)}</span> · <a href="${postHref(p)}" title="${esc(fullDate(p.indexedAt))}">${ago(p.indexedAt)}</a></div>
       <div class="text">${richText(rec.text, rec.facets)}</div>
       ${renderEmbed(p.embed, label)}
       ${langs}
@@ -272,7 +297,7 @@ export function renderActor(a, extra = "") {
   actors.set(a.did, a);
   return `<div class="actor" data-href="${profileHref(a)}">
     ${avatar(a, 44)}
-    <div class="who"><b>${name(a)}</b><span class="muted">@${esc(a.handle)}${a.viewer?.followedBy ? ' <span class="pill">Стежить за вами</span>' : ""}</span>
+    <div class="who"><b>${vname(a)}</b><span class="muted">@${esc(a.handle)}${a.viewer?.followedBy ? ' <span class="pill">Стежить за вами</span>' : ""}</span>
       ${a.description ? `<div class="desc">${esc(a.description.slice(0, 160))}</div>` : ""}${extra}</div>
     ${followBtn(a)}
   </div>`;
