@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.vysocavnu.skybee</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Skybee</name>
+  <summary>Open client for Bluesky</summary>
+  <summary xml:lang="uk">Відкритий клієнт для Bluesky</summary>
+  <developer id="io.github.vysocavnu">
+    <name>vysocavnu</name>
+  </developer>
+  <description>
+    <p>Skybee is an open client for Bluesky (AT Protocol) with a Ukrainian interface.</p>
+    <p xml:lang="uk">Skybee — відкритий клієнт для Bluesky (AT Protocol) з українським інтерфейсом.</p>
+    <ul>
+      <li>Feeds, lists, threads, notifications with filters, direct messages with reactions and replies</li>
+      <li>Columns: follow several feeds, searches and notifications side by side</li>
+      <li>Your own feeds built from sources, keywords and filters</li>
+      <li>Several accounts, app passwords, muted words, moderation services</li>
+      <li>A media grid, a reading mode for long threads, built-in YouTube and Spotify players</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.vysocavnu.skybee.desktop</launchable>
+  <url type="homepage">https://vysocavnu.github.io/skybee</url>
+  <url type="bugtracker">https://github.com/vysocavnu/skybee/issues</url>
+  <url type="vcs-browser">https://github.com/vysocavnu/skybee</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/vysocavnu/skybee/main/docs/screenshots/home.png</image>
+      <caption>Home feed</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/vysocavnu/skybee/main/docs/screenshots/deck.png</image>
+      <caption>Columns</caption>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-info">intense</content_attribute>
+    <content_attribute id="social-contacts">intense</content_attribute>
+  </content_rating>
+  <branding>
+    <color type="primary" scheme_preference="light">#f6f1e6</color>
+    <color type="primary" scheme_preference="dark">#0f1218</color>
+  </branding>
+  <releases>
+    <release version="0.2.0" date="2026-11-12">
+      <description>
+        <p>Self-updating on Windows, tray with notifications, sign-up, GIF search, real chat replies, columns, own feeds, a new look.</p>
+      </description>
+    </release>
+  </releases>
+</component>

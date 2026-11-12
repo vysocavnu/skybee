@@ -1,0 +1,48 @@
+# Flatpak для Skybee. Пакує Linux-збірку з GitHub-релізу (Electron, власний Chromium) у пісочницю Flatpak.
+# Для збірки в CI архів лежить поруч (skybee-linux-x64.tar.gz); для Flathub workflow робить копію цього файлу,
+# де замість `path:` стоять `url:` на реліз і `sha256:` — її й подають у github.com/flathub/flathub.
+id: io.github.vysocavnu.skybee
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: skybee
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  # системні сповіщення й значок у треї
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # «Зберегти фото» кладе файли в Завантаження
+  - --filesystem=xdg-download
+modules:
+  - name: skybee
+    buildsystem: simple
+    sources:
+      - type: archive
+        path: skybee-linux-x64.tar.gz
+        dest: skybee
+      - type: file
+        path: io.github.vysocavnu.skybee.desktop
+      - type: file
+        path: io.github.vysocavnu.skybee.metainfo.xml
+      - type: file
+        path: icon-512.png
+      - type: script
+        dest-filename: skybee.sh
+        commands:
+          - export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
+          - exec zypak-wrapper /app/skybee/skybee --ozone-platform-hint=auto --enable-features=WaylandWindowDecorations "$@"
+    build-commands:
+      - cp -a skybee /app/skybee
+      - rm -f /app/skybee/chrome-sandbox
+      - install -Dm755 skybee.sh /app/bin/skybee
+      - install -Dm644 io.github.vysocavnu.skybee.desktop /app/share/applications/io.github.vysocavnu.skybee.desktop
+      - install -Dm644 io.github.vysocavnu.skybee.metainfo.xml /app/share/metainfo/io.github.vysocavnu.skybee.metainfo.xml
+      - install -Dm644 icon-512.png /app/share/icons/hicolor/512x512/apps/io.github.vysocavnu.skybee.png

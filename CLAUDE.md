@@ -18,7 +18,9 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   Встановлення на всіх користувачів (perMachine), тож Windows один раз попросить дозвіл адміністратора на оновлення.
   Закриття вікна ховає Skybee в трей (сповіщення й далі приходять; «Вийти» — у меню трею; там же «Запускати разом із Windows» → `--hidden`).
   `preload.js` — єдиний міст: `skybeeDesktop.captcha(url, state)` (капча bsky.social при реєстрації: дочірнє вікно ловить редирект на bsky.app з `code`) і `version()`
-  Версія — у `desktop/package.json`. Далі за планом: Linux, macOS, потім Android, iOS.
+  Версія — у `desktop/package.json`. **Linux**: той самий workflow збирає AppImage (оновлюється сам, `latest-linux.yml`) і tar.gz,
+  а з tar.gz — **Flatpak** (`flatpak/`: маніфест на `org.electronjs.Electron2.BaseApp` + zypak, `.desktop`, metainfo, іконка; README — як подати у Flathub).
+  У Flatpak самооновлення оболонки вимкнене — оновлює Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS, Android, iOS.
 
 ## Структура
 - `index.html` — оболонка, підключає `css/style.css` і `js/app.js`

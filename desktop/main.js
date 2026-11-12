@@ -88,6 +88,8 @@ async function updateWeb(activeRoot) {
    is installed when Skybee is closed. Only for the installed app — not when run from source (npm start). */
 function setupShellUpdates() {
   if (!app.isPackaged) return;
+  // Windows (installer) and the AppImage update themselves; Flatpak and tar.gz are updated by Flathub / by hand
+  if (process.platform !== "win32" && !process.env.APPIMAGE) return;
   let autoUpdater;
   try { ({ autoUpdater } = require("electron-updater")); } catch { return; }
   autoUpdater.autoDownload = true;

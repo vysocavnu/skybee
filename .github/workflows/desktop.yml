@@ -1,13 +1,14 @@
-# Збирає Skybee для Windows (Electron): інсталятор (NSIS).
+# Збирає Skybee: Windows (інсталятор NSIS), Linux (AppImage, tar.gz) і Flatpak.
 # - тег vX.Y.Z  → реліз на GitHub з інсталятором і latest.yml (з нього встановлений Skybee оновлюється сам)
 # - ручний запуск або зміни в оболонці → інсталятор в артефактах запуску
 name: Desktop (Windows)
+# (назву лишено, щоб не губилася історія запусків; тепер тут і Linux, і Flatpak)
 
 on:
   push:
     tags: ["v*"]
     branches: ["**"]
-    paths: ["desktop/**", "scripts/dist.mjs", ".github/workflows/desktop.yml", "index.html", "css/**", "js/**", "icons/**"]
+    paths: ["desktop/**", "flatpak/**", "scripts/dist.mjs", ".github/workflows/desktop.yml", "index.html", "css/**", "js/**", "icons/**"]
   workflow_dispatch:
 
 permissions:
@@ -66,3 +67,85 @@ jobs:
             desktop/dist/*.exe.blockmap
             desktop/dist/latest.yml
           generate_release_notes: true
+
+  linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Збірка
+        run: npm run dist:linux
+      - name: Перевірка
+        run: |
+          ls -la dist
+          test -f dist/latest-linux.yml || { echo "Немає latest-linux.yml — AppImage не оновлюватиметься сам"; exit 1; }
+          tar -tzf dist/*.tar.gz | grep -q '/skybee$' || { echo "У tar.gz немає виконуваного skybee"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Skybee-Linux
+          path: |
+            desktop/dist/*.tar.gz
+            desktop/dist/*.AppImage
+            desktop/dist/latest-linux.yml
+      - name: Реліз
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/dist/*.tar.gz
+            desktop/dist/*.AppImage
+            desktop/dist/latest-linux.yml
+
+  # Flatpak з тієї самої Linux-збірки: пакет Skybee.flatpak для встановлення напряму
+  # і маніфест для Flathub (з url і sha256 архіву в релізі)
+  flatpak:
+    needs: linux
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Skybee-Linux
+          path: flatpak/dl
+      - name: Підготовка
+        run: |
+          cp flatpak/dl/*.tar.gz flatpak/skybee-linux-x64.tar.gz
+      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: Skybee.flatpak
+          manifest-path: flatpak/io.github.vysocavnu.skybee.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          upload-artifact: true
+      - name: Маніфест для Flathub
+        shell: bash
+        run: |
+          name=$(basename flatpak/dl/*.tar.gz)
+          sum=$(sha256sum flatpak/skybee-linux-x64.tar.gz | cut -d' ' -f1)
+          url="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/${name}"
+          sed "s|        path: skybee-linux-x64.tar.gz|        url: ${url}\n        sha256: ${sum}|" flatpak/io.github.vysocavnu.skybee.yml > io.github.vysocavnu.skybee.flathub.yml
+          cat io.github.vysocavnu.skybee.flathub.yml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flathub-manifest
+          path: io.github.vysocavnu.skybee.flathub.yml
+      - name: Реліз
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Skybee.flatpak
+            io.github.vysocavnu.skybee.flathub.yml
+            flatpak/io.github.vysocavnu.skybee.desktop
+            flatpak/io.github.vysocavnu.skybee.metainfo.xml
+            flatpak/icon-512.png

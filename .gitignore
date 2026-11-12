@@ -1,3 +1,6 @@
 node_modules/
 desktop/web/
 desktop/dist/
+flatpak/dl/
+flatpak/skybee-linux-x64.tar.gz
+flatpak/.flatpak-builder/
