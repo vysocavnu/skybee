@@ -48,7 +48,13 @@ export async function home(el) {
       }
     }
   } catch {}
-  if (tabs.length === 1) tabs.push({ label: "Discover", kind: "feed", uri: api.DISCOVER });
+  if (tabs.length === 1) { // nothing pinned yet: the default feeds, in their set order
+    try {
+      const gens = (await api.get("app.bsky.feed.getFeedGenerators", { feeds: api.DEFAULT_FEEDS })).feeds;
+      for (const uri of api.DEFAULT_FEEDS) { const g = gens.find(g => g.uri === uri); if (g) tabs.push({ label: g.displayName, kind: "feed", uri }); }
+    } catch {}
+    if (tabs.length === 1) tabs.push({ label: "Discover", kind: "feed", uri: api.DISCOVER });
+  }
   let sel = 0; try { sel = Math.min(+sessionStorage.getItem("skybee.tab") || 0, tabs.length - 1); } catch {}
   const tabEl = $("#feedTabs", el), body = $("#feedBody", el);
   let stop;
@@ -344,7 +350,7 @@ export async function search(el, { q = "", tab = "top" }) {
 
 /* ================= FEEDS ================= */
 export async function feeds(el) {
-  el.innerHTML = header("Фіди") + `<h3 class="pad">Мої фіди</h3><div id="mine">${spinner()}</div><h3 class="pad">Знайти нові фіди</h3>
+  el.innerHTML = header("Фіди") + `<h3 class="pad">Мої фіди</h3><div id="mine">${spinner()}</div><h3 class="pad">Рекомендовані</h3><div id="rec"></div><h3 class="pad">Знайти нові фіди</h3>
     <form class="searchbar"><input type="search" placeholder="Пошук фідів"></form><div id="disc"></div>`;
   const mine = $("#mine", el);
   const renderMine = async () => {
@@ -364,6 +370,10 @@ export async function feeds(el) {
   };
   await renderMine();
   el.addEventListener("skybee:feedsChanged", renderMine);
+  api.get("app.bsky.feed.getFeedGenerators", { feeds: api.DEFAULT_FEEDS }).then(d => {
+    const rec = $("#rec", el);
+    if (rec) rec.innerHTML = api.DEFAULT_FEEDS.map(u => d.feeds.find(g => g.uri === u)).filter(Boolean).map(renderFeedCard).join("");
+  }).catch(() => {});
   const disc = $("#disc", el);
   let stop;
   const load = (query) => {

@@ -358,6 +358,12 @@ export async function fetchLinkCard(url) {
 
 /* ---------- preferences / feeds ---------- */
 export const DISCOVER = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
+// Feeds shown on the home screen until the user pins feeds of their own; also suggested on the «Фіди» screen
+const feedUri = (did, name) => `at://${did}/app.bsky.feed.generator/${name}`;
+export const DEFAULT_FEEDS = [
+  ...["all", "newcomers", "top100-month", "videos"].map(n => feedUri("did:plc:dvgliotey33vix3wlltybgkd", n)),
+  ...["whats-hot", "thevids"].map(n => feedUri("did:plc:z72i7hdynmk6r22z27h6tvur", n)),
+];
 
 const PREF = "app.bsky.actor.defs#";
 const lastPref = (prefs, type) => prefs.filter(p => p.$type === PREF + type).pop();
