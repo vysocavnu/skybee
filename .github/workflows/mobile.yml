@@ -81,7 +81,7 @@ jobs:
       - name: Вебчастина й проєкт iOS
         run: |
           npm run web
-          npx cap add ios --packagemanager SPM
+          npx cap add ios
           npx capacitor-assets generate --ios --iconBackgroundColor '#ffffff' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#0f1218'
           npx cap sync ios
       - name: Дозволи (фото, камера, мікрофон для відео)
@@ -95,7 +95,7 @@ jobs:
       - name: Збірка IPA (без підпису)
         run: |
           V=$(node -p "require('./package.json').version")
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos \
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -sdk iphoneos \
             -destination 'generic/platform=iOS' -derivedDataPath build \
             MARKETING_VERSION=$V CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" build | tail -30
