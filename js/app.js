@@ -281,7 +281,7 @@ document.addEventListener("click", async (e) => {
   if (!act) {
     const v = t.closest("video[data-src]"); if (v) { attachVideo(v); return; }
     // card navigation (ignore clicks on links, buttons, inputs, videos)
-    if (t.closest("a, button, input, textarea, select, video, label")) return;
+    if (t.closest("a, button, input, textarea, select, video, label, summary, details")) return;
     const card = t.closest("[data-href]");
     if (card && !getSelection().toString()) { location.hash = card.dataset.href; }
     return;

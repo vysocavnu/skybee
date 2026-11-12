@@ -2,7 +2,7 @@
 import * as api from "./api.js";
 import * as src from "./sources.js";
 import { $, esc, enc, toast, modal, confirmBox, menu, empty, at } from "./ui.js";
-import { header, paged, notifPager, isGrid, gridBtn, onGrid, MENU_BTN } from "./views.js";
+import { header, paged, notifPager, NFILTERS, isGrid, gridBtn, onGrid, MENU_BTN } from "./views.js";
 
 /* ---------- choosing a source ---------- */
 async function savedChoices() {
@@ -49,7 +49,7 @@ export function pickSource({ deck = false, title = "Додати джерело"
         <label class="field">Порядок<select data-f="sort">${opts([["latest", "Найновіші"], ["top", "Найкращі"]], "latest")}</select></label>`;
       if (t === "author") extra.innerHTML = `<label class="field">Нік<input data-f="q" placeholder="@нік" autocapitalize="none"></label>
         <label class="field">Які пости<select data-f="sort">${opts([["posts_and_author_threads", "Пости"], ["posts_with_replies", "Пости й відповіді"], ["posts_with_media", "Лише медіа"], ["posts_no_replies", "Без відповідей"]], "posts_and_author_threads")}</select></label>`;
-      if (t === "notifications") extra.innerHTML = `<label class="field">Які<select data-f="sort">${opts([["", "Усі"], ["mentions", "Згадки, відповіді й цитати"]], "")}</select></label>`;
+      if (t === "notifications") extra.innerHTML = `<label class="field">Які<select data-f="sort">${opts(NFILTERS.map(([k, l]) => [k, k === "mentions" ? "Згадки, відповіді й цитати" : l]), "")}</select></label>`;
       if (t === "feed" || t === "list") {
         extra.innerHTML = `<p class="muted small">Завантаження…</p>`;
         choices ||= await savedChoices();
@@ -79,7 +79,7 @@ export function pickSource({ deck = false, title = "Додати джерело"
           const p = await api.get("app.bsky.actor.getProfile", { actor: api.normalizeHandle(f("q")) });
           s = { type: t, value: p.did, sort: f("sort"), label: p.displayName || "@" + p.handle };
         }
-        if (t === "notifications") s = { type: t, sort: f("sort"), label: f("sort") ? "Згадки" : "Сповіщення" };
+        if (t === "notifications") s = { type: t, sort: f("sort"), label: f("sort") ? NFILTERS.find(x => x[0] === f("sort"))[1] : "Сповіщення" };
         if (t === "feed" || t === "list") {
           if (f("q")) {
             const got = await src.sourceFromUrl(f("q"));

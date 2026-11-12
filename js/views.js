@@ -366,9 +366,21 @@ export function editProfile(p, onDone) {
 const NREASON = notify.NREASON;
 const NICON = { like: "♥", "like-via-repost": "♥", repost: "🔁", "repost-via-repost": "🔁", follow: "👤", "starterpack-joined": "🎒", verified: "✅", unverified: "✖️", "subscribed-post": "🔔" };
 
-export async function notifications(el, { filter }) {
+// Filters above the list: reasons go to the server; «від тих, за ким стежу» is filtered here
+export const NFILTERS = [
+  ["", "Усе"], ["following", "Від тих, за ким стежу"], ["mentions", "Згадки"], ["replies", "Відповіді"], ["quotes", "Цитати"],
+  ["follows", "Нові читачі"], ["likes", "Вподобання"], ["reposts", "Поширення"], ["posts", "Нові пости"],
+];
+const NREASONS = {
+  mentions: ["mention", "reply", "quote"], replies: ["reply"], quotes: ["quote"], follows: ["follow"],
+  likes: ["like", "like-via-repost"], reposts: ["repost", "repost-via-repost"], posts: ["subscribed-post"],
+};
+
+export async function notifications(el, { filter = "" }) {
+  if (!NFILTERS.some(f => f[0] === filter)) filter = "";
   el.innerHTML = header("Сповіщення", false, `<button class="ghost sm" data-act="markRead">Позначити прочитаним</button>`) +
-    `<div class="tabs"><a href="#/notifications" class="${!filter ? "on" : ""}">Усі</a><a href="#/notifications/mentions" class="${filter ? "on" : ""}">Згадки</a></div>`;
+    `<div class="nchips">${NFILTERS.map(([k, l]) => `<a class="nchip${k === filter ? " on" : ""}" href="#/notifications${k ? "/" + k : ""}">${l}</a>`).join("")}</div>`;
+  el.querySelector(".nchip.on")?.scrollIntoView({ inline: "center", block: "nearest" });
   const seenAt = new Date().toISOString();
   let marked = false;
   const page = notifPager({ filter });
@@ -379,15 +391,32 @@ export async function notifications(el, { filter }) {
   });
 }
 
-// One page of notifications, grouped; also used by deck columns (`as`: another signed-in account)
-export const notifPager = ({ filter, as } = {}) => async (cursor) => {
+const TEXTY = ["reply", "mention", "quote", "subscribed-post"];
+const dayOf = (iso) => {
+  const d = new Date(iso), t = new Date(); t.setHours(0, 0, 0, 0);
+  const days = Math.round((t - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
+  return days <= 0 ? "Сьогодні" : days === 1 ? "Вчора" : d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", ...(d.getFullYear() !== t.getFullYear() ? { year: "numeric" } : {}) });
+};
+const postLink = (p) => "#/profile/" + enc(p.author.did) + "/post/" + p.uri.split("/").pop();
+const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+
+// One page of notifications, grouped, with day headings; also used by deck columns (`as`: another signed-in account)
+export const notifPager = ({ filter, as } = {}) => {
+  let lastDay = "";
+  return async (cursor) => {
     const o = as ? { as } : undefined;
-    const d = await api.get("app.bsky.notification.listNotifications", {
-      limit: 40, cursor, reasons: filter ? ["mention", "reply", "quote"] : undefined }, o);
+    let d, list = [];
+    // «від тих, за ким стежу» may empty a page: read on a few pages until there is something
+    for (let round = 0; round < 5; round++) {
+      d = await api.get("app.bsky.notification.listNotifications", { limit: 40, cursor, reasons: NREASONS[filter] }, o);
+      list = filter === "following" ? d.notifications.filter(n => n.author?.viewer?.following) : d.notifications;
+      cursor = d.cursor;
+      if (list.length || !cursor || filter !== "following") break;
+    }
     // fetch post views for subjects and post-type notifications
     const uris = new Set();
-    for (const n of d.notifications) {
-      if (["reply", "mention", "quote", "subscribed-post"].includes(n.reason)) uris.add(n.uri);
+    for (const n of list) {
+      if (TEXTY.includes(n.reason)) uris.add(n.uri);
       else if (n.reasonSubject?.includes("app.bsky.feed.post")) uris.add(n.reasonSubject);
     }
     const postsBy = new Map();
@@ -396,34 +425,61 @@ export const notifPager = ({ filter, as } = {}) => async (cursor) => {
       const r = await api.get("app.bsky.feed.getPosts", { uris: arr.slice(i, i + 25) }, o);
       r.posts.forEach(p => postsBy.set(p.uri, cachePost(p)));
     }
-    // group like/repost/follow by reason+subject
+    // 1) several people → one post (like/repost/follow by reason + subject)
     const groups = [];
-    for (const n of d.notifications) {
-      const key = ["reply", "mention", "quote", "subscribed-post"].includes(n.reason) ? n.uri : n.reason + "|" + (n.reasonSubject || "");
-      const g = groups.find(g => g.key === key && !["reply", "mention", "quote"].includes(n.reason));
+    for (const n of list) {
+      const key = TEXTY.includes(n.reason) ? n.uri : n.reason + "|" + (n.reasonSubject || "");
+      const g = !TEXTY.includes(n.reason) && groups.find(g => g.key === key);
       if (g) g.items.push(n); else groups.push({ key, reason: n.reason, items: [n] });
     }
-    const html = groups.map(g => {
+    // 2) one person → several posts: «вподобав(-ла) 5 ваших постів»
+    const merged = [];
+    for (const g of groups) {
+      const solo = ["like", "repost"].includes(g.reason) && g.items.length === 1;
+      const into = solo && merged.find(m => m.by === g.items[0].author.did && m.reason === g.reason);
+      if (into) { into.items.push(g.items[0]); continue; }
+      merged.push(solo ? { ...g, by: g.items[0].author.did } : g);
+    }
+    const html = [];
+    for (const g of merged) {
       const n = g.items[0], unread = g.items.some(i => !i.isRead) ? " unread" : "";
-      if (["reply", "mention", "quote", "subscribed-post"].includes(g.reason)) {
+      const day = dayOf(n.indexedAt);
+      if (day !== lastDay) { lastDay = day; html.push(`<h4 class="nday">${esc(day)}</h4>`); }
+      if (TEXTY.includes(g.reason)) {
         const p = postsBy.get(n.uri);
-        if (!p) return "";
+        if (!p) continue;
         const tag = { reply: "відповів(-ла)", mention: "згадав(-ла) вас", quote: "процитував(-ла) ваш пост", "subscribed-post": "новий пост" }[g.reason];
-        return `<div class="nwrap${unread}"><div class="ntag muted small">${tag}</div>${renderPost(p)}</div>`;
+        html.push(`<div class="nwrap${unread}"><div class="ntag muted small">${tag}</div>${renderPost(p)}</div>`);
+        continue;
+      }
+      if (g.by && g.items.length > 1) { // one person, several of your posts
+        const subs = g.items.map(i => postsBy.get(i.reasonSubject)).filter(Boolean);
+        const k = g.items.length;
+        html.push(`<div class="notif${unread}" data-href="${profileHref(n.author)}">
+          <div class="nicon r-${g.reason}">${NICON[g.reason]}</div>
+          <div class="grow">
+            <div class="avas"><a href="${profileHref(n.author)}">${avatar(n.author, 30)}</a></div>
+            <div><a href="${profileHref(n.author)}"><b>${name(n.author)}</b></a> ${g.reason === "like" ? "вподобав(-ла)" : "поширив(-ла)"} ${k} ${plural(k, "ваш пост", "ваші пости", "ваших постів")} <span class="muted small">· ${ago(n.indexedAt)}</span></div>
+            ${subs[0] ? `<div class="muted small clip">${esc(subs[0].record?.text || "")}</div>` : ""}
+            ${subs.length > 1 ? `<details class="nall"><summary class="linklike small">Показати всі →</summary>${subs.map(p =>
+              `<a class="nsub small clip" href="${postLink(p)}">${esc(p.record?.text || "Пост без тексту")}</a>`).join("")}</details>` : ""}
+          </div></div>`);
+        continue;
       }
       const who = g.items.map(i => i.author);
       const subj = postsBy.get(n.reasonSubject);
       const others = who.length > 1 ? ` і ще ${who.length - 1}` : "";
-      return `<div class="notif${unread}" ${subj ? `data-href="${"#/profile/" + enc(subj.author.did) + "/post/" + subj.uri.split("/").pop()}"` : `data-href="${profileHref(n.author)}"`}>
+      html.push(`<div class="notif${unread}" data-href="${subj ? postLink(subj) : profileHref(n.author)}">
         <div class="nicon r-${g.reason}">${NICON[g.reason] || "🔔"}</div>
         <div class="grow">
           <div class="avas">${who.slice(0, 6).map(a => `<a href="${profileHref(a)}">${avatar(a, 30)}</a>`).join("")}</div>
-          <div><a href="${profileHref(n.author)}"><b>${name(n.author)}</b></a>${others} ${NREASON[g.reason] || g.reason} <span class="muted small">· ${ago(n.indexedAt)}</span></div>
+          <div class="nline"><span class="grow"><a href="${profileHref(n.author)}"><b>${name(n.author)}</b></a>${others} ${NREASON[g.reason] || g.reason} <span class="muted small">· ${ago(n.indexedAt)}</span></span>
+            ${g.reason === "follow" && g.items.length === 1 ? followBtn(n.author) : ""}</div>
           ${subj ? `<div class="muted small clip">${esc(subj.record?.text || "")}</div>` : ""}
-          ${g.reason === "follow" && g.items.length === 1 ? followBtn(n.author) : ""}
-        </div></div>`;
-    });
-    return { html, cursor: d.cursor };
+        </div></div>`);
+    }
+    return { html, cursor };
+  };
 };
 
 /* ================= SEARCH ================= */
@@ -552,6 +608,17 @@ export async function messages(el, { requests = false } = {}) {
 
 const dmError = (e) => `<div class="card pad"><p class="err">${esc(e.message)}</p><p class="small muted">Щоб працювали чати, створи пароль застосунку з галочкою <b>«Allow access to your direct messages»</b> і увійди з ним знову.</p></div>`;
 
+// chat helpers: quick reactions, more emoji, the quoted line of a reply
+const QUICK = ["❤️", "👍", "😆", "👀", "😢"];
+const MORE_EMOJI = ["😂", "🥹", "😍", "🥰", "😘", "😊", "😉", "😎", "🤔", "😮", "😱", "😡", "🤯", "🥲", "😭", "🙏", "👏", "🙌", "💪", "🤝", "👌", "✌️", "🔥", "✨", "🎉", "💯", "💔", "💛", "💙", "🐝", "🌻", "🇺🇦"];
+const excerpt = (t = "") => { const q = quoteOf({ text: t }); t = (q ? q.rest : t).replace(/\s+/g, " ").trim(); return t.length > 80 ? t.slice(0, 79) + "…" : t; };
+function quoteOf(m) {
+  const t = m.text || "";
+  if (!t.startsWith("> ")) return null;
+  const i = t.indexOf("\n");
+  return i < 0 ? null : { text: t.slice(2, i).trim(), rest: t.slice(i + 1) };
+}
+
 export async function convo(el, { id }) {
   el.innerHTML = header("Чат", true) + spinner();
   let c;
@@ -576,7 +643,7 @@ export async function convo(el, { id }) {
     const counts = new Map();
     for (const r of m.reactions || []) counts.set(r.value, { n: (counts.get(r.value)?.n || 0) + 1, mine: counts.get(r.value)?.mine || r.sender?.did === session.did });
     return `<div class="msg${mine ? " mine" : ""}" data-mid="${m.id}" title="${esc(new Date(m.sentAt).toLocaleString("uk-UA"))}">
-      <div class="mcol"><div class="bubble${del ? " muted" : ""}">${del ? "Повідомлення видалено" : richText(m.text, m.facets)}</div>
+      <div class="mcol">${!del && quoteOf(m) ? `<div class="mquote" data-jump="${esc(quoteOf(m).text)}">↩︎ ${esc(quoteOf(m).text)}</div>` : ""}<div class="bubble${del ? " muted" : ""}">${del ? "Повідомлення видалено" : quoteOf(m) ? richText(quoteOf(m).rest) : richText(m.text, m.facets)}</div>
       ${m.embed && !del ? `<div class="membed">${renderEmbed(m.embed)}</div>` : ""}
       ${counts.size ? `<div class="reacts">${[...counts].map(([v, x]) => `<button class="react${x.mine ? " on" : ""}" data-react="${esc(v)}">${esc(v)}${x.n > 1 ? " " + x.n : ""}</button>`).join("")}</div>` : ""}</div></div>`;
   };
@@ -590,23 +657,67 @@ export async function convo(el, { id }) {
     const d = await api.chatPost(on ? "chat.bsky.convo.removeReaction" : "chat.bsky.convo.addReaction", { convoId: id, messageId: m.id, value });
     if (d?.message) redraw(d.message);
   };
-  // a click on a message: reactions, copy, delete
+  // a tap on a message opens its sheet: quick reactions (and more), when it was sent, reply, translate, copy, delete for me
+  let replyTo = null;
+  const replyBar = document.createElement("div");
+  replyBar.className = "replybar"; replyBar.hidden = true;
+  form.prepend(replyBar); // inside the fixed input bar, above the text field
+  const setReply = (m) => {
+    replyTo = m;
+    replyBar.hidden = !m;
+    if (m) replyBar.innerHTML = `<span class="grow clip">↩︎ Відповідь ${m.sender?.did === session.did ? "собі" : name(other)}: <span class="muted">${esc(excerpt(m.text))}</span></span><button type="button" class="ghost icon" data-noreply title="Скасувати">✕</button>`;
+    if (m) ta.focus();
+  };
+  replyBar.addEventListener("click", (e) => { if (e.target.closest("[data-noreply]")) setReply(null); });
+  const sheet = (m, row) => {
+    const sent = new Date(m.sentAt), today = sent.toDateString() === new Date().toDateString();
+    const when = today ? sent.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) : sent.toLocaleString("uk-UA", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    const wrap = document.createElement("div");
+    wrap.className = "msheet-bg";
+    wrap.innerHTML = `<div class="msheet${row.classList.contains("mine") ? " mine" : ""}">
+      <div class="mreacts">${QUICK.map(v => `<button data-r="${v}">${v}</button>`).join("")}<button class="more" data-more title="Більше">＋</button></div>
+      <div class="memoji" hidden>${MORE_EMOJI.map(v => `<button data-r="${v}">${v}</button>`).join("")}</div>
+      <div class="bubble">${esc(m.text || "")}</div>
+      <div class="mactions">
+        <div class="muted small">Надіслано ${today ? "о " : ""}${esc(when)}</div>
+        <button data-a="reply">↩︎ Відповісти</button>
+        ${m.text ? `<button data-a="translate">🌐 Перекласти</button><button data-a="copy">📋 Копіювати текст повідомлення</button>` : ""}
+        <button data-a="del" class="danger">🗑️ Видалити для мене</button>
+      </div></div>`;
+    const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    wrap.addEventListener("click", async (e) => {
+      if (e.target === wrap) return close();
+      if (e.target.closest("[data-more]")) { wrap.querySelector(".memoji").hidden = false; e.target.closest("[data-more]").remove(); return; }
+      const r = e.target.closest("[data-r]"), a = e.target.closest("[data-a]")?.dataset.a;
+      if (!r && !a) return;
+      close();
+      try {
+        if (r) await react(m, r.dataset.r);
+        if (a === "reply") setReply(m);
+        if (a === "translate") window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(m.text || "")}`, "_blank");
+        if (a === "copy") { await navigator.clipboard.writeText(quoteOf(m)?.rest ?? m.text ?? ""); toast("Скопійовано"); }
+        if (a === "del") { await api.chatPost("chat.bsky.convo.deleteMessageForSelf", { convoId: id, messageId: m.id }); row.remove(); }
+      } catch (ex) { toast(ex.message); }
+    });
+    document.body.appendChild(wrap);
+  };
   box.addEventListener("click", async (e) => {
+    const jump = e.target.closest("[data-jump]");
+    if (jump) { // the replied message, when it is loaded
+      const t = [...byId.values()].find(x => x.text && excerpt(x.text) === jump.dataset.jump);
+      const n = t && box.querySelector(`[data-mid="${CSS.escape(t.id)}"]`);
+      if (n) { n.scrollIntoView({ block: "center", behavior: "smooth" }); n.classList.add("flash"); setTimeout(() => n.classList.remove("flash"), 1200); }
+      return;
+    }
     if (e.target.closest("a, video, img, [data-href]")) return;
     const row = e.target.closest("[data-mid]"), m = byId.get(row?.dataset.mid);
     if (!m || m.$type === "chat.bsky.convo.defs#deletedMessageView") return;
     e.stopPropagation();
-    try {
-      const r = e.target.closest("[data-react]");
-      if (r) return await react(m, r.dataset.react);
-      const pick = await menu(e.target.closest(".bubble") || row, [
-        ...["❤️", "👍", "😂", "😮", "😢"].map(v => ({ act: "r" + v, label: v })),
-        "-", { act: "copy", label: "📋 Копіювати" }, { act: "del", label: "🗑️ Видалити у мене", danger: true },
-      ]);
-      if (pick?.startsWith("r")) await react(m, pick.slice(1));
-      if (pick === "copy") { await navigator.clipboard.writeText(m.text || ""); toast("Скопійовано"); }
-      if (pick === "del") { await api.chatPost("chat.bsky.convo.deleteMessageForSelf", { convoId: id, messageId: m.id }); row.remove(); }
-    } catch (ex) { toast(ex.message); }
+    const r = e.target.closest("[data-react]");
+    if (r) { try { await react(m, r.dataset.react); } catch (ex) { toast(ex.message); } return; }
+    sheet(m, row);
   });
   const first = await api.chat("chat.bsky.convo.getMessages", { convoId: id, limit: 50 });
   render(first.messages.reverse());
@@ -623,13 +734,16 @@ export async function convo(el, { id }) {
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const text = ta.value.trim(); if (!text) return;
-    ta.value = "";
+    const typed = ta.value.trim(); if (!typed) return;
+    // a reply goes as a quoted first line («> …»), which reads well in any other client too
+    const text = replyTo ? `> ${excerpt(replyTo.text)}\n${typed}` : typed;
+    const was = replyTo;
+    ta.value = ""; setReply(null);
     try {
       const facets = await api.detectFacets(text);
       const m = await api.chatPost("chat.bsky.convo.sendMessage", { convoId: id, message: facets.length ? { text, facets } : { text } });
       render([m]); scrollTo(0, document.body.scrollHeight);
-    } catch (ex) { toast(ex.message); ta.value = text; }
+    } catch (ex) { toast(ex.message); ta.value = typed; setReply(was); }
   };
   const poll = setInterval(async () => {
     try {
