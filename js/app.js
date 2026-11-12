@@ -203,7 +203,7 @@ async function route() {
   main.innerHTML = "";
   document.body.classList.remove("deckmode");
   main._tint = null; // the page colour stays only if the new screen claims it (profile, post)
-  const keepScroll = sessionStorage.getItem("skybee.scroll:" + location.hash);
+  let keepScroll = null; try { keepScroll = JSON.parse(sessionStorage.getItem("skybee.scroll:" + location.hash)); } catch {}
   scrollTo(0, 0);
   try {
     let r;
@@ -232,7 +232,7 @@ async function route() {
     else main.innerHTML = `<p class="pad">Сторінку не знайдено. <a href="#/">На головну</a></p>`;
     cleanup = await r;
     if (!main._tint) flair.untint(main);
-    if (keepScroll) setTimeout(() => scrollTo(0, +keepScroll), 50);
+    if (keepScroll) restoreScroll(keepScroll);
   } catch (e) {
     if (!main._tint) flair.untint(main);
     main.insertAdjacentHTML("beforeend", `<div class="card"><p class="err">${esc(e.message)}</p><button class="ghost" data-act="back">← Назад</button></div>`);
@@ -241,7 +241,47 @@ async function route() {
 window.addEventListener("hashchange", route);
 // pinned feeds changed: the right column's list and the home tabs are built again
 window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
-addEventListener("scroll", () => { try { sessionStorage.setItem("skybee.scroll:" + location.hash, scrollY); } catch {} }, { passive: true });
+
+/* ---------- coming back to a screen: the same place in the list ---------- */
+// Remembered: the post at the top of the screen and how far it was scrolled past, plus plain scrollY as a fallback.
+// Feeds are loaded again on return, so the place is found by that post: the list is read on until it shows up.
+let restoring = 0;
+function anchorNow() {
+  const x = ($("#main")?.getBoundingClientRect().left || 0) + 80;
+  for (const y of [70, 120, 200]) {
+    const a = document.elementFromPoint(x, y)?.closest("[data-uri]");
+    if (a) return { uri: a.dataset.uri, off: Math.round(a.getBoundingClientRect().top) };
+  }
+  return null;
+}
+let saveTimer = 0;
+addEventListener("scroll", () => {
+  if (restoring) return;
+  clearTimeout(saveTimer);
+  const h = location.hash;
+  saveTimer = setTimeout(() => {
+    if (h !== location.hash) return;
+    try { sessionStorage.setItem("skybee.scroll:" + h, JSON.stringify({ y: scrollY, ...anchorNow() })); } catch {}
+  }, 120);
+}, { passive: true });
+function restoreScroll(k) {
+  if (typeof k === "number") k = { y: k };
+  if (!k?.y) return;
+  const h = location.hash, id = ++restoring, until = Date.now() + 8000;
+  const stop = () => { if (restoring === id) restoring = 0; removeEventListener("wheel", stop); removeEventListener("touchstart", stop); removeEventListener("keydown", stop); };
+  addEventListener("wheel", stop, { passive: true }); addEventListener("touchstart", stop, { passive: true }); addEventListener("keydown", stop);
+  const step = () => {
+    if (restoring !== id || location.hash !== h) return stop();
+    const el = k.uri && document.querySelector(`#main [data-uri="${CSS.escape(k.uri)}"]`);
+    if (el) { scrollTo(0, scrollY + el.getBoundingClientRect().top - (k.off ?? 70)); return stop(); }
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (!k.uri && max >= k.y) { scrollTo(0, k.y); return stop(); }
+    scrollTo(0, Math.min(k.y, max)); // further down the list loads the next page
+    if (Date.now() > until) return stop();
+    setTimeout(step, 150);
+  };
+  setTimeout(step, 50);
+}
 
 /* ---------- helpers for actions ---------- */
 // A link to the post in Skybee itself; the desktop app has no web address, so it gives the site's one
