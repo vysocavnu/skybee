@@ -125,9 +125,9 @@ async function refresh(s) {
 /* ---------- XRPC ---------- */
 // opts: { params, body, raw (Blob), contentType, proxy, retry }
 export async function xrpc(method, opts = {}) {
-  const { params, body, raw, contentType, proxy, retry = true, as: s = session, headers: extra } = opts;
+  const { params, body, raw, contentType, proxy, retry = true, as: s = session, headers: extra, method: verb } = opts;
   // without an account (a shared thread opened by a guest): public reading through the open AppView, no writing
-  if (!s && (body || raw || proxy)) { const e = new Error("Щоб це зробити, увійди в акаунт"); e.code = "NoSession"; throw e; }
+  if (!s && (body || raw || proxy || verb === "POST")) { const e = new Error("Щоб це зробити, увійди в акаунт"); e.code = "NoSession"; throw e; }
   const url = new URL(`${s ? s.pds : PUBLIC_API}/xrpc/${method}`);
   if (params) for (const [k, v] of Object.entries(params)) {
     if (v == null) continue;
@@ -140,7 +140,7 @@ export async function xrpc(method, opts = {}) {
   let payload;
   if (raw) { payload = raw; headers["Content-Type"] = contentType || raw.type || "application/octet-stream"; }
   else if (body) { payload = JSON.stringify(body); headers["Content-Type"] = "application/json"; }
-  const r = await fetch(url, { method: payload ? "POST" : "GET", headers, body: payload });
+  const r = await fetch(url, { method: payload || verb === "POST" ? "POST" : "GET", headers, body: payload });
   const data = r.headers.get("content-type")?.includes("json") ? await r.json() : null;
   if (!r.ok) {
     if (s && retry && (data?.error === "ExpiredToken" || data?.error === "InvalidToken")) {
@@ -153,9 +153,10 @@ export async function xrpc(method, opts = {}) {
   return data;
 }
 export const get = (m, params, extra) => xrpc(m, { params, ...extra });
-export const post = (m, body, extra) => xrpc(m, { body, ...extra });
+// always POST, even without a body (requestEmailUpdate, requestAccountDelete…)
+export const post = (m, body, extra) => xrpc(m, { body, method: "POST", ...extra });
 export const chat = (m, params) => xrpc(m, { params, proxy: CHAT_PROXY });
-export const chatPost = (m, body) => xrpc(m, { body, proxy: CHAT_PROXY });
+export const chatPost = (m, body) => xrpc(m, { body, method: "POST", proxy: CHAT_PROXY });
 
 /* ---------- records ---------- */
 const now = () => new Date().toISOString();
