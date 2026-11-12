@@ -235,15 +235,10 @@ export async function appPasswords(el) {
 }
 
 /* ================= RIGHT COLUMN ================= */
-// Trends and people to follow next to the main column (wide screens only)
+// People to follow next to the main column (wide screens only); the pinned feeds above them are drawn by views.sideFeeds, trends live on the search screen
 export async function sidebar(el) {
-  const [tr, sug] = await Promise.all([
-    api.get("app.bsky.unspecced.getTrendingTopics", {}).catch(() => null),
-    api.get("app.bsky.actor.getSuggestions", { limit: 4 }).catch(() => null),
-  ]);
+  const sug = await api.get("app.bsky.actor.getSuggestions", { limit: 4 }).catch(() => null);
   let html = "";
-  if (tr?.topics?.length) html += `<div class="card small"><h3>Тренди</h3><div class="chips">${tr.topics.slice(0, 8).map(t =>
-    `<a class="chip" href="#/search?q=${enc(t.topic)}">${esc(t.topic)}</a>`).join("")}</div></div>`;
   if (sug?.actors?.length) html += `<div class="card small"><h3>Кого почитати</h3>${sug.actors.map(a => {
     actors.set(a.did, a);
     return `<a class="sugg" href="${profileHref(a)}">${avatar(a, 32)}<span class="who"><b>${vname(a)}</b><span class="muted clip">${at(a.handle)}</span></span></a>`;

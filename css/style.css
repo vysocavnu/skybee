@@ -437,3 +437,23 @@ body.sb-tint .phead .bigava { border-color: var(--accent); }
 
 /* wide screens show «my profile» as a card in the right column, so the side menu does not repeat it */
 @media (min-width: 1101px) { nav.side a[data-nav^="#/profile"] { display: none; } }
+
+/* ---------- home: feed picker ----------
+   up to 1100px (no right column) — a pill in the top bar that opens the list of pinned feeds;
+   wider — the same list as a card in the right column, under the profile */
+.only-wide { display: none; }
+@media (min-width: 1101px) { .only-wide { display: block; } .no-wide { display: none !important; } }
+.feedpick { display: inline-flex; align-items: center; gap: 8px; max-width: 62vw; padding: 7px 14px 7px 18px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--line); font-size: 17px; font-weight: 700; }
+.feedpick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feedpick svg { flex: none; stroke-width: 3; }
+.feedpick:hover { background: var(--hover); }
+.pm-title { padding: 8px 14px 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.popmenu .tick { display: inline-block; width: 26px; font-weight: 700; }
+.sidefeeds { padding: 12px 8px 8px; }
+.sidefeeds h3 { padding: 0 8px; }
+.sidefeeds button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 10px; padding: 9px 12px; font-size: 15px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidefeeds button:hover { background: var(--hover); }
+.sidefeeds button.on { background: var(--hover); font-weight: 700; box-shadow: inset 3px 0 0 var(--accent); }
+.sidefeeds .rowlink { display: block; padding: 8px 12px 4px; font-size: 13px; }

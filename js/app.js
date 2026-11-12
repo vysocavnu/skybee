@@ -129,6 +129,7 @@ function shell() {
   <main id="main"></main>
   <aside class="right">
     <div class="card sideprof" id="sideProf">${sideProfile(actors.get(api.session.did))}</div>
+    <div class="card sidefeeds" id="sideFeeds" hidden></div>
     <div id="sidebox"></div>
     <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
@@ -564,6 +565,7 @@ function boot() {
   route();
   badges();
   M.sidebar($("#sidebox")).catch(() => {});
+  V.sideFeeds().catch(() => {});
   clearInterval(window.__skybeeBadge);
   window.__skybeeBadge = setInterval(badges, 60000);
   // own profile: the avatar for the account button and the reply box

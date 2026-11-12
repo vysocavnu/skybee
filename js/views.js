@@ -42,8 +42,9 @@ function homeFilter(d) {
     && !(v.hideQuotePosts && /app\.bsky\.embed\.record(WithMedia)?#view/.test(it.post?.embed?.$type || "")));
   return d;
 }
-export async function home(el) {
-  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>🐝 Skybee</h2><div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div class="tabs" id="feedTabs"></div><div id="feedBody"></div>`;
+// The feeds of the home screen: «Підписки» first, then what the user pinned (or Skybee's defaults)
+let homeTabs = null, homeShow = null;
+async function pinnedTabs() {
   let tabs = [{ label: "Підписки", kind: "timeline" }];
   try {
     await api.seedDefaultFeeds().catch(() => {});
@@ -64,12 +65,38 @@ export async function home(el) {
     } catch {}
     if (tabs.length === 1) tabs.push({ label: "Discover", kind: "feed", uri: api.DISCOVER });
   }
-  let sel = 0; try { sel = Math.min(+sessionStorage.getItem("skybee.tab") || 0, tabs.length - 1); } catch {}
-  const tabEl = $("#feedTabs", el), body = $("#feedBody", el);
+  return homeTabs = tabs;
+}
+const savedTab = (tabs) => { try { return Math.min(+sessionStorage.getItem("skybee.tab") || 0, tabs.length - 1); } catch { return 0; } };
+
+// Wide screens: the pinned feeds live in the right column, under the profile card
+export async function sideFeeds(fresh = false) {
+  const box = document.querySelector("#sideFeeds"); if (!box) return;
+  const tabs = !fresh && homeTabs || await pinnedTabs(), sel = savedTab(tabs);
+  box.hidden = false;
+  box.innerHTML = `<h3>📌 Закріплені фіди</h3>${tabs.map((t, n) => `<button class="${n === sel ? "on" : ""}" data-feedtab="${n}">${esc(t.label)}</button>`).join("")}
+    <a class="rowlink" href="#/feeds">Керувати фідами →</a>`;
+}
+// a feed picked in the right column: switch on the spot when the home screen is open, otherwise go there
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-feedtab]"); if (!b) return;
+  try { sessionStorage.setItem("skybee.tab", b.dataset.feedtab); } catch {}
+  if (homeShow) { scrollTo(0, 0); homeShow(+b.dataset.feedtab); } else { sideFeeds(); location.hash = "#/"; }
+});
+
+export async function home(el) {
+  // narrow screens pick the feed from the pill in the top bar, wide ones from the list in the right column
+  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2 class="only-wide" id="feedTitle">🐝 Skybee</h2><div class="grow"></div>
+    <button class="feedpick no-wide" id="feedPick" title="Закріплені фіди"><span>Підписки</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="grow"></div><button class="ghost icon" data-act="refresh" title="Оновити">↻</button></div><div id="feedBody"></div>`;
+  const tabs = await pinnedTabs();
+  let sel = savedTab(tabs);
+  const body = $("#feedBody", el), pick = $("#feedPick", el);
   let stop;
   const show = (i) => {
     sel = i; try { sessionStorage.setItem("skybee.tab", i); } catch {}
-    tabEl.innerHTML = tabs.map((t, n) => `<button class="${n === i ? "on" : ""}" data-tab="${n}">${esc(t.label)}</button>`).join("");
+    $("span", pick).textContent = tabs[i].label; $("#feedTitle", el).textContent = tabs[i].label;
+    sideFeeds();
     stop?.(); body.innerHTML = ""; body.parentElement.querySelectorAll(".sentinel").forEach(s => s.remove());
     const t = tabs[i];
     stop = paged(body, async (cursor) => {
@@ -79,10 +106,16 @@ export async function home(el) {
       return { html: feedItems(d.feed, true), cursor: d.cursor };
     });
   };
-  tabEl.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) show(+b.dataset.tab); });
+  pick.onclick = async () => {
+    const c = await menu(pick, [...tabs.map((t, n) => ({ act: String(n), label: `<span class="tick">${n === sel ? "✓" : ""}</span>${esc(t.label)}` })),
+      "-", { act: "manage", label: `<span class="tick">⚙️</span>Керувати фідами` }], "📌 Закріплені фіди");
+    if (c === "manage") location.hash = "#/feeds";
+    else if (c != null) { scrollTo(0, 0); show(+c); }
+  };
   el.querySelector("[data-act=refresh]").onclick = () => { scrollTo(0, 0); show(sel); };
+  homeShow = show;
   show(sel);
-  return () => stop?.();
+  return () => { stop?.(); homeShow = null; };
 }
 
 /* ================= SINGLE FEED / LIST ================= */

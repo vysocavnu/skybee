@@ -347,16 +347,17 @@ export function confirmBox(text, okLabel = "Так", danger = false) {
 }
 
 // items: [{label, act, danger}] ; returns chosen act or null
-export function menu(anchor, items) {
+export function menu(anchor, items, title = "") {
   document.querySelector(".popmenu")?.remove();
   return new Promise(res => {
     const m = document.createElement("div");
     m.className = "popmenu";
-    m.innerHTML = items.map(i => i === "-" ? "<hr>" : `<button data-m="${esc(i.act)}" class="${i.danger ? "danger" : ""}">${i.label}</button>`).join("");
+    m.innerHTML = (title ? `<div class="pm-title">${esc(title)}</div>` : "") + items.map(i => i === "-" ? "<hr>" : `<button data-m="${esc(i.act)}" class="${i.danger ? "danger" : ""}">${i.label}</button>`).join("");
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
     const w = m.offsetWidth, h = m.offsetHeight;
-    m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
+    const left = anchor.classList.contains("feedpick") ? r.left + r.width / 2 - w / 2 : r.right - w; // the feed pill sits in the middle
+    m.style.left = Math.max(8, Math.min(innerWidth - w - 8, left)) + "px";
     m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + scrollY + "px";
     const done = (v) => { m.remove(); document.removeEventListener("click", outside, true); res(v); };
     const outside = (e) => { if (!m.contains(e.target)) { e.stopPropagation(); e.preventDefault(); done(null); } };
