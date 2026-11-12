@@ -13,6 +13,11 @@ on:
     branches: ["**"]
     paths: ["mobile/**", "scripts/dist.mjs", ".github/workflows/mobile.yml", "index.html", "css/**", "js/**", "icons/**"]
   workflow_dispatch:
+    inputs:
+      ios:
+        description: "Зібрати й iOS (IPA)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -82,7 +87,10 @@ jobs:
           name: Skybee-Android
           path: mobile/Skybee.apk
 
+  # iOS — лише за ручним запуском (Actions → Mobile → Run workflow, поле «ios») або з тегом vX.Y.Z:
+  # автор зараз тестує й ловить помилки, IPA після кожного пушу не потрібен
   ios:
+    if: (github.event_name == 'workflow_dispatch' && inputs.ios) || startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-15
     defaults:
       run:
@@ -130,6 +138,7 @@ jobs:
   # обидва файли — в один тестовий реліз (і в реліз тегу), коли обидві збірки готові
   publish:
     needs: [android, ios]
+    if: always() && needs.android.result == 'success' && needs.ios.result != 'failure' && needs.ios.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
