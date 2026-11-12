@@ -7,9 +7,10 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Зараз це **веб-версія** (vanilla JS, ES-модулі, без збірки і без залежностей).
 - Хостинг: GitHub Pages з гілки `main`, корінь репозиторію → https://vysocavnu.github.io/skybee
   Кожен push у `main` автоматично оновлює сайт.
-- Є **десктопна оболонка на Tauri 2** (`src-tauri/`), поки що для Windows: інсталятор NSIS + переносний EXE.
-  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; зміни в `src-tauri/` або ручний запуск → артефакти.
-  Версію міняти разом у `src-tauri/tauri.conf.json` і `src-tauri/Cargo.toml`. Далі за планом: Linux, macOS, Android, iOS.
+- Є **десктопна версія для Windows на Electron** (`desktop/`): інсталятор NSIS + переносний EXE.
+  Саме Electron, а не Tauri: Tauri на Windows потребує WebView2 (Edge), а в автора Edge заблокований — застосунок має нести власний рушій.
+  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; зміни в `desktop/` або ручний запуск → артефакти.
+  Версія — у `desktop/package.json`. Далі за планом: Linux, macOS, потім Android, iOS.
 
 ## Структура
 - `index.html` — оболонка, підключає `css/style.css` і `js/app.js`
@@ -25,8 +26,9 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - `js/settings.js` — налаштування: головний список розділів і всі підсторінки (`#/settings/<розділ>`); тема, шрифт, «спокійний» режим (`applyLook`).
   Нічого не відкриває на bsky.app — усе робиться в Skybee
 - `js/notify.js` — системні сповіщення, поки застосунок відкритий (опитування раз на хвилину)
-- `src-tauri/` — оболонка Tauri: `src/main.rs` (вікно, зовнішні посилання → системний браузер, один екземпляр, сповіщення через плагін),
-  `tauri.conf.json`, `capabilities/`. `scripts/dist.mjs` копіює вебфайли в `dist/` для збірки (новий файл/теку в корені треба дописати туди)
+- `desktop/` — оболонка Electron: `main.js` (вікно, схема `app://skybee/` для вебфайлів, зовнішні посилання → системний браузер,
+  один екземпляр, контекстне меню), `package.json` (налаштування electron-builder). `scripts/dist.mjs` копіює вебфайли в `desktop/web/`
+  (новий файл/теку в корені треба дописати туди). Локально: `cd desktop && npm install && npm start`
 - `js/app.js` — роутер на hash (`#/profile/<handle>/post/<rkey>` тощо), навігація, глобальні дії через `data-act`
 
 ## Правила
@@ -38,6 +40,6 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Перед комітом: `for f in js/*.js; do node --check --input-type=module < $f; done`
 
 ## Ще не зроблено
-Справжні push-сповіщення при закритому застосунку (потрібен сервер або Tauri), пошук GIF (потрібен ключ Tenor),
+Справжні push-сповіщення при закритому застосунку (потрібен сервер), пошук GIF (потрібен ключ Tenor),
 перегляд без входу, реєстрація в застосунку, сторонні сервіси модерації (labelers), налаштування сповіщень,
 створення стартових наборів і фідів, «показувати більше/менше такого» у фідах.

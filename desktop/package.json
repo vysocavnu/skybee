@@ -1,0 +1,44 @@
+{
+  "name": "skybee",
+  "productName": "Skybee",
+  "version": "0.1.0",
+  "description": "Skybee — відкритий клієнт для Bluesky",
+  "author": "vysocavnu",
+  "license": "MIT",
+  "homepage": "https://vysocavnu.github.io/skybee",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "web": "node ../scripts/dist.mjs",
+    "start": "npm run web && electron .",
+    "dist": "npm run web && electron-builder --win --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.3.1",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "io.github.vysocavnu.skybee",
+    "productName": "Skybee",
+    "files": ["main.js", "icon.png", "web/**"],
+    "directories": { "output": "dist" },
+    "win": {
+      "icon": "icon.ico",
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "artifactName": "Skybee-${version}-setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["uk_UA", "en_US"],
+      "license": "../LICENSE",
+      "shortcutName": "Skybee",
+      "createDesktopShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Skybee-${version}-portable.${ext}"
+    }
+  }
+}
