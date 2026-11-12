@@ -1,7 +1,7 @@
 // Skybee — settings: the main list of sections and every section page. Nothing here sends the user to another site.
 import * as api from "./api.js";
 import { session } from "./api.js";
-import { $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors } from "./ui.js";
+import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors } from "./ui.js";
 import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
@@ -453,7 +453,7 @@ export async function help(el) {
 /* ================= ABOUT ================= */
 export async function about(el) {
   el.innerHTML = header("Про Skybee", true) + `
-    <div class="card center"><div class="bigemoji" style="font-size:56px">🐝</div><h3>Skybee</h3>
+    <div class="card center"><div class="aboutbee">${bee(110)}</div><h3>Skybee</h3>
       <p class="small muted">Відкритий клієнт для Bluesky. Без реклами, без трекерів, без збирання даних: усе зберігається у вашому акаунті Bluesky або в цьому браузері.</p>
       <a class="ghost sm" href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">Код на GitHub</a>
       <button class="btn sm" data-act="install" ${pwa.install ? "" : "hidden"}>📲 Встановити як застосунок</button></div>

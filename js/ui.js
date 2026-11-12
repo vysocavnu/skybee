@@ -5,6 +5,17 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const enc = encodeURIComponent;
 
+// The Skybee bee: gold line art. Its gold follows the theme (--bee-hi / --bee-lo in style.css).
+// Small sizes get thicker lines and no filigree on the wings, so it still reads at 16–24 px
+export function bee(size = 24, full = size >= 40) {
+  const w = size >= 120 ? 2.6 : size >= 40 ? 3.4 : size >= 24 ? 5 : 6;
+  return `<svg class="bee" viewBox="0 0 100 100" aria-hidden="true" style="width:${size}px;height:${size}px;fill:none;stroke:url(#beeGold);stroke-width:${w};stroke-linecap:round;stroke-linejoin:round"><g transform="translate(6 0)"><path d="M56 50C43 39 30 22 32 4C47 12 59 30 56 50Z"/><path d="M56 50C44 35 23 19 5 15C17 33 39 45 56 50Z"/><path d="M56 50C42 41 22 39 10 47C24 55 42 55 56 50Z"/>${full ? `<g class="fl"><path d="M44 22c-4-1-6 3-3 5c3 2 6-1 4-4"/><path d="M50 36c-1-4-6-4-6 0c0 3 4 3 4 1"/><path d="M38 12c-2 2-1 6 3 6"/><path d="M24 25c-4 0-4 4-1 5c3 1 4-2 2-3"/><path d="M38 36c-2-3-7-2-6 2"/><path d="M26 46c-2-2-6-1-5 2c1 2 4 2 4 0"/><path d="M40 47c-3-2-7 0-5 3"/></g>` : ""}<path d="M44 57C51 53 59 58 58 67C57 79 43 92 28 99C23 91 22 82 26 74C30 65 37 59 44 57Z"/><path d="M32 64C39 64 46 67 51 72"/><path d="M28 73C35 73 41 76 46 81"/>${full ? `<path d="M26 83C31 83 36 85 39 88"/>` : ""}<path d="M60 66C66 62 68 57 64 52C61 48 63 45 67 45"/><ellipse cx="72" cy="43" rx="6.5" ry="9" transform="rotate(-30 72 43)"/><path d="M69 34C70 28 73 25 77 23"/><path d="M73 36C76 31 80 29 85 29"/></g></svg>`;
+}
+// the gradient every bee uses, put into the page once
+if (!document.getElementById("beeGold")) document.body.insertAdjacentHTML("afterbegin",
+  `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="beeGold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" style="stop-color:var(--bee-hi)"/><stop offset="1" style="stop-color:var(--bee-lo)"/></linearGradient></defs></svg>`);
+
 /* ---------- caches: post/profile objects by key, used by click actions ---------- */
 export const posts = new Map();
 export const actors = new Map();
@@ -368,7 +379,7 @@ export function renderFeedCard(f) {
 /* ---------- toast / modal / menu ---------- */
 export function toast(msg, ms = 2500) {
   const t = document.createElement("div");
-  t.className = "toast"; t.textContent = msg;
+  t.className = "toast"; t.innerHTML = esc(msg).replace(/🐝/g, bee(18)); // the text stays text; only the bee becomes the drawing
   document.body.appendChild(t);
   setTimeout(() => t.classList.add("out"), ms);
   setTimeout(() => t.remove(), ms + 400);
@@ -508,7 +519,7 @@ export function infinite(container, loader, root = null) {
     try { done = !(await loader()); }
     catch (err) { sentinel.innerHTML = `<p class="err">${esc(err.message)}</p>`; done = true; }
     busy = false;
-    if (done && !sentinel.querySelector(".err")) sentinel.innerHTML = `<p class="muted center small">Це все 🐝</p>`;
+    if (done && !sentinel.querySelector(".err")) sentinel.innerHTML = `<p class="muted center small theend">Це все ${bee(18)}</p>`;
     else if (!done) { io.unobserve(sentinel); io.observe(sentinel); }
   }, { root, rootMargin: "800px" });
   io.observe(sentinel);

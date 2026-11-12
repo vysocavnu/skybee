@@ -27,7 +27,7 @@ export async function enable() {
   if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") return false;
   const now = new Date().toISOString();
   setItem(KEY, "1"); setItem(markKey(), JSON.stringify({ n: now, c: now })); // only what arrives from now on
-  show("Skybee", "Сповіщення увімкнено 🐝", "#/notifications", "skybee-on");
+  show("Skybee", "Сповіщення увімкнено", "#/notifications", "skybee-on");
   return true;
 }
 export const disable = () => setItem(KEY, null);

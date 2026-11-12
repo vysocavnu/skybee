@@ -1,14 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecd08e"/><stop offset="1" stop-color="#b98f45"/></linearGradient></defs>
   <rect width="512" height="512" fill="#0f1218"/>
-  <g transform="rotate(-20 256 256)">
-    <ellipse cx="214" cy="170" rx="62" ry="92" fill="#cfe6ff" opacity=".92" transform="rotate(-28 214 170)"/>
-    <ellipse cx="300" cy="166" rx="62" ry="92" fill="#e8f3ff" opacity=".92" transform="rotate(24 300 166)"/>
-    <clipPath id="b"><ellipse cx="256" cy="290" rx="150" ry="96"/></clipPath>
-    <ellipse cx="256" cy="290" rx="150" ry="96" fill="#f5b301"/>
-    <g clip-path="url(#b)" fill="#1a1400">
-      <rect x="196" y="180" width="38" height="220"/><rect x="268" y="180" width="38" height="220"/><rect x="340" y="180" width="80" height="220"/>
-    </g>
-    <circle cx="150" cy="268" r="12" fill="#1a1400"/>
-    <path d="M128 230q-30-40-62-34M150 214q-10-48-44-58" fill="none" stroke="#f5b301" stroke-width="12" stroke-linecap="round"/>
-  </g>
+  <g transform="translate(28.4 50.3) scale(3.994) translate(6 0)" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M56 50C43 39 30 22 32 4C47 12 59 30 56 50Z"/><path d="M56 50C44 35 23 19 5 15C17 33 39 45 56 50Z"/><path d="M56 50C42 41 22 39 10 47C24 55 42 55 56 50Z"/><path d="M44 22c-4-1-6 3-3 5c3 2 6-1 4-4"/><path d="M50 36c-1-4-6-4-6 0c0 3 4 3 4 1"/><path d="M38 12c-2 2-1 6 3 6"/><path d="M24 25c-4 0-4 4-1 5c3 1 4-2 2-3"/><path d="M38 36c-2-3-7-2-6 2"/><path d="M26 46c-2-2-6-1-5 2c1 2 4 2 4 0"/><path d="M40 47c-3-2-7 0-5 3"/><path d="M44 57C51 53 59 58 58 67C57 79 43 92 28 99C23 91 22 82 26 74C30 65 37 59 44 57Z"/><path d="M32 64C39 64 46 67 51 72"/><path d="M28 73C35 73 41 76 46 81"/><path d="M26 83C31 83 36 85 39 88"/><path d="M60 66C66 62 68 57 64 52C61 48 63 45 67 45"/><ellipse cx="72" cy="43" rx="6.5" ry="9" transform="rotate(-30 72 43)"/><path d="M69 34C70 28 73 25 77 23"/><path d="M73 36C76 31 80 29 85 29"/></g>
 </svg>

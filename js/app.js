@@ -6,7 +6,7 @@ import * as S from "./settings.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
 import * as D from "./deck.js";
-import { isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
+import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { S.applyLook(); } catch {}
@@ -66,7 +66,7 @@ function loginScreen() {
   document.body.classList.remove("guest");
   app.innerHTML = `
   <div class="login">
-    <h1>🐝 Skybee</h1>
+    <div class="loginbee">${bee(120)}</div><h1>Skybee</h1>
     <p class="muted">Клієнт для Bluesky</p>
     <form class="card loginform">
       <p class="hint">Достатньо ввести нік, наприклад <b>@lejk309</b>, або email акаунта. Якщо акаунт не на bsky.social (Eurosky, свій домен) — повний handle.</p>
@@ -101,7 +101,7 @@ const guestRoute = () => {
 const GUEST_ACTS = new Set(["back", "unblur", "showMuted", "lightbox", "lightboxOne", "translate", "player"]);
 function guestShell() {
   document.body.classList.add("guest");
-  app.innerHTML = `<header class="guestbar"><a class="logo" href="#/login">🐝 <b>Skybee</b></a><span class="muted small grow">перегляд без входу</span><a class="btn sm" href="#/login">Увійти</a></header><main id="main"></main>`;
+  app.innerHTML = `<header class="guestbar"><a class="logo" href="#/login">${bee(26)} <b>Skybee</b></a><span class="muted small grow">перегляд без входу</span><a class="btn sm" href="#/login">Увійти</a></header><main id="main"></main>`;
 }
 
 // One more account: after signing in it becomes the active one
@@ -147,7 +147,7 @@ function sideProfile(p) {
 function shell() {
   app.innerHTML = `
   <nav class="side">
-    <a class="logo" href="#/">🐝 <span>Skybee</span></a>
+    <a class="logo" href="#/">${bee(34)} <span>Skybee</span></a>
     ${NAV.map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="${b}"></i>` : ""}</span><span class="nl">${l}</span></a>`).join("")}
     <button class="btn compose-side" data-act="compose">✏️ <span>Новий пост</span></button>
     <button class="me" data-act="accountMenu" title="Акаунти">${meChip()}</button>
@@ -156,7 +156,7 @@ function shell() {
   <aside class="right">
     <div class="card sideprof" id="sideProf">${sideProfile(actors.get(api.session.did))}</div>
     <div id="sidebox"></div>
-    <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
+    <div class="card small muted">${bee(16)} Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
   <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
   <button class="fab" data-act="compose">✏️</button>`;
@@ -362,7 +362,7 @@ document.addEventListener("click", async (e) => {
   const p = postOf(actEl);
   if (!api.session && !GUEST_ACTS.has(act)) {
     if (act === "postMenu" && p) {
-      const c = await menu(actEl, [{ act: "copyText", label: "📋 Копіювати текст" }, { act: "copySkybee", label: "🐝 Копіювати посилання" }, { act: "copyLink", label: "🔗 Посилання на bsky.app" }, "-", { act: "login", label: "Увійти, щоб відповісти чи вподобати" }]);
+      const c = await menu(actEl, [{ act: "copyText", label: "📋 Копіювати текст" }, { act: "copySkybee", label: `${bee(18)} Копіювати посилання` }, { act: "copyLink", label: "🔗 Посилання на bsky.app" }, "-", { act: "login", label: "Увійти, щоб відповісти чи вподобати" }]);
       if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
       if (c === "copySkybee") { await navigator.clipboard.writeText(skybeeUrl(p)); toast("Посилання скопійовано"); }
       if (c === "copyLink") { await navigator.clipboard.writeText(webUrl(p)); toast("Посилання скопійовано"); }
@@ -434,7 +434,7 @@ document.addEventListener("click", async (e) => {
           { act: "translate", label: "🌐 Перекласти" },
           { act: "copyText", label: "📋 Копіювати текст" },
           { act: "copyLink", label: "🔗 Копіювати посилання" },
-          { act: "copySkybee", label: "🐝 Посилання Skybee (відкривається й без входу)" },
+          { act: "copySkybee", label: `${bee(18)} Посилання Skybee (відкривається й без входу)` },
           { act: "sendDm", label: "✉️ Надіслати в чат" },
           { act: "muteThread", label: p.viewer?.threadMuted ? "🔔 Не приховувати гілку" : "🔕 Приховати гілку" },
           "-",
@@ -639,7 +639,7 @@ export function shareDialog(title, hash, bskyUrl) {
     <div class="qr"><img alt="QR-код" src="https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=12&data=${encodeURIComponent(sky)}"></div>
     <p class="hint center">Наведи камеру телефона — відкриється в Skybee, навіть без входу</p>
     <div class="col" style="align-items:stretch">
-      <button class="btn" data-copy="${esc(sky)}">🐝 Копіювати посилання Skybee</button>
+      <button class="btn" data-copy="${esc(sky)}">${bee(18)} Копіювати посилання Skybee</button>
       ${bskyUrl ? `<button class="ghost wide" data-copy="${esc(bskyUrl)}">🔗 Копіювати посилання bsky.app</button>` : ""}
       ${navigator.share ? `<button class="ghost wide" data-native>Інші застосунки…</button>` : ""}
     </div>`);
