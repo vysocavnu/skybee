@@ -59,9 +59,10 @@
   <!-- Login -->
   <section id="login" class="card" hidden>
     <h2 style="margin-top:0">Вхід</h2>
+    <p class="hint">Достатньо ввести нік, наприклад <b>@lejk309</b>. Якщо акаунт не на bsky.social (Eurosky, свій домен), введи повний handle.</p>
     <p class="hint">Використовуй <b>пароль застосунку</b> (Налаштування → Конфіденційність і безпека → Паролі застосунків), а не основний пароль.</p>
     <form id="loginForm">
-      <p><input id="handle" placeholder="handle, напр. lejk309.bsky.social" autocomplete="username" required></p>
+      <p><input id="handle" placeholder="@нік, напр. @lejk309" autocomplete="username" required></p>
       <p><input id="pass" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" required></p>
       <p class="err" id="loginErr"></p>
       <button class="btn" id="loginBtn">Увійти</button>
@@ -96,7 +97,9 @@ function clear() { try { localStorage.removeItem("skybee.session"); } catch {} }
 
 /* ---------- identity: handle -> DID -> PDS (works for bsky.social, eurosky, self-hosted) ---------- */
 async function resolvePds(handle) {
-  handle = handle.trim().replace(/^@/, "");
+  handle = handle.trim().replace(/^@/, "").toLowerCase();
+  // short nick like "lejk309" -> "lejk309.bsky.social"
+  if (!handle.startsWith("did:") && !handle.includes(".")) handle += ".bsky.social";
   let did = handle.startsWith("did:") ? handle : null;
   if (!did) {
     const r = await fetch(`${PUBLIC_API}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
