@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skybee — клієнт Bluesky</title>
+<style>
+  :root {
+    --bg: #0f1218; --panel: #171b23; --line: #262c38; --text: #e6e9ef;
+    --muted: #8a93a6; --accent: #3b8cff; --like: #ff4d6d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; cursor: pointer; }
+  input, textarea { font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+  textarea { resize: vertical; min-height: 80px; }
+  .wrap { max-width: 620px; margin: 0 auto; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center;
+    justify-content: space-between; padding: 12px 16px; background: rgba(15,18,24,.9);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; }
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 8px 16px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .ghost { background: none; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 999px; padding: 6px 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 16px; }
+  .err { color: var(--like); font-size: 14px; min-height: 1em; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .post { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--line); flex: none; object-fit: cover; }
+  .body { min-width: 0; flex: 1; }
+  .meta { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta b { color: var(--text); }
+  .reason { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .text { white-space: pre-wrap; word-wrap: break-word; margin: 2px 0 8px; }
+  .text a { color: var(--accent); }
+  .imgs { display: grid; gap: 4px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 8px; }
+  .imgs img { width: 100%; border-radius: 10px; max-height: 360px; object-fit: cover; }
+  .ext, .quote { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 10px;
+    margin-bottom: 8px; color: var(--text); text-decoration: none; }
+  .ext small, .quote small { color: var(--muted); }
+  .actions { display: flex; gap: 22px; color: var(--muted); font-size: 14px; }
+  .actions button { background: none; border: 0; color: inherit; padding: 0; }
+  .actions .liked { color: var(--like); }
+  .more { display: block; margin: 16px auto 40px; }
+  .counter { color: var(--muted); font-size: 13px; }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐝 Skybee</h1>
+    <div id="hdr"></div>
+  </header>
+
+  <!-- Login -->
+  <section id="login" class="card" hidden>
+    <h2 style="margin-top:0">Вхід</h2>
+    <p class="hint">Використовуй <b>пароль застосунку</b> (Налаштування → Конфіденційність і безпека → Паролі застосунків), а не основний пароль.</p>
+    <form id="loginForm">
+      <p><input id="handle" placeholder="handle, напр. lejk309.bsky.social" autocomplete="username" required></p>
+      <p><input id="pass" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" required></p>
+      <p class="err" id="loginErr"></p>
+      <button class="btn" id="loginBtn">Увійти</button>
+    </form>
+  </section>
+
+  <!-- App -->
+  <section id="app" hidden>
+    <div class="card">
+      <textarea id="draft" maxlength="300" placeholder="Що нового?"></textarea>
+      <div class="row">
+        <span class="counter" id="count">0 / 300</span>
+        <button class="btn" id="postBtn">Опублікувати</button>
+      </div>
+      <p class="err" id="postErr"></p>
+    </div>
+    <div id="feed"></div>
+    <button class="ghost more" id="moreBtn">Завантажити ще</button>
+  </section>
+</div>
+
+<script>
+const PUBLIC_API = "https://public.api.bsky.app";
+const $ = (id) => document.getElementById(id);
+let session = null;   // { did, handle, accessJwt, refreshJwt, pds }
+let cursor = null;
+
+/* ---------- storage ---------- */
+function save() { try { localStorage.setItem("skybee.session", JSON.stringify(session)); } catch {} }
+function load() { try { return JSON.parse(localStorage.getItem("skybee.session")); } catch { return null; } }
+function clear() { try { localStorage.removeItem("skybee.session"); } catch {} }
+
+/* ---------- identity: handle -> DID -> PDS (works for bsky.social, eurosky, self-hosted) ---------- */
+async function resolvePds(handle) {
+  handle = handle.trim().replace(/^@/, "");
+  let did = handle.startsWith("did:") ? handle : null;
+  if (!did) {
+    const r = await fetch(`${PUBLIC_API}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+    if (!r.ok) throw new Error("Не вдалося знайти такий handle");
+    did = (await r.json()).did;
+  }
+  const docUrl = did.startsWith("did:plc:")
+    ? `https://plc.directory/${did}`
+    : `https://${did.slice("did:web:".length)}/.well-known/did.json`;
+  const doc = await (await fetch(docUrl)).json();
+  const svc = (doc.service || []).find(s => s.id === "#atproto_pds" || s.type === "AtprotoPersonalDataServer");
+  if (!svc) throw new Error("Не знайдено сервер (PDS) акаунта");
+  return { did, pds: svc.serviceEndpoint.replace(/\/$/, "") };
+}
+
+/* ---------- XRPC with auto-refresh ---------- */
+async function xrpc(method, { params, body, auth = true, retry = true } = {}) {
+  const url = new URL(`${session.pds}/xrpc/${method}`);
+  if (params) for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, v);
+  const headers = {};
+  if (auth) headers.Authorization = `Bearer ${session.accessJwt}`;
+  if (body) headers["Content-Type"] = "application/json";
+  const r = await fetch(url, { method: body ? "POST" : "GET", headers, body: body ? JSON.stringify(body) : undefined });
+  const data = r.headers.get("content-type")?.includes("json") ? await r.json() : null;
+  if (!r.ok) {
+    if (retry && data?.error === "ExpiredToken") { await refresh(); return xrpc(method, { params, body, auth, retry: false }); }
+    throw new Error(data?.message || data?.error || `Помилка ${r.status}`);
+  }
+  return data;
+}
+
+async function refresh() {
+  const r = await fetch(`${session.pds}/xrpc/com.atproto.server.refreshSession`, {
+    method: "POST", headers: { Authorization: `Bearer ${session.refreshJwt}` } });
+  if (!r.ok) { logout(); throw new Error("Сесія закінчилась, увійди знову"); }
+  const d = await r.json();
+  Object.assign(session, { accessJwt: d.accessJwt, refreshJwt: d.refreshJwt, handle: d.handle });
+  save();
+}
+
+/* ---------- auth ---------- */
+$("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = ""; $("loginBtn").disabled = true;
+  try {
+    const { did, pds } = await resolvePds($("handle").value);
+    const r = await fetch(`${pds}/xrpc/com.atproto.server.createSession`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: did, password: $("pass").value.trim() }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error === "AuthenticationRequired" ? "Неправильний handle або пароль" : (d.message || d.error));
+    session = { did: d.did, handle: d.handle, accessJwt: d.accessJwt, refreshJwt: d.refreshJwt, pds };
+    save(); $("pass").value = ""; start();
+  } catch (err) { $("loginErr").textContent = err.message; }
+  finally { $("loginBtn").disabled = false; }
+};
+
+function logout() { session = null; clear(); show(); }
+
+/* ---------- render helpers ---------- */
+const esc = (s = "") => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const linkify = (s) => esc(s).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+function ago(iso) {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60) return "щойно";
+  if (s < 3600) return `${Math.floor(s / 60)} хв`;
+  if (s < 86400) return `${Math.floor(s / 3600)} год`;
+  return new Date(iso).toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
+}
+const postUrl = (p) => `https://bsky.app/profile/${p.author.handle}/post/${p.uri.split("/").pop()}`;
+
+function renderEmbed(embed) {
+  if (!embed) return "";
+  const t = embed.$type;
+  if (t === "app.bsky.embed.images#view")
+    return `<div class="imgs">${embed.images.map(i => `<a href="${i.fullsize}" target="_blank"><img src="${i.thumb}" alt="${esc(i.alt)}" loading="lazy"></a>`).join("")}</div>`;
+  if (t === "app.bsky.embed.external#view") {
+    const x = embed.external;
+    return `<a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener"><b>${esc(x.title || x.uri)}</b><br><small>${esc(x.description || "")}</small></a>`;
+  }
+  if (t === "app.bsky.embed.record#view") {
+    const r = embed.record;
+    if (!r?.author) return "";
+    return `<div class="quote"><small><b>${esc(r.author.displayName || r.author.handle)}</b> @${esc(r.author.handle)}</small><div class="text">${linkify(r.value?.text || "")}</div></div>`;
+  }
+  if (t === "app.bsky.embed.recordWithMedia#view")
+    return renderEmbed(embed.media) + renderEmbed(embed.record);
+  if (t === "app.bsky.embed.video#view")
+    return `<a class="ext" href="#" onclick="return false"><small>🎬 Відео (поки не підтримується)</small></a>`;
+  return "";
+}
+
+function renderItem(item) {
+  const p = item.post, a = p.author;
+  const repost = item.reason?.$type === "app.bsky.feed.defs#reasonRepost"
+    ? `<div class="reason">🔁 ${esc(item.reason.by.displayName || item.reason.by.handle)} поширив(-ла)</div>` : "";
+  const reply = item.reply?.parent?.author ? `<div class="reason">↩︎ у відповідь @${esc(item.reply.parent.author.handle)}</div>` : "";
+  const el = document.createElement("article");
+  el.className = "post";
+  el.innerHTML = `
+    <img class="avatar" src="${a.avatar || ""}" alt="" loading="lazy">
+    <div class="body">
+      ${repost}${reply}
+      <div class="meta"><b>${esc(a.displayName || a.handle)}</b> @${esc(a.handle)} · <a style="color:inherit" href="${postUrl(p)}" target="_blank">${ago(p.indexedAt)}</a></div>
+      <div class="text">${linkify(p.record?.text || "")}</div>
+      ${renderEmbed(p.embed)}
+      <div class="actions">
+        <span>💬 ${p.replyCount ?? 0}</span>
+        <span>🔁 ${p.repostCount ?? 0}</span>
+        <button class="like ${p.viewer?.like ? "liked" : ""}">${p.viewer?.like ? "♥" : "♡"} <span>${p.likeCount ?? 0}</span></button>
+      </div>
+    </div>`;
+  el.querySelector(".like").onclick = (e) => toggleLike(p, e.currentTarget);
+  return el;
+}
+
+/* ---------- actions ---------- */
+async function toggleLike(p, btn) {
+  btn.disabled = true;
+  try {
+    if (p.viewer?.like) {
+      await xrpc("com.atproto.repo.deleteRecord", { body: {
+        repo: session.did, collection: "app.bsky.feed.like", rkey: p.viewer.like.split("/").pop() } });
+      p.viewer.like = undefined; p.likeCount--;
+    } else {
+      const r = await xrpc("com.atproto.repo.createRecord", { body: {
+        repo: session.did, collection: "app.bsky.feed.like",
+        record: { $type: "app.bsky.feed.like", subject: { uri: p.uri, cid: p.cid }, createdAt: new Date().toISOString() } } });
+      p.viewer = { ...(p.viewer || {}), like: r.uri }; p.likeCount++;
+    }
+    btn.classList.toggle("liked", !!p.viewer.like);
+    btn.innerHTML = `${p.viewer.like ? "♥" : "♡"} <span>${p.likeCount}</span>`;
+  } catch (err) { alertInline(err.message); }
+  finally { btn.disabled = false; }
+}
+
+$("draft").oninput = () => { $("count").textContent = `${[...$("draft").value].length} / 300`; };
+
+$("postBtn").onclick = async () => {
+  const text = $("draft").value.trim();
+  if (!text) return;
+  $("postBtn").disabled = true; $("postErr").textContent = "";
+  try {
+    await xrpc("com.atproto.repo.createRecord", { body: {
+      repo: session.did, collection: "app.bsky.feed.post",
+      record: { $type: "app.bsky.feed.post", text, langs: ["uk"], createdAt: new Date().toISOString() } } });
+    $("draft").value = ""; $("draft").oninput();
+    loadFeed(true);
+  } catch (err) { $("postErr").textContent = err.message; }
+  finally { $("postBtn").disabled = false; }
+};
+
+function alertInline(msg) { $("postErr").textContent = msg; window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+/* ---------- feed ---------- */
+async function loadFeed(reset = false) {
+  if (reset) { cursor = null; $("feed").innerHTML = ""; }
+  $("moreBtn").disabled = true; $("moreBtn").textContent = "Завантаження…";
+  try {
+    const d = await xrpc("app.bsky.feed.getTimeline", { params: { limit: 30, cursor } });
+    d.feed.forEach(item => $("feed").appendChild(renderItem(item)));
+    cursor = d.cursor;
+    $("moreBtn").hidden = !cursor;
+  } catch (err) { alertInline(err.message); }
+  finally { $("moreBtn").disabled = false; $("moreBtn").textContent = "Завантажити ще"; }
+}
+$("moreBtn").onclick = () => loadFeed();
+
+/* ---------- boot ---------- */
+function show() {
+  $("login").hidden = !!session; $("app").hidden = !session;
+  $("hdr").innerHTML = session
+    ? `<button class="ghost" id="refreshBtn">↻</button> <button class="ghost" id="outBtn">@${esc(session.handle)} · вийти</button>` : "";
+  if (session) { $("outBtn").onclick = logout; $("refreshBtn").onclick = () => loadFeed(true); }
+}
+function start() { show(); loadFeed(true); }
+
+session = load();
+session ? start() : show();
+</script>
+</body>
+</html>
