@@ -6,7 +6,7 @@ import * as S from "./settings.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
 import * as D from "./deck.js";
-import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
+import { isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { S.applyLook(); } catch {}
@@ -96,9 +96,9 @@ function loginScreen() {
 // Everything here comes from the public AppView; anything that writes asks to sign in
 const guestRoute = () => {
   const seg = location.hash.slice(1).split("?")[0].split("/").filter(Boolean);
-  return seg[0] === "profile" && seg[1] && seg[1] !== "me" && !["known", "likes"].includes(seg[2]);
+  return seg[0] === "profile" && seg[1] && seg[1] !== "me" && !["known", "likes"].includes(seg[2]) || seg[0] === "tag" && !!seg[1];
 };
-const GUEST_ACTS = new Set(["back", "unblur", "showMuted", "lightbox", "lightboxOne", "translate"]);
+const GUEST_ACTS = new Set(["back", "unblur", "showMuted", "lightbox", "lightboxOne", "translate", "player"]);
 function guestShell() {
   document.body.classList.add("guest");
   app.innerHTML = `<header class="guestbar"><a class="logo" href="#/login">🐝 <b>Skybee</b></a><span class="muted small grow">перегляд без входу</span><a class="btn sm" href="#/login">Увійти</a></header><main id="main"></main>`;
@@ -212,8 +212,10 @@ async function route() {
     else if (seg[0] === "notifications") r = V.notifications(main, { filter: seg[1] });
     else if (seg[0] === "messages") r = seg[1] === "requests" ? V.messages(main, { requests: true }) : seg[1] ? V.convo(main, { id: seg[1] }) : V.messages(main);
     else if (seg[0] === "lists") r = M.lists(main);
+    else if (seg[0] === "starter-packs" && seg[1] === "new") r = M.newStarterPack(main);
     else if (seg[0] === "starter-pack" && seg[2]) r = M.starterPack(main, { actor: seg[1], rkey: seg[2] });
     else if (seg[0] === "feeds") r = V.feeds(main);
+    else if (seg[0] === "tag" && seg[1]) r = V.hashtag(main, { tag: seg[1], tab: seg[2] === "latest" ? "latest" : "top" });
     else if (seg[0] === "deck") r = D.deck(main);
     else if (seg[0] === "myfeeds" && seg[1]) r = D.myFeedEdit(main, { id: seg[1] });
     else if (seg[0] === "myfeeds") r = D.myFeeds(main);
@@ -239,8 +241,38 @@ async function route() {
   }
 }
 window.addEventListener("hashchange", route);
+// other modules ask for the share and report dialogs that live here
+window.addEventListener("skybee:share", (e) => shareDialog(...e.detail));
+window.addEventListener("skybee:report", (e) => reportDialog(e.detail));
 // pinned feeds changed: the right column's list and the home tabs are built again
 window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
+
+/* ---------- pull to refresh (touch screens) ---------- */
+// At the very top of a screen, pulling down and letting go reloads it
+{
+  let y0 = null, dy = 0, ind = null;
+  addEventListener("touchstart", (e) => {
+    y0 = scrollY <= 0 && !document.querySelector(".modal-bg, .msheet-bg") && !document.body.classList.contains("deckmode") && e.target.closest?.("main") ? e.touches[0].clientY : null;
+    dy = 0;
+  }, { passive: true });
+  addEventListener("touchmove", (e) => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || scrollY > 0) { ind?.remove(); ind = null; return; }
+    if (!ind) { ind = document.createElement("div"); ind.className = "ptr"; ind.textContent = "↻"; document.body.appendChild(ind); }
+    const p = Math.min(dy / 80, 1);
+    ind.style.transform = `translate(-50%, ${Math.min(dy, 110) * .6}px) rotate(${p * 270}deg)`;
+    ind.classList.toggle("ready", p >= 1);
+  }, { passive: true });
+  addEventListener("touchend", () => {
+    if (ind) {
+      const go = ind.classList.contains("ready");
+      ind.classList.add("spin"); setTimeout(() => { ind?.remove(); ind = null; }, go ? 700 : 0);
+      if (go) route();
+    }
+    y0 = null;
+  }, { passive: true });
+}
 
 /* ---------- coming back to a screen: the same place in the list ---------- */
 // Remembered: the post at the top of the screen and how far it was scrolled past, plus plain scrollY as a fallback.
@@ -353,6 +385,15 @@ document.addEventListener("click", async (e) => {
         break;
       }
       case "lightboxOne": lightbox([actEl.dataset.full]); break;
+      case "player": { // a video or music player from the link, in place of its card
+        const w = actEl.closest(".playwrap");
+        const f = document.createElement("iframe");
+        f.src = actEl.dataset.src; f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write"; f.allowFullscreen = true;
+        f.setAttribute("loading", "lazy"); f.referrerPolicy = "strict-origin-when-cross-origin";
+        if (w.dataset.h) f.style.height = w.dataset.h + "px";
+        w.innerHTML = ""; w.appendChild(f); w.classList.add("on");
+        break;
+      }
 
       case "reply": {
         const target = p || posts.get(actEl.dataset.uri);
@@ -386,7 +427,10 @@ document.addEventListener("click", async (e) => {
         const mine = p.author.did === api.session.did, my = `at://${api.session.did}/`;
         const rootUri = p.record?.reply?.root?.uri;
         const e = p.embed, quoted = e?.$type === "app.bsky.embed.record#view" ? e.record : e?.$type === "app.bsky.embed.recordWithMedia#view" ? e.record?.record : null;
+        const art = actEl.closest("[data-feed]"), gen = art ? await api.feedGen(art.dataset.feed).catch(() => null) : null;
+        const tune = gen?.acceptsInteractions;
         const c = await menu(actEl, [
+          ...(tune ? [{ act: "more", label: "👍 Показувати більше такого" }, { act: "less", label: "👎 Показувати менше такого" }, "-"] : []),
           { act: "translate", label: "🌐 Перекласти" },
           { act: "copyText", label: "📋 Копіювати текст" },
           { act: "copyLink", label: "🔗 Копіювати посилання" },
@@ -421,6 +465,11 @@ document.addEventListener("click", async (e) => {
         }
         if (c === "detach" && await confirmBox("Від'єднати ваш пост від цієї цитати? Замість нього там буде позначка «від'єднано».", "Від'єднати", true)) {
           await api.detachQuote(quoted.uri, p.uri); toast("Цитату від'єднано"); setTimeout(reloadView, 800);
+        }
+        if (c === "more" || c === "less") {
+          await api.feedInteraction(gen, p.uri, c === "more", art.dataset.fctx || undefined);
+          if (c === "less") { art.classList.add("fadeout"); setTimeout(() => art.remove(), 300); }
+          toast(c === "more" ? `Фід «${gen.displayName}» показуватиме більше такого` : `Фід «${gen.displayName}» показуватиме менше такого`);
         }
         if (c === "translate") window.open(`https://translate.google.com/?sl=auto&tl=${S.translateLang()}&text=${encodeURIComponent(p.record?.text || "")}`, "_blank");
         if (c === "copyText") { await navigator.clipboard.writeText(p.record?.text || ""); toast("Скопійовано"); }
@@ -470,8 +519,9 @@ document.addEventListener("click", async (e) => {
       case "profileMenu": {
         const a = actors.get(actEl.dataset.did); const mine = a.did === api.session.did;
         const c = await menu(actEl, [
-          { act: "copy", label: "🔗 Копіювати посилання" },
+          { act: "share", label: "📤 Поділитися профілем" },
           { act: "search", label: "🔍 Шукати в постах" },
+          ...(mine ? [isLive(a) ? { act: "endlive", label: "⏹️ Завершити ефір" } : { act: "live", label: "🔴 Я в ефірі" }] : []),
           { act: "lists", label: "📋 Додати до списків" },
           ...(mine ? [] : [
             ...(a.viewer?.following ? [{ act: "bell", label: a.viewer?.activitySubscription?.post ? "🔕 Не сповіщати про пости" : "🔔 Сповіщати про нові пости" }] : []),
@@ -480,7 +530,9 @@ document.addEventListener("click", async (e) => {
             { act: "report", label: "🚩 Поскаржитись", danger: true },
           ]),
         ]);
-        if (c === "copy") { await navigator.clipboard.writeText(`https://bsky.app/profile/${a.handle}`); toast("Скопійовано"); }
+        if (c === "share") shareDialog(`Профіль ${at(a.handle)}`, `#/profile/${encodeURIComponent(a.handle)}`, `https://bsky.app/profile/${a.handle}`);
+        if (c === "live") liveDialog();
+        if (c === "endlive") { await api.endLive(); toast("Ефір завершено"); setTimeout(reloadView, 800); }
         if (c === "search") location.hash = `#/search?q=${encodeURIComponent("from:" + a.handle + " ")}`;
         if (c === "lists") M.addToListsDialog(a);
         if (c === "bell") {
@@ -577,6 +629,43 @@ function reportDialog(subject) {
       catch (ex) { toast(ex.message); return; }
     }
     m.close();
+  });
+}
+
+// Share: the Skybee link (opens even without an account), the bsky.app link and a QR code to scan with a phone
+export function shareDialog(title, hash, bskyUrl) {
+  const sky = (location.protocol.startsWith("http") ? location.origin + location.pathname : "https://vysocavnu.github.io/skybee/") + hash;
+  const m = modal(`<h3>📤 ${title}</h3>
+    <div class="qr"><img alt="QR-код" src="https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=12&data=${encodeURIComponent(sky)}"></div>
+    <p class="hint center">Наведи камеру телефона — відкриється в Skybee, навіть без входу</p>
+    <div class="col" style="align-items:stretch">
+      <button class="btn" data-copy="${esc(sky)}">🐝 Копіювати посилання Skybee</button>
+      ${bskyUrl ? `<button class="ghost wide" data-copy="${esc(bskyUrl)}">🔗 Копіювати посилання bsky.app</button>` : ""}
+      ${navigator.share ? `<button class="ghost wide" data-native>Інші застосунки…</button>` : ""}
+    </div>`);
+  m.addEventListener("click", async (e) => {
+    const c = e.target.closest("[data-copy]");
+    if (c) { await navigator.clipboard.writeText(c.dataset.copy); toast("Скопійовано"); }
+    if (e.target.closest("[data-native]")) navigator.share({ url: sky }).catch(() => {});
+  });
+}
+
+// «I'm live»: a link to the stream and how long to show the badge
+function liveDialog() {
+  const m = modal(`<h3>🔴 Я в ефірі</h3>
+    <p class="hint">Біля твоєї аватарки з'явиться мітка LIVE, а в профілі — посилання на трансляцію. Bluesky поки показує її лише для деяких сервісів (наприклад, Twitch) і не всім акаунтам.</p>
+    <label class="field">Посилання на трансляцію<input name="uri" type="url" placeholder="https://twitch.tv/…" required></label>
+    <label class="field">Назва (необов'язково)<input name="title" maxlength="120"></label>
+    <label class="field">Скільки показувати<select name="min"><option value="30">30 хвилин</option><option value="60" selected>1 годину</option><option value="120">2 години</option><option value="240">4 години</option></select></label>
+    <p class="err"></p><div class="row end"><button class="ghost" data-x="0">Скасувати</button><button class="btn" data-x="1">Почати</button></div>`);
+  m.addEventListener("click", async (e) => {
+    const x = e.target.closest("[data-x]"); if (!x) return;
+    if (x.dataset.x === "0") return m.close();
+    const uri = m.querySelector("[name=uri]").value.trim();
+    if (!/^https:\/\//.test(uri)) { m.querySelector(".err").textContent = "Встав посилання, що починається з https://"; return; }
+    x.disabled = true;
+    try { await api.goLive(uri, m.querySelector("[name=title]").value.trim(), +m.querySelector("[name=min]").value); m.close(); toast("Ти в ефірі 🔴"); setTimeout(reloadView, 800); }
+    catch (ex) { m.querySelector(".err").textContent = ex.message; x.disabled = false; }
   });
 }
 

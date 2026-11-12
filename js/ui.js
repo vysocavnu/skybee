@@ -1,5 +1,5 @@
 // Skybee — rendering helpers
-import { session, mutedWords, adultEnabled, labelPref } from "./api.js";
+import { session, mutedWords, adultEnabled, labelPref, labelDef, labelName, labelerPref, labelerDids } from "./api.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -34,9 +34,13 @@ export const name = (a) => esc(a?.displayName || a?.handle || "");
 export const vname = (a) => name(a) + (a?.verification?.trustedVerifierStatus === "valid" ? ` <span class="verified" title="Довірений верифікатор">✪</span>`
   : a?.verification?.verifiedStatus === "valid" ? ` <span class="verified" title="Верифіковано">✔</span>` : "");
 export const hiddenReplies = new Set(); // replies hidden by the author of the thread on screen
-export const avatar = (a, size = 44) =>
-  a?.avatar ? `<img class="avatar" style="width:${size}px;height:${size}px" src="${esc(a.avatar)}" alt="" loading="lazy">`
-            : `<div class="avatar ph" style="width:${size}px;height:${size}px">${esc((a?.displayName || a?.handle || "?")[0].toUpperCase())}</div>`;
+// «LIVE»: the person shows that they are streaming right now (app.bsky.actor.status)
+export const isLive = (a) => { const s = a?.status; return s?.status === "app.bsky.actor.status#live" && s.isActive !== false && (!s.expiresAt || Date.parse(s.expiresAt) > Date.now()); };
+export const avatar = (a, size = 44) => {
+  const img = a?.avatar ? `<img class="avatar" style="width:${size}px;height:${size}px" src="${esc(a.avatar)}" alt="" loading="lazy">`
+    : `<div class="avatar ph" style="width:${size}px;height:${size}px">${esc((a?.displayName || a?.handle || "?")[0].toUpperCase())}</div>`;
+  return isLive(a) && size >= 28 ? `<span class="live-ava" title="Зараз в ефірі">${img}<b>LIVE</b></span>` : img;
+};
 export const profileHref = (a) => `#/profile/${enc(a.handle && a.handle !== "handle.invalid" ? a.handle : a.did)}`;
 export const postHref = (p) => `#/profile/${enc(p.author?.did || p.uri.split("/")[2])}/post/${p.uri.split("/").pop()}`;
 export const webUrl = (p) => `https://bsky.app/profile/${p.author?.handle || p.uri.split("/")[2]}/post/${p.uri.split("/").pop()}`;
@@ -61,7 +65,7 @@ export function richText(text = "", facets) {
     const ft = f.features?.[0] || {};
     if (ft.$type === "app.bsky.richtext.facet#link") out += `<a href="${esc(ft.uri)}" target="_blank" rel="noopener">${seg}</a>`;
     else if (ft.$type === "app.bsky.richtext.facet#mention") out += `<a href="#/profile/${enc(ft.did)}">${seg}</a>`;
-    else if (ft.$type === "app.bsky.richtext.facet#tag") out += `<a href="#/search?q=${enc("#" + ft.tag)}">${seg}</a>`;
+    else if (ft.$type === "app.bsky.richtext.facet#tag") out += `<a href="#/tag/${enc(ft.tag)}">${seg}</a>`;
     else out += seg;
     pos = e;
   }
@@ -81,7 +85,16 @@ export function warnLabel(p) {
     if (l.val === "!hide") return { text: "Приховано модерацією", hide: true };
     if (l.val === "!warn") { found ||= { text: "Попередження про вміст" }; continue; }
     const key = LABEL_ALIAS[l.val] || l.val, def = LABELS[key];
-    if (!def) continue;
+    if (!def) {
+      // a label from a moderation service the user subscribed to, by its own definition and the user's choice for it
+      const ld = labelerDids.includes(l.src) && labelDef(l.src, l.val);
+      if (!ld || ld.severity === "none" && ld.blurs === "none") continue;
+      if (ld.adultOnly && !adultEnabled()) return { text: labelName(ld), hide: true, locked: true };
+      const v = labelerPref(l.src, l.val);
+      if (v === "hide") return { text: labelName(ld), hide: true };
+      if (v === "warn" && ld.blurs !== "none") found ||= { text: labelName(ld) };
+      continue;
+    }
     if (def[1] && !adultEnabled()) return { text: def[0], hide: true, locked: true };
     const vis = labelPref(key);
     if (vis === "hide") return { text: def[0], hide: true };
@@ -150,6 +163,34 @@ export function mutedBy(p) {
 }
 
 /* ---------- embeds ---------- */
+// Links that can play right in the post: video services get a picture with ▶, music a «listen here» button.
+// The player itself (an iframe) appears only after a click, so nothing is loaded from those sites before that.
+export const playersOn = () => { try { return localStorage.getItem("skybee.players") !== "0"; } catch { return true; } };
+export function playerOf(uri) {
+  if (!playersOn()) return null;
+  let u; try { u = new URL(uri); } catch { return null; }
+  const h = u.hostname.replace(/^(www|m|music)\./, ""), path = u.pathname;
+  let m;
+  if (h === "youtube.com" || h === "youtu.be") {
+    const id = h === "youtu.be" ? path.slice(1, 12) : u.searchParams.get("v") || path.match(/^\/(?:shorts|live|embed)\/([\w-]{11})/)?.[1];
+    if (!/^[\w-]{11}$/.test(id || "")) return null;
+    const t = parseInt(u.searchParams.get("t")) || 0;
+    return { video: true, ratio: path.startsWith("/shorts/") ? "9/16" : "16/9", src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1${t ? "&start=" + t : ""}` };
+  }
+  if (h === "vimeo.com" && (m = path.match(/^\/(\d+)/))) return { video: true, ratio: "16/9", src: `https://player.vimeo.com/video/${m[1]}?autoplay=1` };
+  if (h === "twitch.tv" && location.protocol.startsWith("http")) { // Twitch wants to know the site that shows it
+    if ((m = path.match(/^\/videos\/(\d+)/))) return { video: true, ratio: "16/9", src: `https://player.twitch.tv/?video=${m[1]}&parent=${location.hostname}` };
+    if ((m = path.match(/^\/([\w]+)\/?$/))) return { video: true, ratio: "16/9", src: `https://player.twitch.tv/?channel=${m[1]}&parent=${location.hostname}` };
+  }
+  if (h === "open.spotify.com" && (m = path.match(/^\/(?:intl-[\w-]+\/)?(track|album|playlist|episode|show|artist)\/(\w+)/)))
+    return { height: ["track", "episode"].includes(m[1]) ? 152 : 352, src: `https://open.spotify.com/embed/${m[1]}/${m[2]}` };
+  if (h === "soundcloud.com" && path.split("/").filter(Boolean).length >= 2)
+    return { height: path.includes("/sets/") ? 300 : 166, src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(u.origin + path)}&auto_play=true&visual=false` };
+  if (u.hostname === "music.apple.com" && /\/(album|playlist|song)\//.test(path))
+    return { height: u.searchParams.get("i") || path.includes("/song/") ? 175 : 450, src: `https://embed.music.apple.com${path}${u.search}` };
+  return null;
+}
+
 export function renderEmbed(embed, label) {
   if (!embed) return "";
   const t = embed.$type;
@@ -168,6 +209,14 @@ export function renderEmbed(embed, label) {
     if (/^https:\/\/media\.tenor\.com\//.test(x.uri))
       return `<div class="imgs n1"><img src="${esc(x.uri)}" alt="${esc(x.title)}" loading="lazy"></div>`;
     let host = ""; try { host = new URL(x.uri).hostname.replace(/^www\./, ""); } catch {}
+    const pl = playerOf(x.uri);
+    if (pl?.video) return `<div class="playwrap pvid" style="aspect-ratio:${pl.ratio}">
+      ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}<button class="bigplay" data-act="player" data-src="${esc(pl.src)}" title="Дивитися тут">▶</button>
+      <a class="ptitle" href="${esc(x.uri)}" target="_blank" rel="noopener"><small>${esc(host)}</small> ${esc(x.title || x.uri)}</a></div>`;
+    if (pl) return `<div class="playwrap" data-h="${pl.height}"><a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener">
+      ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}
+      <div><small>${esc(host)}</small><b>${esc(x.title || x.uri)}</b><small>${esc((x.description || "").slice(0, 160))}</small></div></a>
+      <button class="ghost sm playbtn" data-act="player" data-src="${esc(pl.src)}">▶ Слухати тут</button></div>`;
     return `<a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}
       <div><small>${esc(host)}</small><b>${esc(x.title || x.uri)}</b><small>${esc((x.description || "").slice(0, 160))}</small></div></a>`;
@@ -244,7 +293,8 @@ export function gateLine(root, { mine = false, noReply = false } = {}) {
     mine ? ` · <button class="linklike" data-act="editGate">Змінити</button>` : ""}</div>`;
 }
 
-export function renderPost(p, { reason, parent, thread = false, focus = false, line = false } = {}) {
+// feed / ctx: the custom feed the post came from and its feedContext, for «show more / less like this»
+export function renderPost(p, { reason, parent, thread = false, focus = false, line = false, feed, ctx } = {}) {
   cachePost(p);
   const a = p.author, rec = p.record || {};
   const label = warnLabel(p);
@@ -274,7 +324,7 @@ export function renderPost(p, { reason, parent, thread = false, focus = false, l
     ${actionsBar(p, true)}
   </article>`;
   return `
-  <article class="post${line ? " has-line" : ""}${muted ? " mw-hidden" : ""}" data-uri="${esc(p.uri)}" data-href="${postHref(p)}">
+  <article class="post${line ? " has-line" : ""}${muted ? " mw-hidden" : ""}" data-uri="${esc(p.uri)}" data-href="${postHref(p)}"${feed ? ` data-feed="${esc(feed)}"${ctx ? ` data-fctx="${esc(ctx)}"` : ""}` : ""}>
     ${muted ? `<button class="mw-note linklike small" data-act="showMuted">🙈 ${at(a.handle)} · приховано через слово «${esc(muted.value)}» · Показати</button>` : ""}
     <div class="left"><a href="${profileHref(a)}">${avatar(a)}</a>${line ? `<div class="tline"></div>` : ""}</div>
     <div class="body">
@@ -365,16 +415,54 @@ export function menu(anchor, items) {
   });
 }
 
+// Photo viewer: a click (or double tap) zooms in where you point, the wheel zooms smoothly, a zoomed photo is dragged around.
+// ⬇ saves the full-size file; ✕, Esc or a click beside the photo closes it
 export function lightbox(urls, i = 0, alts = []) {
-  const m = modal(`<div class="lb"><img src="${esc(urls[i])}" alt=""><p class="alt"></p>
+  const m = modal(`<div class="lb"><div class="lb-bar"><span class="lb-n small"></span><div class="grow"></div>
+      <button class="lb-btn" data-lb="save" title="Зберегти фото">⬇</button><button class="lb-btn" data-lb="close" title="Закрити">✕</button></div>
+    <div class="lb-stage"><img src="${esc(urls[i])}" alt="" draggable="false"></div><p class="alt"></p>
     ${urls.length > 1 ? `<button class="lb-prev">‹</button><button class="lb-next">›</button>` : ""}</div>`, { wide: true });
   m.classList.add("dark");
-  const img = m.querySelector("img"), alt = m.querySelector(".alt");
-  const show = () => { img.src = urls[i]; alt.textContent = alts[i] || ""; };
+  const img = m.querySelector("img"), alt = m.querySelector(".alt"), stage = m.querySelector(".lb-stage");
+  let z = 1, x = 0, y = 0;
+  const apply = () => { img.style.transform = `translate(${x}px, ${y}px) scale(${z})`; img.classList.toggle("zoomed", z > 1); };
+  const reset = () => { z = 1; x = 0; y = 0; apply(); };
+  const zoomAt = (nz, cx, cy) => { // keep the point under the cursor in place
+    nz = Math.min(6, Math.max(1, nz));
+    const r = stage.getBoundingClientRect(), px = cx - r.left - r.width / 2, py = cy - r.top - r.height / 2;
+    x = px - (px - x) * nz / z; y = py - (py - y) * nz / z; z = nz;
+    if (z === 1) { x = 0; y = 0; }
+    apply();
+  };
+  const show = () => { img.src = urls[i]; alt.textContent = alts[i] || ""; m.querySelector(".lb-n").textContent = urls.length > 1 ? `${i + 1} / ${urls.length}` : ""; reset(); };
   show();
   m.querySelector(".lb-prev")?.addEventListener("click", () => { i = (i - 1 + urls.length) % urls.length; show(); });
   m.querySelector(".lb-next")?.addEventListener("click", () => { i = (i + 1) % urls.length; show(); });
-  img.addEventListener("click", () => m.close());
+  let moved = false, drag = null;
+  img.addEventListener("pointerdown", (e) => { moved = false; if (z > 1) { drag = { sx: e.clientX - x, sy: e.clientY - y }; img.setPointerCapture(e.pointerId); } });
+  img.addEventListener("pointermove", (e) => { if (!drag) return; moved = true; x = e.clientX - drag.sx; y = e.clientY - drag.sy; apply(); });
+  img.addEventListener("pointerup", () => { drag = null; });
+  img.addEventListener("click", (e) => { if (moved) return; z > 1 ? reset() : zoomAt(2.5, e.clientX, e.clientY); });
+  stage.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(z * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX, e.clientY); }, { passive: false });
+  stage.addEventListener("click", (e) => { if (e.target === stage) m.close(); });
+  const arrows = (e) => {
+    if (!m.isConnected) return document.removeEventListener("keydown", arrows);
+    if (e.key === "ArrowLeft") m.querySelector(".lb-prev")?.click();
+    if (e.key === "ArrowRight") m.querySelector(".lb-next")?.click();
+  };
+  document.addEventListener("keydown", arrows);
+  m.querySelector("[data-lb=close]").addEventListener("click", () => m.close());
+  m.querySelector("[data-lb=save]").addEventListener("click", async () => {
+    const url = urls[i];
+    try {
+      const blob = await (await fetch(url)).blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `skybee-${url.split("/").pop().split("@")[0].slice(-16)}.${(blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch { window.open(url, "_blank"); } // the server did not allow reading it here: the browser saves it from a new tab
+  });
 }
 
 /* ---------- video (HLS) ---------- */
@@ -395,7 +483,14 @@ export async function attachVideo(video) {
   const src = video.dataset.src;
   if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = src; return; }
   await loadHls();
-  const hls = new window.Hls();
+  const hls = new window.Hls({ subtitleDisplay: true });
+  // captions come inside the stream: turn on the one in the reader's language (or the first one); the player's CC button switches them
+  hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+    const t = hls.subtitleTracks || [];
+    if (!t.length) return;
+    const i = t.findIndex(x => (x.lang || "").startsWith("uk"));
+    hls.subtitleTrack = i >= 0 ? i : 0;
+  });
   hls.loadSource(src); hls.attachMedia(video);
 }
 

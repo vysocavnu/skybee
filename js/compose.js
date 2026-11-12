@@ -169,7 +169,10 @@ export function openComposer(opts = {}, onDone) {
     pv.classList.toggle("one", !!video);
     pv.innerHTML = video
       ? `<div class="pvimg">${video.gif ? `<img src="${video.url}" alt="">` : `<video src="${video.url}" controls muted playsinline></video>`}
-          <button class="x" data-rm="v">✕</button>${altInput("v", video.alt)}</div>`
+          <button class="x" data-rm="v">✕</button>${altInput("v", video.alt)}
+          ${video.gif ? "" : `<div class="caps">${(video.captions ||= []).map((c, i) => `<span class="pill">💬 ${esc(c.lang)} · ${esc(c.file.name)} <button class="linklike" data-rmcap="${i}">✕</button></span>`).join("")}
+            <label class="linklike small">＋ Субтитри (.vtt)<input type="file" accept=".vtt,text/vtt" data-cap hidden></label>
+            <select data-caplang class="small">${LANGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>`}</div>`
       : images.map((im, i) => `<div class="pvimg"><img src="${im.url}" alt=""><button class="x" data-rm="${i}">✕</button>${altInput(i, im.alt)}</div>`).join("");
   };
   const renderCard = () => {
@@ -263,7 +266,19 @@ export function openComposer(opts = {}, onDone) {
     const k = e.target.dataset.alt;
     if (k === "v") video.alt = e.target.value; else if (k) images[k].alt = e.target.value;
   });
+  // captions for a video: WebVTT files, one per language (Bluesky takes up to 20, 20 KB each)
+  pv.addEventListener("change", e => {
+    if (!e.target.matches("[data-cap]")) return;
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f || !video) return;
+    if (f.size > 20000) return toast("Файл субтитрів завеликий: максимум 20 КБ");
+    const lang = pv.querySelector("[data-caplang]").value;
+    video.captions = (video.captions || []).filter(c => c.lang !== lang).concat({ lang, file: f });
+    renderPreviews();
+  });
   pv.addEventListener("click", e => {
+    const rc = e.target.closest("[data-rmcap]");
+    if (rc && video) { e.preventDefault(); video.captions.splice(+rc.dataset.rmcap, 1); renderPreviews(); return; }
     const b = e.target.closest("[data-rm]"); if (!b || busy) return;
     if (b.dataset.rm === "v") { URL.revokeObjectURL(video.url); video = null; }
     else URL.revokeObjectURL(images.splice(+b.dataset.rm, 1)[0].url);
@@ -351,6 +366,8 @@ async function publish({ text, images, video, card, replyTo, quote, lang, warn, 
     if (video.alt) media.alt = video.alt;
     if (size) media.aspectRatio = size;
     if (video.gif) media.presentation = "gif"; // clients loop it silently, like a GIF
+    if (video.captions?.length) media.captions = await Promise.all(video.captions.slice(0, 20).map(async c =>
+      ({ lang: c.lang, file: await api.uploadBlob(new Blob([c.file], { type: "text/vtt" })) })));
     status("Надсилання…");
   } else if (images.length) {
     const out = [];

@@ -270,7 +270,16 @@ export async function moderation(el) {
       ${row("#/settings/blocks", "lock", "Заблоковані акаунти")}
       ${row("#/lists", "users", "Модераційні списки")}
     </div>
+    <div class="card"><h3>🛡️ Сервіси модерації</h3><div data-labelers>${spinner()}</div>
+      <p class="hint">Підписатися на інший сервіс можна на його профілі — там же налаштовуються його мітки. Знайти сервіси: пошук «labeler» або списки на кшталт bluesky-labelers.</p></div>
     <p class="pad small muted">Приховані акаунти не бачать, що ви їх приховали. Заблоковані не можуть бачити ваші пости й взаємодіяти з вами.</p>`;
+  const box = $("[data-labelers]", el);
+  try {
+    await api.getPrefs(true); const views = await api.loadLabelers();
+    const all = [{ creator: { did: api.BSKY_MOD, handle: "moderation.bsky.app", displayName: "Bluesky Moderation Service" }, always: true }, ...views];
+    box.innerHTML = all.map(v => `<a class="actor" href="#/profile/${encodeURIComponent(v.creator.handle || v.creator.did)}">${avatar(v.creator, 36)}
+      <div class="who"><b>${esc(v.creator.displayName || v.creator.handle)}</b><span class="muted small">${v.always ? "Увімкнено завжди" : `${(v.policies?.labelValues || []).length} міток`}</span></div></a>`).join("");
+  } catch (ex) { box.innerHTML = `<p class="err">${esc(ex.message)}</p>`; }
 }
 
 /* ================= NOTIFICATIONS ================= */
@@ -347,6 +356,7 @@ export async function media(el) {
     <div class="card">
       <h3>Медіа</h3>
       ${toggle("autogif", "Автоматично відтворювати GIF", store.get("skybee.autogif") === "1")}
+      ${toggle("players", "Вбудовані плеєри", store.get("skybee.players") !== "0", "YouTube, Spotify, SoundCloud, Vimeo, Twitch, Apple Music грають прямо в пості — після натискання ▶")}
       ${toggle("extmedia", "Показувати картки посилань із зображеннями", store.get("skybee.noLinkThumbs") !== "1")}
     </div>`;
   el.querySelectorAll("[id^=h-]").forEach(c => c.onchange = () => saved(api.updatePref("feedViewPref", { [c.id.slice(2)]: c.checked }, "home"), () => { c.checked = !c.checked; }));
@@ -358,6 +368,7 @@ export async function media(el) {
     saved(api.updatePref("postInteractionSettingsPref", { threadgateAllowRules: rules }));
   };
   $("#autogif", el).onchange = (e) => { store.set("skybee.autogif", e.target.checked ? "1" : null); toast("Збережено"); };
+  $("#players", el).onchange = (e) => { store.set("skybee.players", e.target.checked ? null : "0"); toast("Збережено"); };
   $("#extmedia", el).onchange = (e) => { store.set("skybee.noLinkThumbs", e.target.checked ? null : "1"); document.body.classList.toggle("nolinkthumbs", !e.target.checked); toast("Збережено"); };
 }
 
@@ -460,7 +471,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }

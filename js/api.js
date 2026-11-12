@@ -136,6 +136,8 @@ export async function xrpc(method, opts = {}) {
   }
   const headers = { ...extra };
   if (s) headers.Authorization = `Bearer ${s.accessJwt}`;
+  // the moderation services the user subscribed to: the app view then returns their labels too
+  if (s && !proxy && method.startsWith("app.bsky.") && labelerDids.length) headers["atproto-accept-labelers"] = [BSKY_MOD + ";redact", ...labelerDids].join(", ");
   if (proxy) headers["atproto-proxy"] = proxy;
   let payload;
   if (raw) { payload = raw; headers["Content-Type"] = contentType || raw.type || "application/octet-stream"; }
@@ -285,6 +287,22 @@ export async function deleteList(uri) {
   for (let i = 0; i < writes.length; i += 200) await post("com.atproto.repo.applyWrites", { repo: session.did, writes: writes.slice(i, i + 200) });
 }
 export const addToList = (listUri, did) => createRecord(LISTITEM, { subject: did, list: listUri });
+
+/* ---------- starter packs ---------- */
+// A pack is a «reference» list of people plus up to 3 feeds; the creator is always in it
+const PACK = "app.bsky.graph.starterpack";
+export async function createStarterPack({ name, description, dids, feeds }) {
+  const list = await createRecord(LIST, { name, description: description || undefined, purpose: "app.bsky.graph.defs#referencelist" });
+  const createdAt = now();
+  const people = [...new Set([session.did, ...dids])].slice(0, 150);
+  const writes = people.map(subject => ({ $type: "com.atproto.repo.applyWrites#create", collection: LISTITEM, rkey: tid(), value: { $type: LISTITEM, subject, list: list.uri, createdAt } }));
+  for (let i = 0; i < writes.length; i += 100) await post("com.atproto.repo.applyWrites", { repo: session.did, writes: writes.slice(i, i + 100) });
+  return createRecord(PACK, { name, description: description || undefined, list: list.uri, feeds: feeds.slice(0, 3).map(uri => ({ uri })) });
+}
+export async function deleteStarterPack(sp) {
+  await deleteRecord(PACK, sp.uri);
+  if (sp.list?.uri?.startsWith(`at://${session.did}/`)) await deleteList(sp.list.uri);
+}
 export const removeFromList = (itemUri) => deleteRecord(LISTITEM, itemUri);
 // My lists with the member record of `did` in each (item: uri or null)
 export async function listsWithMember(did) {
@@ -365,6 +383,13 @@ export const subscribeActivity = (did, on) =>
   post("app.bsky.notification.putActivitySubscription", { subject: did, activitySubscription: { post: on, reply: false } });
 
 // My own (non-moderation) lists — they can be used in a gate
+// «LIVE» status: a link to the stream, for a set number of minutes (app.bsky.actor.status/self)
+const STATUS = "app.bsky.actor.status";
+export const goLive = (uri, title, minutes) => post("com.atproto.repo.putRecord", { repo: session.did, collection: STATUS, rkey: "self",
+  record: { $type: STATUS, status: STATUS + "#live", durationMinutes: minutes, createdAt: new Date().toISOString(),
+    embed: { $type: "app.bsky.embed.external", external: { uri, title: title || uri, description: "" } } } });
+export const endLive = () => post("com.atproto.repo.deleteRecord", { repo: session.did, collection: STATUS, rkey: "self" });
+
 export async function getMyLists() {
   const d = await get("app.bsky.graph.getLists", { actor: session.did, limit: 100, purposes: ["curatelist"] });
   return d.lists.filter(l => l.purpose === "app.bsky.graph.defs#curatelist");
@@ -498,6 +523,13 @@ export async function fetchLinkCard(url) {
 }
 
 /* ---------- preferences / feeds ---------- */
+// A feed generator's view (its server's did, whether it takes «more / less like this»), asked once per feed
+const gens = new Map();
+export const feedGen = (uri) => { if (!gens.has(uri)) gens.set(uri, get("app.bsky.feed.getFeedGenerator", { feed: uri }).then(d => d.view, (e) => { gens.delete(uri); throw e; })); return gens.get(uri); };
+// «Show more / less like this»: goes to the feed's own server, which uses it to tune what it shows
+export const feedInteraction = (gen, item, more, feedContext) => post("app.bsky.feed.sendInteractions",
+  { interactions: [{ item, event: "app.bsky.feed.defs#" + (more ? "requestMore" : "requestLess"), feedContext }] }, { proxy: gen.did + "#bsky_fg" });
+
 export const DISCOVER = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
 // Feeds shown on the home screen until the user pins feeds of their own; also suggested on the «Фіди» screen
 const feedUri = (did, name) => `at://${did}/app.bsky.feed.generator/${name}`;
@@ -537,7 +569,46 @@ async function putPrefs(prefs) {
 // Resolves when preferences (and so muted words) are known, or after a short wait; never rejects
 export let prefsReady = Promise.resolve();
 export function primePrefs() {
-  prefsReady = Promise.race([getPrefs().catch(() => {}), new Promise(res => setTimeout(res, 3000))]);
+  prefsReady = Promise.race([getPrefs().then(() => loadLabelers()).catch(() => {}), new Promise(res => setTimeout(res, 3000))]);
+}
+
+/* ---------- moderation services (labelers) ---------- */
+// Bluesky's own service is always on; others are subscribed in labelersPref. Their label definitions are loaded once
+export const BSKY_MOD = "did:plc:ar7c4by46qjdydhdevvrndac";
+export let labelerDids = [];
+const labelDefs = new Map(); // "did|value" → definition (identifier, severity, blurs, defaultSetting, adultOnly, locales)
+export const labelerViews = new Map(); // did → app.bsky.labeler.defs#labelerViewDetailed
+const labelersOf = (prefs) => (lastPref(prefs, "labelersPref")?.labelers || []).map(l => l.did).filter(d => d && d !== BSKY_MOD);
+export async function loadLabelers(dids) {
+  labelerDids = labelersOf(prefsCache || []);
+  const want = (dids || labelerDids).filter(d => d !== BSKY_MOD);
+  if (!want.length) return [];
+  const { views } = await get("app.bsky.labeler.getServices", { dids: want, detailed: true });
+  for (const v of views) {
+    labelerViews.set(v.creator.did, v);
+    for (const d of v.policies?.labelValueDefinitions || []) labelDefs.set(v.creator.did + "|" + d.identifier, d);
+  }
+  return views;
+}
+export const labelDef = (src, val) => labelDefs.get(src + "|" + val);
+// the label's name in Ukrainian if the service gives one, else English, else its id
+export const labelName = (d) => { const l = d?.locales || []; return (l.find(x => x.lang?.startsWith("uk")) || l.find(x => x.lang?.startsWith("en")) || l[0])?.name || d?.identifier || ""; };
+export const labelDesc = (d) => { const l = d?.locales || []; return (l.find(x => x.lang?.startsWith("uk")) || l.find(x => x.lang?.startsWith("en")) || l[0])?.description || ""; };
+export function labelerPref(did, val) {
+  const v = (prefsCache || []).filter(p => p.$type === PREF + "contentLabelPref" && p.labelerDid === did && p.label === val).pop()?.visibility;
+  return v === "show" ? "ignore" : v || labelDef(did, val)?.defaultSetting || "warn";
+}
+export async function setLabelerPref(did, label, visibility) {
+  const prefs = (await getPrefs(true)).filter(p => !(p.$type === PREF + "contentLabelPref" && p.labelerDid === did && p.label === label));
+  await putPrefs(prefs.concat({ $type: PREF + "contentLabelPref", labelerDid: did, label, visibility }));
+}
+export async function setLabelerSubscribed(did, on) {
+  const prefs = await getPrefs(true);
+  const cur = labelersOf(prefs).filter(d => d !== did);
+  if (on) cur.push(did);
+  await putPrefs(prefs.filter(p => p.$type !== PREF + "labelersPref").concat({ $type: PREF + "labelersPref", labelers: cur.map(d => ({ did: d })) }));
+  labelerDids = cur;
+  if (on) await loadLabelers([did]).catch(() => {});
 }
 
 // Account-wide default for «who can reply», set in the official app

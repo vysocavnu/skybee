@@ -2,7 +2,7 @@
 import * as api from "./api.js";
 import { session } from "./api.js";
 import {
-  postHref, $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
+  isLive, postHref, $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
 } from "./ui.js";
 import * as notify from "./notify.js";
@@ -47,9 +47,9 @@ export function onGrid(el, redraw) {
 }
 
 // hideMuted: in feeds, posts with muted words disappear; elsewhere renderPost collapses them
-export const feedItems = (feed, hideMuted = false) => feed.map(it => {
+export const feedItems = (feed, hideMuted = false, from) => feed.map(it => {
   if (!it.post || (hideMuted && (mutedBy(it.post) || warnLabel(it.post)?.hide))) return "";
-  return renderPost(it.post, { reason: it.reason, parent: it.reply?.parent });
+  return renderPost(it.post, { reason: it.reason, parent: it.reply?.parent, feed: from, ctx: it.feedContext });
 });
 
 /* ================= HOME ================= */
@@ -104,14 +104,30 @@ export async function home(el) {
     tabEl.innerHTML = tabs.map((t, n) => `<button class="${n === i ? "on" : ""}" data-tab="${n}">${esc(t.label)}</button>`).join("");
     stop?.(); body.innerHTML = ""; body.parentElement.querySelectorAll(".sentinel").forEach(s => s.remove());
     const t = tabs[i], grid = isGrid("home");
+    pill.hidden = true; latest = null;
     if (t.kind === "my") { stop = paged(body, src.feedPager({ type: "myfeed", value: t.uri }, { grid }), { cls: grid ? "tiles" : "" }); return; }
+    latest = (cursor, limit = 30) => t.kind === "timeline" ? api.get("app.bsky.feed.getTimeline", { limit, cursor }).then(homeFilter)
+      : t.kind === "list" ? api.get("app.bsky.feed.getListFeed", { list: t.uri, limit, cursor })
+      : api.get("app.bsky.feed.getFeed", { feed: t.uri, limit, cursor }, api.feedHeaders());
     stop = paged(body, async (cursor) => {
-      const d = t.kind === "timeline" ? await api.get("app.bsky.feed.getTimeline", { limit: 30, cursor }).then(homeFilter)
-        : t.kind === "list" ? await api.get("app.bsky.feed.getListFeed", { list: t.uri, limit: 30, cursor })
-        : await api.get("app.bsky.feed.getFeed", { feed: t.uri, limit: 30, cursor }, api.feedHeaders());
-      return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true), cursor: d.cursor };
+      const d = await latest(cursor);
+      return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true, t.kind === "feed" ? t.uri : undefined), cursor: d.cursor };
     }, { cls: grid ? "tiles" : "" });
   };
+  // «↑ Нові пости»: once a minute the top of the feed is checked; the list itself is not touched until the pill is pressed
+  let latest = null;
+  const pill = document.createElement("button");
+  pill.className = "newpill"; pill.hidden = true; pill.textContent = "↑ Нові пости";
+  tabEl.after(pill);
+  pill.onclick = () => { scrollTo({ top: 0 }); show(sel); };
+  const watch = setInterval(async () => {
+    if (document.hidden || !latest || !pill.hidden) return;
+    try {
+      const top = (await latest(undefined, 5)).feed.find(it => it.post)?.post.uri;
+      const shown = body.querySelector("[data-uri]")?.dataset.uri;
+      if (top && shown && top !== shown && !body.querySelector(`[data-uri="${CSS.escape(top)}"]`)) pill.hidden = false;
+    } catch {}
+  }, 60000);
   onGrid(el, () => show(sel));
   tabEl.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) show(+b.dataset.tab); });
   el.querySelector("[data-act=refresh]").onclick = () => { scrollTo(0, 0); show(sel); };
@@ -119,7 +135,7 @@ export async function home(el) {
   const pick = (e) => { scrollTo(0, 0); show(Math.min(e.detail, tabs.length - 1)); };
   window.addEventListener("skybee:pickfeed", pick);
   show(sel);
-  return () => { stop?.(); window.removeEventListener("skybee:pickfeed", pick); };
+  return () => { stop?.(); clearInterval(watch); window.removeEventListener("skybee:pickfeed", pick); };
 }
 
 /* ================= SINGLE FEED / LIST ================= */
@@ -140,7 +156,7 @@ export async function feed(el, { uri }) {
     const grid = isGrid("feed");
     stop = paged(body, async (cursor) => {
       const d = await api.get("app.bsky.feed.getFeed", { feed: uri, limit: 30, cursor }, api.feedHeaders());
-      return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true), cursor: d.cursor };
+      return { html: grid ? src.tiles(d.feed) : feedItems(d.feed, true, uri), cursor: d.cursor };
     }, { cls: grid ? "tiles" : "" });
   };
   onGrid(el, show); show();
@@ -268,7 +284,7 @@ export async function profile(el, { actor, tab = "posts" }) {
   if (me) tabs.push(["likes", "Вподобання"]);
   if (p.associated?.feedgens) tabs.push(["feeds", "Фіди"]);
   if (p.associated?.lists) tabs.push(["lists", "Списки"]);
-  if (p.associated?.starterPacks) tabs.push(["packs", "Стартові набори"]);
+  if (p.associated?.starterPacks || me) tabs.push(["packs", "Стартові набори"]);
   const site = p.website && /^https?:\/\//.test(p.website) ? p.website : "";
   el.innerHTML = header(name(p), true, `<button class="ghost icon" data-act="profileMenu" data-did="${p.did}">⋯</button>`) + `
     <div class="banner" ${p.banner ? `style="background-image:url('${esc(p.banner)}')"` : ""}></div>
@@ -282,11 +298,13 @@ export async function profile(el, { actor, tab = "posts" }) {
       </div>
       <h1>${vname(p)}</h1>
       <div class="muted">${at(p.handle)}${p.pronouns ? ` · ${esc(p.pronouns)}` : ""} ${v.followedBy && v.following ? '<span class="pill">Взаємна підписка</span>' : v.followedBy ? '<span class="pill">Стежить за вами</span>' : ""} ${v.muted ? '<span class="pill">Приховано</span>' : ""}${v.mutedByList ? ` <a class="pill" href="#/list/${enc(v.mutedByList.uri)}">Приховано списком «${esc(v.mutedByList.name)}»</a>` : ""}${v.blockingByList ? ` <a class="pill" href="#/list/${enc(v.blockingByList.uri)}">Заблоковано списком «${esc(v.blockingByList.name)}»</a>` : ""}</div>
+      ${labelPills(p) ? `<div>${labelPills(p)}</div>` : ""}
       ${blocked ? "" : `<div class="counts">
         <a href="${profileHref(p)}/followers"><b>${num(p.followersCount)}</b> читачів</a>
         <a href="${profileHref(p)}/follows"><b>${num(p.followsCount)}</b> підписок</a>
         <span><b>${num(p.postsCount)}</b> постів</span></div>
       ${p.description ? `<div class="bio">${linkify(p.description)}</div>` : ""}
+      ${liveCard(p)}
       ${site ? `<div class="small">🔗 <a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></div>` : ""}
       ${p.createdAt ? `<div class="muted small">📅 У Bluesky з ${new Date(p.createdAt).toLocaleDateString("uk-UA", { month: "long", year: "numeric" })}</div>` : ""}
       ${v.knownFollowers?.count ? `<a class="muted small" href="${profileHref(p)}/known" style="display:block">Серед читачів: ${v.knownFollowers.followers.slice(0, 2).map(f => name(f)).join(", ")}${v.knownFollowers.count > 2 ? ` і ще ${v.knownFollowers.count - 2}` : ""}</a>` : ""}`}
@@ -295,6 +313,7 @@ export async function profile(el, { actor, tab = "posts" }) {
       `<div class="tabs scroll">${tabs.map(([k, l]) => `<a class="${k === tab ? "on" : ""}" href="${profileHref(p)}${k === "posts" ? "" : "/" + k}">${l}</a>`).join("")}</div><div id="pbody"></div>`}`;
   if (blocked) return;
   flair.decorate(el, p); // Skybee extras arrive on their own, the page does not wait for them
+  if (p.associated?.labeler && session) labelerCard($(".phead", el), p).catch(() => {});
   const body = $("#pbody", el);
   const filters = { posts: "posts_and_author_threads", replies: "posts_with_replies", media: "posts_with_media", videos: "posts_with_video" };
   if (filters[tab]) return paged(body, async (cursor) => {
@@ -313,10 +332,58 @@ export async function profile(el, { actor, tab = "posts" }) {
     const d = await api.get("app.bsky.graph.getLists", { actor: p.did, limit: 30, cursor });
     return { html: d.lists.map(renderListCard), cursor: d.cursor };
   });
+  if (tab === "packs" && me) body.insertAdjacentHTML("beforebegin", `<div class="pad row"><a class="btn sm" href="#/starter-packs/new">🎒 Створити стартовий набір</a></div>`);
   if (tab === "packs") return paged(body, async (cursor) => {
     const d = await api.get("app.bsky.graph.getActorStarterPacks", { actor: p.did, limit: 30, cursor });
     return { html: d.starterPacks.map(s => `<a class="actor" href="#/starter-pack/${enc(p.did)}/${s.uri.split("/").pop()}"><span class="bigemoji">🎒</span><div class="who"><b>${esc(s.record?.name)}</b><span class="muted">${esc(s.record?.description || "")}</span></div></a>`), cursor: d.cursor };
   });
+}
+
+// A moderation service's profile: subscribe, and choose for each of its labels — show, warn or hide
+async function labelerCard(head, p) {
+  const [v] = await api.loadLabelers([p.did]);
+  if (!v || !head.isConnected) return;
+  const defs = v.policies?.labelValueDefinitions || [];
+  const box = document.createElement("div");
+  box.className = "card labeler";
+  const draw = () => {
+    const on = api.labelerDids.includes(p.did) || p.did === api.BSKY_MOD;
+    box.innerHTML = `<div class="row between"><b>🛡️ Сервіс модерації</b>${p.did === api.BSKY_MOD ? `<span class="pill">Увімкнено завжди</span>`
+        : `<button class="${on ? "ghost" : "btn"} sm" data-sub>${on ? "Відписатися" : "Підписатися"}</button>`}</div>
+      <p class="hint">${on ? "Його мітки діють у Skybee. Обери, що робити з кожною:" : "Підпишись, щоб його мітки з'являлися на постах і профілях."}${v.likeCount ? ` · ♥ ${num(v.likeCount)}` : ""}</p>
+      ${defs.map(d => `<div class="lrow"><div class="grow"><b>${esc(api.labelName(d))}</b>${d.adultOnly ? ' <span class="pill">18+</span>' : ""}<div class="muted small">${esc(api.labelDesc(d))}</div></div>
+        ${on && p.did !== api.BSKY_MOD ? `<select data-lv="${esc(d.identifier)}">${[["ignore", "Показувати"], ["warn", "Попереджати"], ["hide", "Приховувати"]].map(([k, l]) =>
+          `<option value="${k}" ${api.labelerPref(p.did, d.identifier) === k ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}</div>`).join("") || `<p class="muted small">Сервіс не описав своїх міток</p>`}`;
+  };
+  draw();
+  head.appendChild(box);
+  box.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-sub]"); if (!b) return;
+    b.disabled = true;
+    try { const on = !api.labelerDids.includes(p.did); await api.setLabelerSubscribed(p.did, on); toast(on ? "Підписано на сервіс модерації" : "Відписано"); draw(); }
+    catch (ex) { toast(ex.message); b.disabled = false; }
+  });
+  box.addEventListener("change", async (e) => {
+    const s = e.target.closest("[data-lv]"); if (!s) return;
+    try { await api.setLabelerPref(p.did, s.dataset.lv, s.value); toast("Збережено"); } catch (ex) { toast(ex.message); }
+  });
+}
+
+// labels from subscribed services that tell something about the account (not hidden or ignored), as pills under the name
+function labelPills(p) {
+  return (p.labels || []).filter(l => !l.neg && api.labelerDids.includes(l.src)).map(l => {
+    const d = api.labelDef(l.src, l.val);
+    return d && api.labelerPref(l.src, l.val) !== "ignore" ? `<span class="pill lpill" title="${esc(api.labelDesc(d))}">🏷️ ${esc(api.labelName(d))}</span>` : "";
+  }).join(" ");
+}
+
+// the stream the person is live on, as a card under the bio
+function liveCard(p) {
+  if (!isLive(p)) return "";
+  const x = p.status.embed?.external || {};
+  let host = ""; try { host = new URL(x.uri).hostname.replace(/^www\./, ""); } catch {}
+  return `<a class="livecard" href="${esc(x.uri || "#")}" target="_blank" rel="noopener">${x.thumb ? `<img src="${esc(x.thumb)}" alt="">` : ""}
+    <span class="grow"><b class="livedot">● В ефірі</b> <span class="small muted">${esc(host)}</span><span class="clip">${esc(x.title || x.uri || "Трансляція")}</span></span></a>`;
 }
 
 export const renderListCard = (l) => `<div class="actor" data-href="#/list/${enc(l.uri)}">${avatar({ avatar: l.avatar, displayName: l.name }, 44)}
@@ -482,14 +549,85 @@ export const notifPager = ({ filter, as } = {}) => {
   };
 };
 
+/* ================= HASHTAG ================= */
+export async function hashtag(el, { tag, tab = "top" }) {
+  tag = tag.replace(/^#/, "");
+  const muted = () => api.mutedWords.find(w => (w.value || "").toLowerCase() === tag.toLowerCase());
+  const btn = () => `<button class="ghost sm" data-mtag>${muted() ? "👁️ Показувати тег" : "🙈 Приховати тег"}</button>`;
+  el.innerHTML = header("#" + esc(tag), true, `<span data-mbox>${btn()}</span>`) +
+    `<div class="tabs">${[["top", "Топ"], ["latest", "Найновіші"]].map(([k, l]) => `<a class="${k === tab ? "on" : ""}" href="#/tag/${enc(tag)}${k === "top" ? "" : "/latest"}">${l}</a>`).join("")}</div>`;
+  el.querySelector("[data-mbox]").addEventListener("click", async () => {
+    try {
+      const w = muted();
+      if (w) { await api.removeMutedWord(w); toast(`#${tag} знову видно`); }
+      else { await api.addMutedWord({ value: tag, targets: ["tag"], actorTarget: "all" }); toast(`Пости з #${tag} приховано`); }
+      el.querySelector("[data-mbox]").innerHTML = btn();
+    } catch (ex) { toast(ex.message); }
+  });
+  return paged(el, async (cursor) => {
+    const d = await api.get("app.bsky.feed.searchPosts", { q: "#" + tag, sort: tab, limit: 30, cursor });
+    return { html: d.posts.map(p => renderPost(p)), cursor: d.cursor };
+  });
+}
+
+/* ================= EXPLORE (the search screen before anything is typed) ================= */
+// The same interests as in Bluesky: they shape Discover and the suggestions
+export const INTERESTS = [["animals", "🐾 Тварини"], ["art", "🎨 Мистецтво"], ["books", "📚 Книжки"], ["comedy", "😂 Гумор"], ["comics", "💥 Комікси"],
+  ["culture", "🎭 Культура"], ["dev", "💻 Розробка"], ["education", "🎓 Освіта"], ["food", "🍜 Їжа"], ["gaming", "🎮 Ігри"], ["journalism", "📰 Журналістика"],
+  ["movies", "🎬 Кіно"], ["music", "🎵 Музика"], ["nature", "🌿 Природа"], ["news", "🗞️ Новини"], ["pets", "🐶 Домашні улюбленці"], ["photography", "📷 Фото"],
+  ["politics", "🏛️ Політика"], ["science", "🔬 Наука"], ["sports", "⚽ Спорт"], ["tech", "🤖 Технології"], ["tv", "📺 Серіали"], ["writers", "✍️ Письменники"]];
+async function explore(box) {
+  await api.getPrefs().catch(() => {});
+  let mine = new Set(api.pref("interestsPref").tags || []);
+  const chips = () => INTERESTS.map(([k, l]) => `<button class="chip${mine.has(k) ? " on" : ""}" data-int="${k}">${l}</button>`).join("");
+  box.innerHTML = `<div class="pad"><h3>Мої інтереси</h3><p class="hint">Від них залежать Discover і підказки, кого почитати.</p><div class="chips" data-ints>${chips()}</div></div>
+    <div data-sfeeds></div><div data-packs></div>`;
+  box.querySelector("[data-ints]").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-int]"); if (!b) return;
+    const k = b.dataset.int, was = new Set(mine);
+    mine.has(k) ? mine.delete(k) : mine.add(k);
+    b.classList.toggle("on", mine.has(k));
+    try { await api.updatePref("interestsPref", { tags: [...mine] }); } catch (ex) { mine = was; b.classList.toggle("on", mine.has(k)); toast(ex.message); }
+  });
+  api.get("app.bsky.feed.getSuggestedFeeds", { limit: 6 }).then(d => {
+    if (d.feeds?.length) box.querySelector("[data-sfeeds]").innerHTML = `<h3 class="pad">Фіди, які варто спробувати</h3>${d.feeds.map(renderFeedCard).join("")}`;
+  }).catch(() => {});
+  api.get("app.bsky.unspecced.getSuggestedStarterPacks", { limit: 6 }).then(d => {
+    const packs = d.starterPacks || [];
+    if (packs.length) box.querySelector("[data-packs]").innerHTML = `<h3 class="pad">Стартові набори</h3>${packs.map(sp =>
+      `<a class="actor" href="#/starter-pack/${enc(sp.creator.did)}/${sp.uri.split("/").pop()}"><span class="bigemoji">🎒</span><div class="who"><b>${esc(sp.record?.name || "Стартовий набір")}</b>
+        <span class="muted small">від ${at(sp.creator.handle)}${sp.listItemCount ? ` · людей: ${sp.listItemCount}` : ""}</span></div></a>`).join("")}`;
+  }).catch(() => {});
+}
+
 /* ================= SEARCH ================= */
+// Search operators as form fields: they are written into the query as from:, mentions:, lang:, since:, until:, domain:
+const SOPS = [["from", "Від кого", "@нік або me"], ["mentions", "Згадує", "@нік"], ["lang", "Мова", "uk"], ["since", "Від дати", ""], ["until", "До дати", ""], ["domain", "Посилання на сайт", "youtube.com"]];
+function splitQuery(q) {
+  const ops = {};
+  const text = q.replace(/(?:^|\s)(from|mentions|lang|since|until|domain):(\S+)/g, (_, k, v) => { ops[k] = v; return " "; }).replace(/\s+/g, " ").trim();
+  return { text, ops };
+}
 export async function search(el, { q = "", tab = "top" }) {
+  const { text, ops } = splitQuery(q);
+  const nOps = Object.keys(ops).length;
   el.innerHTML = header("Пошук") + `
-    <form class="searchbar"><input type="search" placeholder="Пошук постів, людей, фідів" value="${esc(q)}" autofocus></form>
+    <form class="searchbar"><input type="search" placeholder="Пошук постів, людей, фідів" value="${esc(text)}" autofocus>
+      <details class="sfilters"${nOps ? " open" : ""}><summary class="small">⚙️ Фільтри${nOps ? ` (${nOps})` : ""}</summary>
+        <div class="sfgrid">${SOPS.map(([k, l, ph]) => `<label class="field">${l}<input data-op="${k}" ${k === "since" || k === "until" ? `type="date" value="${esc((ops[k] || "").slice(0, 10))}"` : `value="${esc(ops[k] || "")}" placeholder="${ph}"`} autocapitalize="none"></label>`).join("")}</div>
+        <div class="row end"><button type="button" class="ghost sm" data-clearops>Скинути</button><button class="btn sm">Шукати</button></div>
+      </details></form>
     ${q ? `<div class="tabs">${[["top", "Топ"], ["latest", "Найновіші"], ["people", "Люди"], ["feeds", "Фіди"]].map(([k, l]) =>
       `<a class="${k === tab ? "on" : ""}" href="#/search?q=${enc(q)}&tab=${k}">${l}</a>`).join("")}</div>` : ""}
     <div id="sbody"></div>`;
-  $("form", el).onsubmit = (e) => { e.preventDefault(); const v = $("input", el).value.trim(); if (v) location.hash = `#/search?q=${enc(v)}&tab=${tab}`; };
+  $("form", el).onsubmit = (e) => {
+    e.preventDefault();
+    const parts = [$("input", el).value.trim()];
+    el.querySelectorAll("[data-op]").forEach(i => { const v = i.value.trim().replace(/^@/, ""); if (v) parts.push(`${i.dataset.op}:${v}`); });
+    const v = parts.filter(Boolean).join(" ");
+    if (v) location.hash = `#/search?q=${enc(v)}&tab=${tab === "people" || tab === "feeds" ? "top" : tab}`;
+  };
+  el.querySelector("[data-clearops]").onclick = () => el.querySelectorAll("[data-op]").forEach(i => { i.value = ""; });
   const body = $("#sbody", el);
   // people matching what is being typed
   const inp = $("input", el), sug = document.createElement("div");
@@ -498,7 +636,7 @@ export async function search(el, { q = "", tab = "top" }) {
   inp.addEventListener("input", () => {
     clearTimeout(tm);
     const v = inp.value.trim();
-    if (!v || v === q) { sug.innerHTML = ""; return; }
+    if (!v || v === text) { sug.innerHTML = ""; return; }
     tm = setTimeout(async () => {
       try {
         const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q: v, limit: 5 });
@@ -507,7 +645,8 @@ export async function search(el, { q = "", tab = "top" }) {
     }, 250);
   });
   if (!q) {
-    body.innerHTML = `<h3 class="pad">Кого почитати</h3>`;
+    body.innerHTML = `<div id="explore"></div><h3 class="pad">Кого почитати</h3>`;
+    explore($("#explore", body)).catch(() => {});
     const tr = await api.get("app.bsky.unspecced.getTrendingTopics", {}).catch(() => null);
     if (tr?.topics?.length) body.insertAdjacentHTML("afterbegin", `<div class="pad"><h3>Тренди</h3><div class="chips">${tr.topics.slice(0, 12).map(t =>
       `<a class="chip" href="${t.link?.startsWith("/profile/") && t.link.includes("/feed/") ? "#/feed/" + enc("at://" + t.link.split("/")[2] + "/app.bsky.feed.generator/" + t.link.split("/").pop()) : "#/search?q=" + enc(t.topic)}">${esc(t.topic)}</a>`).join("")}</div></div>`);
@@ -682,6 +821,7 @@ export async function convo(el, { id }) {
         <div class="muted small">Надіслано ${today ? "о " : ""}${esc(when)}</div>
         <button data-a="reply">↩︎ Відповісти</button>
         ${m.text ? `<button data-a="translate">🌐 Перекласти</button><button data-a="copy">📋 Копіювати текст повідомлення</button>` : ""}
+        ${row.classList.contains("mine") ? "" : `<button data-a="report" class="danger">🚩 Поскаржитися</button>`}
         <button data-a="del" class="danger">🗑️ Видалити для мене</button>
       </div></div>`;
     const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
@@ -699,6 +839,8 @@ export async function convo(el, { id }) {
         if (a === "translate") window.open(`https://translate.google.com/?sl=auto&tl=uk&text=${encodeURIComponent(m.text || "")}`, "_blank");
         if (a === "copy") { await navigator.clipboard.writeText(quoteOf(m)?.rest ?? m.text ?? ""); toast("Скопійовано"); }
         if (a === "del") { await api.chatPost("chat.bsky.convo.deleteMessageForSelf", { convoId: id, messageId: m.id }); row.remove(); }
+        // the moderators see exactly this message (and the chat it is in)
+        if (a === "report") window.dispatchEvent(new CustomEvent("skybee:report", { detail: { $type: "chat.bsky.convo.defs#messageRef", did: m.sender.did, convoId: id, messageId: m.id } }));
       } catch (ex) { toast(ex.message); }
     });
     document.body.appendChild(wrap);

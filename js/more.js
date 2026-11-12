@@ -8,7 +8,7 @@ const reload = () => window.dispatchEvent(new Event("hashchange"));
 
 /* ================= LISTS ================= */
 export async function lists(el) {
-  el.innerHTML = header("Списки", false, `<button class="btn sm" data-act="newList">＋ Новий</button>`) +
+  el.innerHTML = header("Списки", false, `<a class="ghost sm" href="#/starter-packs/new" title="Новий стартовий набір">🎒 Набір</a><button class="btn sm" data-act="newList">＋ Новий</button>`) +
     `<p class="pad small muted">Звичайний список — це власна стрічка з обраних людей, її можна закріпити на головній. Модераційний — щоб разом приховати чи заблокувати групу акаунтів.</p>`;
   return paged(el, async (cursor) => {
     const d = await api.get("app.bsky.graph.getLists", { actor: session.did, limit: 50, cursor });
@@ -116,12 +116,64 @@ export async function addToListsDialog(actor) {
 }
 
 /* ================= STARTER PACK ================= */
+// New starter pack: name, a few words, people (you are always in it) and up to 3 feeds
+export async function newStarterPack(el) {
+  const people = new Map(), feeds = new Set();
+  el.innerHTML = header("Новий стартовий набір", true) + `
+    <form class="card builder">
+      <p class="hint">Набір допомагає новачкам знайти цікавих людей і фіди: за посиланням на нього можна підписатися на всіх одразу.</p>
+      <label class="field">Назва<input name="name" maxlength="50" required placeholder="Наприклад: Українські ілюстратори"></label>
+      <label class="field">Опис<textarea name="desc" maxlength="300" rows="3" placeholder="Про кого цей набір"></textarea></label>
+      <div class="field">Люди (до 150; ти вже є в наборі)<input type="search" data-q placeholder="Пошук людей"><div class="results" data-res></div><div data-people></div></div>
+      <div class="field">Фіди (до 3)<div data-feeds>${spinner()}</div></div>
+      <p class="err"></p><div class="row end"><button class="btn">Створити набір</button></div>
+    </form>`;
+  const form = $("form", el), res = $("[data-res]", el), q = $("[data-q]", el), err = $(".err", el);
+  const drawPeople = () => { $("[data-people]", el).innerHTML = [...people.values()].map(a => `<div class="srcrow">${avatar(a, 24)} <span class="grow clip">${name(a)} <small class="muted">${at(a.handle)}</small></span><button type="button" class="ghost sm" data-unp="${a.did}">✕</button></div>`).join(""); };
+  let tm;
+  q.addEventListener("input", () => {
+    clearTimeout(tm);
+    const v = q.value.trim(); if (!v) { res.innerHTML = ""; return; }
+    tm = setTimeout(async () => {
+      const d = await api.get("app.bsky.actor.searchActorsTypeahead", { q: v, limit: 6 }).catch(() => ({ actors: [] }));
+      res.innerHTML = d.actors.filter(a => a.did !== session.did).map(a => { actors.set(a.did, a); return `<button type="button" class="actor plain" data-addp="${a.did}">${avatar(a, 32)}<div class="who"><b>${name(a)}</b><span class="muted">${at(a.handle)}</span></div></button>`; }).join("");
+    }, 250);
+  });
+  form.addEventListener("click", (e) => {
+    const add = e.target.closest("[data-addp]"), un = e.target.closest("[data-unp]");
+    if (add) { if (people.size >= 149) return toast("Максимум 150 людей"); people.set(add.dataset.addp, actors.get(add.dataset.addp)); res.innerHTML = ""; q.value = ""; q.focus(); drawPeople(); }
+    if (un) { people.delete(un.dataset.unp); drawPeople(); }
+  });
+  try {
+    const saved = (await api.getSavedFeeds()).filter(i => i.type === "feed").map(i => i.value);
+    const gens = saved.length ? (await api.get("app.bsky.feed.getFeedGenerators", { feeds: saved })).feeds : [];
+    $("[data-feeds]", el).innerHTML = gens.length ? gens.map(g => `<label class="check"><input type="checkbox" value="${esc(g.uri)}"> ${esc(g.displayName)}</label>`).join("") : `<p class="hint">Збережених фідів немає</p>`;
+  } catch { $("[data-feeds]", el).innerHTML = ""; }
+  $("[data-feeds]", el).addEventListener("change", (e) => {
+    const c = e.target; if (c.type !== "checkbox") return;
+    if (c.checked && feeds.size >= 3) { c.checked = false; return toast("Не більше 3 фідів"); }
+    c.checked ? feeds.add(c.value) : feeds.delete(c.value);
+  });
+  form.onsubmit = async (e) => {
+    e.preventDefault(); err.textContent = "";
+    const nm = form.elements.name.value.trim();
+    if (!nm) { err.textContent = "Дай набору назву"; return; }
+    if (people.size < 1) { err.textContent = "Додай хоча б одну людину"; return; }
+    const b = $("button.btn", form); b.disabled = true; b.textContent = "Створення…";
+    try {
+      const r = await api.createStarterPack({ name: nm, description: form.elements.desc.value.trim(), dids: [...people.keys()], feeds: [...feeds] });
+      toast("Набір створено 🎒"); location.hash = `#/starter-pack/${encodeURIComponent(session.handle)}/${r.uri.split("/").pop()}`;
+    } catch (ex) { err.textContent = ex.message; b.disabled = false; b.textContent = "Створити набір"; }
+  };
+}
+
 export async function starterPack(el, { actor, rkey }) {
   el.innerHTML = header("Стартовий набір", true) + spinner();
   const did = actor.startsWith("did:") ? actor : (await api.get("com.atproto.identity.resolveHandle", { handle: actor })).did;
   const sp = (await api.get("app.bsky.graph.getStarterPack", { starterPack: `at://${did}/app.bsky.graph.starterpack/${rkey}` })).starterPack;
   const rec = sp.record || {};
-  el.innerHTML = header(esc(rec.name || "Стартовий набір"), true) + `
+  const mine = sp.creator.did === session.did;
+  el.innerHTML = header(esc(rec.name || "Стартовий набір"), true, `<button class="ghost icon" data-spshare title="Поділитися">📤</button>${mine ? `<button class="ghost icon" data-spdel title="Видалити набір">🗑️</button>` : ""}`) + `
     <div class="card-row pad"><span class="bigemoji">🎒</span>
       <div class="grow"><b>${esc(rec.name || "")}</b>
         <div class="muted small">Стартовий набір від <a href="${profileHref(sp.creator)}">${at(sp.creator.handle)}</a>${sp.joinedAllTimeCount ? ` · приєдналися: ${num(sp.joinedAllTimeCount)}` : ""}</div>
@@ -130,6 +182,13 @@ export async function starterPack(el, { actor, rkey }) {
     </div>
     ${sp.feeds?.length ? `<h3 class="pad">Фіди</h3>${sp.feeds.map(renderFeedCard).join("")}` : ""}
     <h3 class="pad">Люди</h3>`;
+  $("[data-spshare]", el).onclick = () => window.dispatchEvent(new CustomEvent("skybee:share", { detail: [
+    `Стартовий набір «${esc(rec.name || "")}»`, `#/starter-pack/${encodeURIComponent(sp.creator.handle)}/${rkey}`, `https://bsky.app/starter-pack/${sp.creator.handle}/${rkey}`] }));
+  const del = $("[data-spdel]", el);
+  if (del) del.onclick = async () => {
+    if (!await confirmBox("Видалити цей стартовий набір? Люди, які вже приєдналися, залишаться підписаними.", "Видалити", true)) return;
+    try { await api.deleteStarterPack(sp); toast("Набір видалено"); location.hash = "#/profile/me/packs"; } catch (ex) { toast(ex.message); }
+  };
   if (!sp.list) { el.insertAdjacentHTML("beforeend", empty("Список людей недоступний")); return; }
   const btn = $("[data-followall]", el);
   btn.onclick = async () => {
