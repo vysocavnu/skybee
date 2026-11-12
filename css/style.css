@@ -512,3 +512,10 @@ body.guest .topbar { top: 49px; }
 .sfeed.on { background: var(--hover); font-weight: 700; box-shadow: inset 3px 0 0 var(--accent); }
 .sfeed .clip { min-width: 0; }
 @media (min-width: 1101px) { #feedTabs { display: none; } }
+.dhead [data-d=refresh].fresh { color: var(--accent); position: relative; }
+.dhead [data-d=refresh].fresh::after { content: ""; position: absolute; top: 3px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+/* older Chromium (the desktop app) ignores scrollbar-width: thin bars there too, without arrows */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 6px; }
+::-webkit-scrollbar-button { display: none; height: 0; width: 0; }

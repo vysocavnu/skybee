@@ -131,6 +131,7 @@ export async function deck(el) {
     const box = row.querySelector(`.dcol[data-id="${CSS.escape(c.id)}"] .dbody`);
     if (!box) return;
     stops.get(c.id)?.(); box.innerHTML = ""; box.scrollTop = 0;
+    box.parentElement.querySelector("[data-d=refresh]")?.classList.remove("fresh");
     const as = account(c);
     const pager = c.type === "notifications" ? notifPager({ filter: c.sort || undefined, as }) : src.feedPager(c, { as, grid: !!c.grid });
     stops.set(c.id, paged(box, pager, { cls: c.grid ? "tiles" : "", root: box }));
@@ -167,10 +168,22 @@ export async function deck(el) {
     }
   });
   draw();
-  // monitoring: columns that sit at the top refresh themselves every two minutes
-  const timer = setInterval(() => {
+  // monitoring without jumping: every two minutes each column quietly checks its first page;
+  // when there is something new, the ↻ button gets a dot — the posts on screen are never replaced on their own
+  const firstKey = (html) => html.join("").match(/data-(?:uri|href)="([^"]+)"/)?.[1];
+  const timer = setInterval(async () => {
     if (document.hidden) return;
-    for (const c of cols) { const box = row.querySelector(`.dcol[data-id="${CSS.escape(c.id)}"] .dbody`); if (box && box.scrollTop < 30) load(c); }
+    for (const c of cols) {
+      const col = row.querySelector(`.dcol[data-id="${CSS.escape(c.id)}"]`), shown = col?.querySelector(".dbody [data-uri], .dbody [data-href]");
+      if (!shown || col.querySelector("[data-d=refresh].fresh")) continue;
+      try {
+        const as = account(c);
+        const pager = c.type === "notifications" ? notifPager({ filter: c.sort || undefined, as }) : src.feedPager(c, { as, grid: !!c.grid });
+        const top = firstKey((await pager()).html);
+        const now = shown.dataset.uri || shown.dataset.href;
+        if (top && top !== now) col.querySelector("[data-d=refresh]")?.classList.add("fresh");
+      } catch {}
+    }
   }, 120000);
   return () => { clearInterval(timer); for (const s of stops.values()) s(); document.body.classList.remove("deckmode"); };
 }
