@@ -2,7 +2,7 @@
 import * as api from "./api.js";
 import * as V from "./views.js";
 import * as notify from "./notify.js";
-import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine } from "./ui.js";
+import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, num, actionsBar, gateLine } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { document.documentElement.dataset.theme = localStorage.getItem("skybee.theme") || "dark"; document.body.style.fontSize = (localStorage.getItem("skybee.font") || "15") + "px"; } catch {}
@@ -90,6 +90,29 @@ const meChip = () => {
   const me = actors.get(api.session.did) || api.session;
   return `${avatar(me, 36)}<span class="nl"><b>${name(me)}</b><small>@${esc(api.session.handle)}</small></span>`;
 };
+// own profile card in the right column
+function sideProfile(p) {
+  if (!p) return `<div class="spinner"></div>`;
+  const href = `#/profile/${encodeURIComponent(p.handle)}`;
+  return `
+    <a class="sp-banner" href="${href}" ${p.banner ? `style="background-image:url('${esc(p.banner)}')"` : ""}></a>
+    <div class="sp-body">
+      <a class="sp-ava" href="${href}">${avatar(p, 64)}</a>
+      <a href="${href}" class="sp-name"><b>${name(p)}</b></a>
+      <div class="muted small">@${esc(p.handle)}</div>
+      <div class="sp-counts">
+        <a href="${href}/followers"><b>${num(p.followersCount)}</b> читачів</a>
+        <a href="${href}/follows"><b>${num(p.followsCount)}</b> підписок</a>
+        <span><b>${num(p.postsCount)}</b> постів</span>
+      </div>
+      ${p.description ? `<div class="sp-bio small">${esc(p.description)}</div>` : ""}
+      <div class="row sp-btns">
+        <a class="ghost sm" href="${href}">Мій профіль</a>
+        <button class="ghost sm" data-act="editProfile">Редагувати</button>
+      </div>
+    </div>`;
+}
+
 function shell() {
   app.innerHTML = `
   <nav class="side">
@@ -101,6 +124,7 @@ function shell() {
   <main id="main"></main>
   <aside class="right">
     <form class="searchbar" id="sideSearch"><input type="search" placeholder="Пошук"></form>
+    <div class="card sideprof" id="sideProf">${sideProfile(actors.get(api.session.did))}</div>
     <div class="card small muted">🐝 Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
   <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 6].includes(i)).map(([h, i, , b]) => `<a href="${h}" data-nav="${h}"><span class="ni">${i}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span></a>`).join("")}</nav>
@@ -467,6 +491,6 @@ function boot() {
   window.__skybeeBadge = setInterval(badges, 60000);
   // own profile: the avatar for the account button and the reply box
   api.get("app.bsky.actor.getProfile", { actor: api.session.did })
-    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); }).catch(() => {});
+    .then(p => { actors.set(p.did, p); const me = $(".me"); if (me) me.innerHTML = meChip(); const sp = $("#sideProf"); if (sp) sp.innerHTML = sideProfile(p); }).catch(() => {});
 }
 boot();
