@@ -15,19 +15,45 @@ const restart = () => { location.hash = "#/"; location.reload(); };
 
 /* ---------- login ---------- */
 const LOGIN_FIELDS = `
-  <input name="handle" placeholder="@нік" autocomplete="username" autocapitalize="off" required>
-  <input name="pass" type="password" placeholder="Пароль застосунку xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" required>
-  <p class="hint">Використовуй <b>пароль застосунку</b> (bsky.app → Налаштування → Конфіденційність і безпека → Паролі застосунків). Для чатів постав галочку доступу до повідомлень.</p>
+  <input name="handle" placeholder="@нік або email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+  <div class="seg">
+    <label><input type="radio" name="kind" value="app" checked> Пароль застосунку</label>
+    <label><input type="radio" name="kind" value="main"> Основний пароль</label>
+  </div>
+  <input name="pass" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+  <label class="showpass"><input type="checkbox" name="show"> Показати пароль</label>
+  <input name="code" placeholder="Код із листа" autocomplete="one-time-code" autocapitalize="characters" hidden>
+  <p class="hint" data-hint></p>
   <p class="err"></p>
   <button class="btn wide">Увійти</button>`;
+const LOGIN_HINT = {
+  app: "<b>Пароль застосунку</b> безпечніший: його створюють окремо (bsky.app → Налаштування → Конфіденційність і безпека → Паролі застосунків) і можна будь-коли відкликати. Для чатів постав галочку доступу до повідомлень.",
+  main: "<b>Основний пароль</b> дає повний доступ до акаунта. Він надсилається лише на сервер Bluesky і в Skybee не зберігається. Якщо ввімкнено підтвердження поштою, знадобиться код із листа.",
+};
 
 function bindLogin(f) {
+  const btn = $("button", f), err = $(".err", f);
+  const sync = () => {
+    const main = f.kind.value === "main";
+    $("[data-hint]", f).innerHTML = LOGIN_HINT[f.kind.value];
+    f.pass.placeholder = main ? "Основний пароль" : "xxxx-xxxx-xxxx-xxxx";
+    f.pass.type = f.show.checked ? "text" : "password";
+    if (!main) { f.code.hidden = true; f.code.value = ""; }
+  };
+  f.addEventListener("change", sync); sync();
   f.onsubmit = async (e) => {
     e.preventDefault();
-    const btn = $("button", f), err = $(".err", f);
-    btn.disabled = true; err.textContent = "";
-    try { await api.login(f.handle.value, f.pass.value); restart(); }
-    catch (ex) { err.textContent = ex.message; btn.disabled = false; }
+    btn.disabled = true; err.textContent = ""; btn.textContent = "Вхід…";
+    try {
+      await api.login(f.handle.value, f.pass.value, { main: f.kind.value === "main", code: f.code.value });
+      // a page reload needs the session in storage; where storage is blocked, carry on in memory
+      let stored = false; try { stored = !!localStorage.getItem("skybee.session"); } catch {}
+      if (stored) restart(); else { document.querySelectorAll(".modal-bg").forEach(m => m.remove()); location.hash = "#/"; boot(); }
+    } catch (ex) {
+      err.textContent = ex.message;
+      if (ex.code === "AuthFactorTokenRequired") { f.kind.value = "main"; sync(); f.code.hidden = false; f.code.focus(); }
+    }
+    btn.disabled = false; btn.textContent = "Увійти";
   };
 }
 
@@ -37,7 +63,7 @@ function loginScreen() {
     <h1>🐝 Skybee</h1>
     <p class="muted">Клієнт для Bluesky</p>
     <form class="card loginform">
-      <p class="hint">Достатньо ввести нік, наприклад <b>@lejk309</b>. Якщо акаунт не на bsky.social (Eurosky, свій домен) — повний handle.</p>
+      <p class="hint">Достатньо ввести нік, наприклад <b>@lejk309</b>, або email акаунта. Якщо акаунт не на bsky.social (Eurosky, свій домен) — повний handle.</p>
       ${LOGIN_FIELDS}
       <hr>
       <p class="hint">Ще немає акаунта в Bluesky?</p>
@@ -107,6 +133,7 @@ async function route() {
   document.querySelector(".popmenu")?.remove();
   document.querySelectorAll(".modal-bg").forEach(m => m.close ? m.close() : m.remove());
   const main = $("#main");
+  if (!main) return; // signed in a moment ago, the page is about to reload
   let [path, qs] = location.hash.slice(1).split("?");
   path = path || "/";
   const q = Object.fromEntries(new URLSearchParams(qs || ""));
@@ -406,6 +433,7 @@ document.addEventListener("keydown", (e) => {
 // Another tab refreshed the tokens, signed out or switched the account: take over what it saved
 window.addEventListener("storage", (e) => {
   if (e.key !== "skybee.session" && e.key !== "skybee.accounts") return;
+  if (e.key === "skybee.session" && !e.newValue) return location.reload(); // signed out there
   const was = api.session?.did;
   api.loadSession();
   if (api.session?.did !== was) location.reload();

@@ -19,7 +19,7 @@ function adopt() {
   if (i < 0) accounts.push(session); else accounts[i] = session;
 }
 export function loadSession() {
-  session = read(KEY);
+  session = read(KEY) || (read(ACCOUNTS) ? null : session); // storage blocked (private mode): keep what is in memory
   const saved = read(ACCOUNTS);
   accounts = (Array.isArray(saved) ? saved : []).filter(a => a?.did);
   adopt();
@@ -67,13 +67,40 @@ export async function resolvePds(input) {
   return { did, pds: svc.serviceEndpoint.replace(/\/$/, "") };
 }
 
-export async function login(handle, password) {
-  const { did, pds } = await resolvePds(handle);
-  const r = await fetch(`${pds}/xrpc/com.atproto.server.createSession`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier: did, password: password.trim() }) });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error === "AuthenticationRequired" ? "Неправильний нік або пароль" : (d.message || d.error));
+const ENTRYWAY = "https://bsky.social";
+const pdsOfDoc = (doc) => (doc?.service || []).find(x => x.id === "#atproto_pds" || x.type === "AtprotoPersonalDataServer")?.serviceEndpoint?.replace(/\/$/, "");
+
+// opts.main: the account's main password (may need an e-mail `code`), otherwise an app password.
+// Phone keyboards add spaces, invisible characters and «smart» dashes — all of that is cleaned up here.
+export async function login(handle, password, { main = false, code = "" } = {}) {
+  const id = handle.replace(/[\s​-‍⁠﻿]/g, "").replace(/^@/, "");
+  let pass = password.trim();
+  if (!main) pass = pass.replace(/\s/g, "").replace(/[‐-―−]/g, "-");
+  if (!id || !pass) throw new Error("Введи нік і пароль");
+  let identifier = id.includes("@") ? id : normalizeHandle(id), pds = ENTRYWAY, resolved = false;
+  if (!id.includes("@")) { // an e-mail cannot be resolved, it goes straight to bsky.social
+    try { const r = await resolvePds(id); identifier = r.did; pds = r.pds; resolved = true; }
+    catch { /* lookup blocked or failed (ad blockers, weak network): bsky.social can still sign most accounts in */ }
+  }
+  const body = { identifier, password: pass };
+  if (code.trim()) body.authFactorToken = code.trim();
+  let r, d;
+  try {
+    r = await fetch(`${pds}/xrpc/com.atproto.server.createSession`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    d = await r.json().catch(() => ({}));
+  } catch { throw new Error("Немає зв'язку із сервером. Перевір інтернет або вимкни блокувальник реклами для цього сайту."); }
+  if (!r.ok) {
+    const e = new Error(
+      d.error === "AuthFactorTokenRequired" ? "На пошту акаунта надіслано код підтвердження — введи його нижче"
+      : d.error === "AuthenticationRequired" ? (main ? "Неправильний нік або пароль" : "Неправильний нік або пароль застосунку. Якщо вводиш основний пароль — обери «Основний пароль».")
+      : d.error === "RateLimitExceeded" || r.status === 429 ? "Забагато спроб входу, спробуй за кілька хвилин"
+      : d.error === "AccountTakedown" ? "Акаунт заблоковано модерацією"
+      : d.message || d.error || `Помилка ${r.status}`);
+    e.code = d.error; throw e;
+  }
+  if (!resolved) { // signed in through bsky.social: find the account's own server for later requests
+    pds = pdsOfDoc(d.didDoc) || await resolvePds(d.did).then(x => x.pds, () => ENTRYWAY);
+  }
   session = { did: d.did, handle: d.handle, accessJwt: d.accessJwt, refreshJwt: d.refreshJwt, pds };
   forgetPrefs();
   saveSession();

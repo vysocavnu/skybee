@@ -117,6 +117,11 @@ nav.bottom, .fab, .only-mobile { display: none; }
 .login h1 { font-size: 40px; }
 .loginform { text-align: left; display: flex; flex-direction: column; gap: 10px; }
 .loginform > * { margin: 0; }
+.loginform .seg label { flex: 1; display: flex; gap: 6px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; font-size: 14px; cursor: pointer; }
+.loginform .seg label:has(:checked) { border-color: var(--accent); }
+.loginform .seg input, .showpass input { width: auto; }
+.showpass { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.loginform input { font-size: 16px; } /* smaller text makes iOS zoom the page on focus */
 
 /* ---------- avatars ---------- */
 .avatar { border-radius: 50%; object-fit: cover; flex: none; display: block; background: var(--line); }
