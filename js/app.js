@@ -1,4 +1,5 @@
 // Skybee — app shell, router, global actions
+import "./splash.js"; // the welcome scene, first of all
 import * as api from "./api.js";
 import * as V from "./views.js";
 import * as M from "./more.js";
