@@ -534,7 +534,7 @@ export async function search(el, { q = "", tab = "top" }) {
 export async function feeds(el) {
   el.innerHTML = header("Фіди", false, `<a class="ghost sm" href="#/myfeeds">🧩 Мої стрічки</a>`) + `
     <div class="card"><b>🧩 Конструктор стрічок</b><p class="hint">Збери власну стрічку з підписок, фідів, списків, пошуку й профілів: ключові слова, виключення, без відповідей чи поширень, лише медіа, сортування.</p>
-      <div class="row"><a class="btn sm" href="#/myfeeds/new">Створити стрічку</a><a class="ghost sm" href="#/myfeeds">Мої стрічки</a><a class="ghost sm" href="#/deck">🗂 Колонки</a></div></div>
+      <div class="row"><a class="btn sm" href="#/myfeeds/new">Створити стрічку</a><a class="ghost sm" href="#/myfeeds">Мої стрічки</a><a class="ghost sm" href="#/deck">📰 Колонки</a></div></div>
     <h3 class="pad">Мої фіди</h3><div id="mine">${spinner()}</div><h3 class="pad">Рекомендовані</h3><div id="rec"></div><h3 class="pad">Знайти нові фіди</h3>
     <form class="searchbar"><input type="search" placeholder="Пошук фідів"></form><div id="disc"></div>`;
   const mine = $("#mine", el);

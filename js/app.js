@@ -114,7 +114,7 @@ function addAccountDialog() {
 /* ---------- shell ---------- */
 const NAV = [
   ["#/", "🏠", "Головна"], ["#/search", "🔍", "Пошук"], ["#/notifications", "🔔", "Сповіщення", "nbadge"],
-  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/deck", "🗂", "Колонки"], ["#/lists", "📋", "Списки"], ["#/bookmarks", "🔖", "Закладки"],
+  ["#/messages", "💬", "Чати", "cbadge"], ["#/feeds", "#️⃣", "Фіди"], ["#/deck", "📰", "Колонки"], ["#/lists", "📋", "Списки"], ["#/bookmarks", "🔖", "Закладки"],
   ["#/profile/me", "👤", "Профіль"], ["#/settings", "⚙️", "Налаштування"],
 ];
 const meChip = () => {

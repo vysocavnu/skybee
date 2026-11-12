@@ -217,7 +217,7 @@ export async function myFeeds(el) {
     box.innerHTML = list.length ? list.map(f => `<div class="actor" data-href="${src.myFeedHref(f)}"><span class="bigemoji">🧩</span>
       <div class="who"><b>${esc(f.name)}</b><span class="muted small">${esc(describe(f))}</span></div>
       <button class="ghost sm" data-f="pin" data-id="${esc(f.id)}" title="${f.pinned ? "Прибрати з головної" : "Закріпити на головній"}">${f.pinned ? "📌" : "📍"}</button>
-      <button class="ghost sm" data-f="deck" data-id="${esc(f.id)}" title="Додати колонкою">🗂</button>
+      <button class="ghost sm" data-f="deck" data-id="${esc(f.id)}" title="Додати колонкою">📰</button>
       <a class="ghost sm" href="#/myfeeds/${enc(f.id)}" title="Змінити">✏️</a>
       <button class="ghost sm" data-f="del" data-id="${esc(f.id)}" title="Видалити">✕</button></div>`).join("")
       : empty("Ще жодної. Натисни «＋ Нова», щоб зібрати першу");
