@@ -380,7 +380,7 @@ window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const 
 {
   let y0 = null, dy = 0, ind = null;
   addEventListener("touchstart", (e) => {
-    y0 = scrollY <= 0 && !document.querySelector(".modal-bg, .msheet-bg") && !document.body.classList.contains("deckmode") && e.target.closest?.("main") ? e.touches[0].clientY : null;
+    y0 = scrollY <= 0 && e.touches[0].clientX > 32 && !document.querySelector(".modal-bg, .msheet-bg") && !document.body.classList.contains("deckmode") && e.target.closest?.("main") ? e.touches[0].clientY : null;
     dy = 0;
   }, { passive: true });
   addEventListener("touchmove", (e) => {

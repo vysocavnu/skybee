@@ -723,3 +723,8 @@ nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollba
   nav.side .nl, nav.side .logo span, .compose-side span, nav.side .me .nl { display: none; }
   nav.side a, .me { justify-content: center; }
 }
+
+/* swipe back from the left edge in the apps (js/native.js) */
+.swipeback { position: fixed; left: 0; z-index: 90; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; pointer-events: none;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); font-size: 20px; box-shadow: 0 4px 16px rgba(0,0,0,.35); transition: background .12s, color .12s; }
+.swipeback.ready { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
