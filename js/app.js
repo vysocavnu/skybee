@@ -5,6 +5,7 @@ import * as M from "./more.js";
 import * as S from "./settings.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
+import * as L from "./lens.js";
 import { $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
@@ -186,6 +187,7 @@ async function route() {
     else if (seg[0] === "feed") r = V.feed(main, { uri: seg[1] });
     else if (seg[0] === "list") r = V.list(main, { uri: seg[1] });
     else if (seg[0] === "bookmarks") r = V.bookmarks(main);
+    else if (seg[0] === "lens") r = L.lens(main, { actor: seg[1], tab: seg[2] });
     else if (seg[0] === "settings") r = ({
       words: V.mutedWords, content: M.contentFilters, passwords: M.appPasswords, account: S.account, accounts: S.accounts, privacy: S.privacy,
       moderation: S.moderation, notifs: S.notifications, media: S.media, appearance: S.appearance, a11y: S.a11y, langs: S.langs, help: S.help, about: S.about,
@@ -377,6 +379,7 @@ document.addEventListener("click", async (e) => {
           { act: "copy", label: "🔗 Копіювати посилання" },
           { act: "search", label: "🔍 Шукати в постах" },
           { act: "lists", label: "📋 Додати до списків" },
+          { act: "lens", label: mine ? "🔎 Хто мене заблокував, мої списки" : "🔎 Хто заблокував, у яких списках" },
           ...(mine ? [] : [
             ...(a.viewer?.following ? [{ act: "bell", label: a.viewer?.activitySubscription?.post ? "🔕 Не сповіщати про пости" : "🔔 Сповіщати про нові пости" }] : []),
             a.viewer?.muted ? { act: "unmute", label: "👁️ Показувати" } : { act: "mute", label: "🙈 Приховати" },
@@ -387,6 +390,7 @@ document.addEventListener("click", async (e) => {
         if (c === "copy") { await navigator.clipboard.writeText(`https://bsky.app/profile/${a.handle}`); toast("Скопійовано"); }
         if (c === "search") location.hash = `#/search?q=${encodeURIComponent("from:" + a.handle + " ")}`;
         if (c === "lists") M.addToListsDialog(a);
+        if (c === "lens") location.hash = `#/lens/${encodeURIComponent(a.did)}`;
         if (c === "bell") {
           const on = !a.viewer?.activitySubscription?.post;
           await api.subscribeActivity(a.did, on);
