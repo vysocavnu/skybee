@@ -78,7 +78,17 @@ export function tint(el, did) {
     const c = got?.rec.color;
     if (!c) return untint(el);
     el.style.setProperty("--sb", c); el.style.setProperty("--sb-ink", inkFor(c)); el.classList.add("sb-tint");
+    barColor(el);
   });
+}
+// The browser's / phone's status bar (meta theme-color: Android Chrome, Safari, the installed app) in the page colour
+function barColor(el) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  if (!el) { meta.content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0f1218"; return; } // the theme's own
+  const probe = document.createElement("i"); probe.style.cssText = "position:absolute;background:var(--bg)";
+  el.appendChild(probe); const c = getComputedStyle(probe).backgroundColor; probe.remove(); // color-mix() resolved to rgb
+  if (c) meta.content = c;
 }
 // A card (own profile in the right column) in the person's colour; no colour → back to the usual look
 export function paint(el, did) {
@@ -91,6 +101,7 @@ export function paint(el, did) {
 export function untint(el) {
   el._tint = null;
   el.classList.remove("sb-tint"); el.style.removeProperty("--sb"); el.style.removeProperty("--sb-ink");
+  barColor(null);
 }
 
 // Called right after the profile header is rendered; fills in the extras when they arrive
