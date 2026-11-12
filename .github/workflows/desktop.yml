@@ -40,6 +40,21 @@ jobs:
           cp src-tauri/target/release/bundle/nsis/*.exe out/
           cp src-tauri/target/release/skybee.exe out/Skybee-portable.exe
           ls -l out
+      - name: Пробний запуск
+        shell: pwsh
+        env:
+          RUST_BACKTRACE: "1"
+        run: |
+          $p = Start-Process out/Skybee-portable.exe -PassThru -RedirectStandardError err.txt -RedirectStandardOutput stdout.txt
+          Start-Sleep 20
+          if ($p.HasExited) {
+            "Skybee закрився сам, код $($p.ExitCode)"
+            Get-Content err.txt, stdout.txt
+            Get-WinEvent -FilterHashtable @{LogName='Application'; Level=2; StartTime=(Get-Date).AddMinutes(-2)} -ErrorAction SilentlyContinue | Format-List TimeCreated, ProviderName, Message
+            exit 1
+          }
+          "Skybee працює"
+          Stop-Process -Id $p.Id -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Skybee-Windows
