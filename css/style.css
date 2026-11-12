@@ -625,10 +625,8 @@ body:has(.chatbar) .fab { display: none; } /* in a chat the ✏️ button would 
 .lpill { background: color-mix(in srgb, var(--accent) 18%, var(--hover)); color: var(--text); }
 .post.fadeout { opacity: 0; transition: opacity .3s; }
 
-/* ---------- the Skybee bee (ui.js `bee()`): gold that suits each theme ---------- */
-:root, [data-theme="dark"] { --bee-hi: #ecd08e; --bee-lo: #b98f45; }
-[data-theme="dim"] { --bee-hi: #f0d699; --bee-lo: #c39a52; }
-[data-theme="light"] { --bee-hi: #b48a3e; --bee-lo: #7d5b22; }
+/* ---------- the Skybee bee (ui.js `bee()`): always the same gold ---------- */
+:root { --bee-hi: #e8c97f; --bee-lo: #b98f45; } /* one gold in every theme, as in the logo */
 .bee { display: inline-block; vertical-align: middle; flex-shrink: 0; overflow: visible; }
 nav.side .logo, .guestbar .logo { display: flex; align-items: center; gap: 10px; }
 .topbar h2.brand { display: flex; align-items: center; gap: 8px; }
