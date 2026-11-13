@@ -8,7 +8,7 @@ name: Desktop (Windows)
 on:
   push:
     tags: ["v*"]
-    branches: ["**"]
+    branches: ["main"] # лише main: інакше кожна зміна збиралася двічі (гілка + злиття) і гілка перезаписувала тестові релізи
     paths: ["desktop/**", "flatpak/**", "scripts/dist.mjs", ".github/workflows/desktop.yml", "index.html", "css/**", "js/**", "icons/**"]
   workflow_dispatch:
     inputs:

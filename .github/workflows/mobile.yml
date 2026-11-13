@@ -10,7 +10,7 @@ name: Mobile (Android, iOS)
 on:
   push:
     tags: ["v*"]
-    branches: ["**"]
+    branches: ["main"] # лише main: інакше кожна зміна збиралася двічі (гілка + злиття) і гілка перезаписувала тестові релізи
     paths: ["mobile/**", "scripts/dist.mjs", ".github/workflows/mobile.yml", "index.html", "css/**", "js/**", "icons/**"]
   workflow_dispatch:
 
