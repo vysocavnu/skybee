@@ -26,6 +26,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   `npx cap add android|ios` створює їх у CI (`.github/workflows/mobile.yml`), іконки й заставка — `@capacitor/assets` з `mobile/assets/`.
   APK підписаний тестовим ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх; ключ прописаний у `build.gradle` кроком CI, бо копія в `~/.android` не діяла; CI перевіряє SHA-256 відбиток `fb9ab4…e785`); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
   Кожна збірка оновлює pre-release `mobile-test` (Skybee.apk, Skybee-unsigned.ipa); тег `vX.Y.Z` — ще й у реліз. Вебчастина в телефоні поки не оновлюється сама — потрібна нова збірка.
+  Статус-бар: Android — `adjustMarginsForEdgeToEdge: "auto"` у `mobile/capacitor.config.json` (сторінка під статус-баром, не позаду), iPhone — `--sat` = `env(safe-area-inset-top)` у шапках (`.topbar`, `.guestbar`, бічне меню, вікна).
   `js/native.js`: лише в Capacitor — зовнішні посилання й `window.open` → системний браузер, кнопка «Назад» Android (меню → вікно → бічне меню → крок назад → вихід); у всіх застосунках (і десктопі з сенсорним екраном) — свайп від лівого краю вправо = «Назад» (`closeTop`, стрілка `.swipeback`).
 
 ## Структура
