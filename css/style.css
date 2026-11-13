@@ -1164,3 +1164,5 @@ nav.side { padding-top: calc(12px + var(--sat)); }
 }
 :root[data-ui="material"] .topbar { min-height: calc(64px + var(--sat)); }
 .login { padding-bottom: calc(16px + var(--sab)); }
+/* «no colour» swatch: the usual dark look with the gold bee, so it can't be mistaken for «Жовтий» */
+.sb-sw.none { display: grid; place-items: center; background: #0f1218; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
