@@ -1248,3 +1248,28 @@ input[type="file"]::file-selector-button { font: inherit; font-weight: 600; marg
    buttons, switches, the current tab and menu item, badges — while the page keeps the theme's background.
    The bee logo stays gold. --sb-ink is the text colour that reads on it (js/flair.js inkFor). */
 html.sb-theme { --accent: var(--sb); --accent-ink: var(--sb-ink); }
+
+/* ---------- Settings, the Telegram way ---------- */
+/* my profile on top over my Skybee profile colour (--pc, from flair), melting softly into the page; no colour → a faint accent glow */
+.shead { position: relative; isolation: isolate; padding-top: 28px; padding-bottom: 22px; }
+.shead::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(-64px - var(--sat)); bottom: 0; pointer-events: none;
+  background: radial-gradient(ellipse 90% 70% at 50% 30%, color-mix(in srgb, var(--pc, var(--accent)) 38%, transparent), transparent 72%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--pc, var(--accent)) 22%, var(--bg)) 0%, var(--bg) 100%); }
+.shead:not([style*="--pc"])::before { opacity: .45; }
+.shead .avatar { box-shadow: 0 6px 24px color-mix(in srgb, var(--pc, #000) 35%, rgba(0,0,0,.25)); }
+.shead b { font-size: 24px; }
+/* rounded groups, separators that start after the icon */
+.sgroup, .sgroup:first-of-type { margin: 0 12px 14px; padding: 2px 0; border: 0; border-radius: 18px; background: var(--panel); overflow: hidden; }
+.sgroup > .srow + .srow { box-shadow: inset 52px 1px 0 var(--panel), inset 0 1px 0 color-mix(in srgb, var(--line) 80%, transparent); }
+.srow { padding: 12px 16px; }
+:root[data-ui="glass"] .sgroup { border-radius: 24px; }
+:root[data-ui="material"] .sgroup { border-radius: 20px; background: var(--m-s1); }
+/* the accounts list: avatar, name over handle, unread count */
+.srow.acc { gap: 12px; padding-top: 9px; padding-bottom: 9px; }
+.srow.acc .grow { display: flex; flex-direction: column; min-width: 0; }
+.srow.acc b, .srow.acc small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow.acc small { font-size: 13px; }
+.acc-n:empty { display: none; }
+.acc-n { min-width: 24px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; text-align: center; }
+.sgroup > .srow + .srow.acc, .sgroup > .srow.acc + .srow { box-shadow: inset 62px 1px 0 var(--panel), inset 0 1px 0 color-mix(in srgb, var(--line) 80%, transparent); }
+:root[data-ui="material"] .sgroup > .srow + .srow { box-shadow: inset 52px 1px 0 var(--m-s1), inset 0 1px 0 color-mix(in srgb, var(--line) 80%, transparent); }

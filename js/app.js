@@ -745,6 +745,7 @@ document.addEventListener("click", async (e) => {
       case "dm": await V.startDm(actEl.dataset.did); break;
       case "editFlair": flair.edit(reloadView); break;
       case "editProfile": V.editProfile(actors.get(api.session.did) || {}, reloadView); break;
+      case "shareMe": { const h = api.session.handle; shareDialog(`Профіль ${at(h)}`, `#/profile/${encodeURIComponent(h)}`, `https://bsky.app/profile/${h}`); break; }
       case "profileMenu": {
         const a = actors.get(actEl.dataset.did); const mine = a.did === api.session.did;
         const c = await menu(actEl, [
