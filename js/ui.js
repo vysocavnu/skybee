@@ -328,13 +328,15 @@ const I = {
 };
 export const icons = I;
 
+// under a post: short counts, so three of them and the icons fit a phone without being cut («1,2К», «3,4М»)
+const shortNum = (n = 0) => n < 1000 ? String(n) : n < 1e6 ? (n / 1000).toFixed(n < 1e4 ? 1 : 0).replace(/\.0$/, "").replace(".", ",") + "К" : (n / 1e6).toFixed(1).replace(/\.0$/, "").replace(".", ",") + "М";
 export function actionsBar(p, big = false) {
   const v = p.viewer || {};
   const noReply = v.replyDisabled;
   return `<div class="actions${big ? " big" : ""}">
-    <button data-act="reply" ${noReply ? "disabled title='Відповіді обмежено'" : ""}>${I.reply}<span>${num(p.replyCount)}</span></button>
-    <button data-act="repostMenu" class="${v.repost ? "on-repost" : ""}">${I.repost}<span>${num(p.repostCount + (p.quoteCount || 0))}</span></button>
-    <button data-act="like" class="${v.like ? "on-like" : ""}">${I.like}<span>${num(p.likeCount)}</span></button>
+    <button data-act="reply" ${noReply ? "disabled title='Відповіді обмежено'" : ""}>${I.reply}<span>${shortNum(p.replyCount)}</span></button>
+    <button data-act="repostMenu" class="${v.repost ? "on-repost" : ""}">${I.repost}<span>${shortNum(p.repostCount + (p.quoteCount || 0))}</span></button>
+    <button data-act="like" class="${v.like ? "on-like" : ""}">${I.like}<span>${shortNum(p.likeCount)}</span></button>
     <button data-act="bookmark" class="${v.bookmarked ? "on-bm" : ""}" title="Закладка">${I.bm}</button>
     <button data-act="postMenu" title="Більше">${I.more}</button>
   </div>`;
