@@ -1273,3 +1273,49 @@ html.sb-theme { --accent: var(--sb); --accent-ink: var(--sb-ink); }
 .acc-n { min-width: 24px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; text-align: center; }
 .sgroup > .srow + .srow.acc, .sgroup > .srow.acc + .srow { box-shadow: inset 62px 1px 0 var(--panel), inset 0 1px 0 color-mix(in srgb, var(--line) 80%, transparent); }
 :root[data-ui="material"] .sgroup > .srow + .srow { box-shadow: inset 52px 1px 0 var(--m-s1), inset 0 1px 0 color-mix(in srgb, var(--line) 80%, transparent); }
+
+/* =====================================================================
+   Material 3, as Google's own apps do it (Gmail, Messages, Android 16 Settings)
+   ===================================================================== */
+.fab .fl { display: none; }
+/* top app bar: flat over the page, takes the «scrolled» container colour once content goes under it */
+:root[data-ui="material"] .topbar { transition: background-color .2s; }
+:root[data-ui="material"].scrolled .topbar { background: var(--m-s2); }
+/* search bar: a 56dp pill on the container colour, no outline */
+:root[data-ui="material"] .searchbar input { min-height: 56px; border: 0; border-radius: 28px; padding-left: 22px; background: var(--m-s2); }
+:root[data-ui="material"] .searchbar input:focus { outline: 2px solid var(--accent); }
+/* switch: a ✓ in the thumb when on */
+:root[data-ui="material"] .stoggle input:checked + i::after { content: "✓"; display: grid; place-items: center; color: var(--accent); font-size: 14px; font-weight: 900; line-height: 1; }
+/* Android 16 Settings: every row its own rounded tile, small gaps, large outer corners */
+:root[data-ui="material"] .sgroup { background: none; border-radius: 0; overflow: visible; display: flex; flex-direction: column; gap: 2px; }
+:root[data-ui="material"] .sgroup > .srow { background: var(--m-s1); border-radius: 4px; box-shadow: none !important; }
+:root[data-ui="material"] .sgroup > .srow:first-child { border-radius: 22px 22px 4px 4px; }
+:root[data-ui="material"] .sgroup > .srow:last-child { border-radius: 4px 4px 22px 22px; }
+:root[data-ui="material"] .sgroup > .srow:only-child { border-radius: 22px; }
+:root[data-ui="material"] .sgroup > .srow .sicon { width: 36px; height: 36px; border-radius: 50%; background: var(--m-c); color: var(--m-on-c); }
+:root[data-ui="material"] .sgroup > .srow .sicon .ico { width: 20px; height: 20px; }
+@media (max-width: 640px) {
+  /* flexible navigation bar (M3 Expressive): shorter, the pill around the icon, label under it */
+  :root[data-ui="material"] nav.bottom { min-height: 64px; padding: 6px 0 calc(6px + var(--sab)); }
+  :root[data-ui="material"] nav.bottom a { gap: 2px; }
+  :root[data-ui="material"] nav.bottom .ni { width: 56px; height: 32px; }
+  :root[data-ui="material"].m-labels nav.bottom .bl { font-size: 12px; font-weight: 600; }
+  :root[data-ui="material"] main { padding-bottom: calc(150px + var(--sab)); }
+  :root[data-ui="material"] .chatbar, :root[data-ui="material"]:not(.m-labels) .chatbar { bottom: calc(64px + var(--sab)); }
+  /* extended FAB «✏️ Новий пост», shrinking to the icon while you scroll down */
+  :root[data-ui="material"] .fab { display: flex; align-items: center; justify-content: center; gap: 12px; width: auto; min-width: 56px; height: 56px; padding: 0 20px;
+    bottom: calc(80px + var(--sab)); transition: padding .25s, min-width .25s; }
+  :root[data-ui="material"] .fab .fl { display: inline; font-size: 15px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+  :root[data-ui="material"] .fab .ico { margin: 0; }
+  :root[data-ui="material"].fab-min .fab { padding: 0; width: 56px; }
+  :root[data-ui="material"].fab-min .fab .fl { display: none; }
+  /* dialogs become bottom sheets with a drag handle (the photo viewer stays full screen) */
+  :root[data-ui="material"] .modal-bg:not(.dark) { align-items: flex-end; padding: 0; }
+  :root[data-ui="material"] .modal-bg:not(.dark) > .modal { max-width: none; border-radius: 28px 28px 0 0; padding: 30px 20px calc(20px + var(--sab)); max-height: 92vh; overflow-y: auto;
+    position: relative; animation: m-sheet .28s cubic-bezier(.2,.9,.3,1); }
+  :root[data-ui="material"] .modal-bg:not(.dark) > .modal::before { content: ""; position: absolute; top: 10px; left: 50%; width: 32px; height: 4px; margin-left: -16px; border-radius: 2px;
+    background: color-mix(in srgb, var(--text) 40%, transparent); }
+  /* snackbar: over the navigation bar, full width, text left */
+  :root[data-ui="material"] .toast { left: 12px; right: 12px; transform: none; bottom: calc(76px + var(--sab)); text-align: left; border-radius: 8px; }
+}
+@keyframes m-sheet { from { transform: translateY(40%); opacity: .4; } }
