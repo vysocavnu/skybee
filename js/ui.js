@@ -5,6 +5,20 @@ import { session, mutedWords, adultEnabled, labelPref, labelDef, labelName, labe
 export const $ = (sel, root = document) => root.querySelector(sel);
 // Only web and mail links become clickable: a record can carry any string as a link (javascript:, data:, file:…)
 export const safeUrl = (u) => (typeof u === "string" && /^(https?:\/\/|mailto:)/i.test(u.trim()) ? u.trim() : "");
+/* ---------- motion ---------- */
+// An element plays its «leaving» animation (css: .leaving, per interface style) and is removed when it ends.
+// With «Зменшити анімацію» or the system's reduced motion it goes at once; a timer covers a missed animationend.
+export const calmMotion = () => document.body.classList.contains("calm") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+export function leave(el, done) {
+  if (!el?.isConnected) return done?.();
+  if (el.classList.contains("leaving")) return;
+  let t = 0;
+  const end = () => { clearTimeout(t); el.remove(); done?.(); };
+  if (calmMotion()) return end();
+  el.classList.add("leaving");
+  t = setTimeout(end, 450);
+  el.addEventListener("animationend", (e) => { if (e.target === el || e.target === el.firstElementChild) end(); }, { once: true });
+}
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const enc = encodeURIComponent;
 
@@ -436,7 +450,7 @@ export function modal(html, { wide = false, canClose, onClose } = {}) {
   wrap.addEventListener("click", e => { if (e.target === wrap) dismiss(); });
   const onKey = (e) => { if (e.key === "Escape") dismiss(); };
   document.addEventListener("keydown", onKey);
-  function close() { wrap.remove(); document.removeEventListener("keydown", onKey); onClose?.(); }
+  function close() { document.removeEventListener("keydown", onKey); leave(wrap); onClose?.(); } // the window plays its way out
   document.body.appendChild(wrap);
   wrap.close = close;
   return wrap;
@@ -461,7 +475,7 @@ export function menu(anchor, items) {
     const w = m.offsetWidth, h = m.offsetHeight;
     m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
     m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + scrollY + "px";
-    const done = (v) => { m.remove(); document.removeEventListener("click", outside, true); document.removeEventListener("keydown", esc_); res(v); };
+    const done = (v) => { leave(m); document.removeEventListener("click", outside, true); document.removeEventListener("keydown", esc_); res(v); };
     const outside = (e) => { if (!m.contains(e.target)) { e.stopPropagation(); e.preventDefault(); done(null); } };
     const esc_ = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(null); } }; // Esc (and Android «Back») closes the menu too
     document.addEventListener("keydown", esc_);

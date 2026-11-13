@@ -11,7 +11,7 @@ import * as flair from "./flair.js";
 import * as D from "./deck.js";
 import * as N from "./newbie.js";
 import * as U from "./updates.js";
-import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num, ico } from "./ui.js";
+import { bee, isLive, $, esc, calmMotion, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num, ico } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
 try { S.applyLook(); } catch {}
@@ -320,6 +320,32 @@ async function badges() {
 window.addEventListener("skybee:badge", badges);
 
 /* ---------- router ---------- */
+/* ---------- screen transitions ----------
+   Every screen arrives with the motion of the chosen interface style (css: main.nav-push / nav-pop / nav-tab):
+   Liquid Glass — the iOS push from the right and back from the left, a quiet cross-fade between tabs;
+   Material — the shared X axis, and «fade through» between tabs; Skybee — our own: the screen rises like warm honey.
+   Which one: a tab of the menu → tab, the screen we have just come from → back, anything else → forward. */
+const navStack = [];
+function navKind(path) {
+  const h = location.hash || "#/";
+  const tab = [...document.querySelectorAll("[data-nav]")].some(a => {
+    const t = a.dataset.nav.slice(1);
+    return (t === "/profile/me" ? "/profile/" + api.session?.handle : t) === path;
+  });
+  let kind = "push";
+  if (navStack.length > 1 && navStack[navStack.length - 2] === h) { navStack.pop(); kind = "pop"; }
+  else if (navStack[navStack.length - 1] !== h) navStack.push(h); else kind = "none"; // the same screen redrawn
+  if (navStack.length > 50) navStack.splice(0, navStack.length - 50);
+  return kind === "push" && tab ? "tab" : kind; // going back is always «back», even onto a tab
+}
+function playNav(main, kind) {
+  main.classList.remove("nav-push", "nav-pop", "nav-tab");
+  if (kind === "none" || calmMotion()) return;
+  void main.offsetWidth; // restart the animation even when the kind is the same as last time
+  main.classList.add("nav-" + kind);
+  main.addEventListener("animationend", function end(e) { if (e.target === main) { main.classList.remove("nav-" + kind); main.removeEventListener("animationend", end); } });
+}
+
 async function route() {
   await api.prefsReady; // muted words must be known before the first post is drawn
   if (location.hash.startsWith("#/signup") && (!api.session || hashQuery().get("app") === "1")) return signupScreen();
@@ -337,6 +363,7 @@ async function route() {
   const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
   if (path === "/login" && api.session) { location.replace("#/"); return; }
   if (seg[0] === "profile" && seg[1] === "me") { location.replace(`#/profile/${api.session.handle}${seg.length > 2 ? "/" + seg.slice(2).join("/") : ""}`); return; }
+  playNav(main, navKind(path));
   // the own profile is open: the profile card in the right column would only repeat it, so the feeds take its place
   const mine = seg[0] === "profile" && api.session && [api.session.handle, api.session.did].includes(seg[1]) && !["post", "followers", "follows", "known"].includes(seg[2]);
   document.body.classList.toggle("myprofile", !!mine);
@@ -515,7 +542,7 @@ addEventListener("pointerdown", (e) => {
 {
   let y0 = null, dy = 0, ind = null;
   addEventListener("touchstart", (e) => {
-    y0 = scrollY <= 0 && e.touches[0].clientX > 32 && !document.querySelector(".modal-bg, .msheet-bg") && !document.body.classList.contains("deckmode") && e.target.closest?.("main") ? e.touches[0].clientY : null;
+    y0 = scrollY <= 0 && e.touches[0].clientX > 32 && !document.querySelector(".modal-bg:not(.leaving), .msheet-bg:not(.leaving)") && !document.body.classList.contains("deckmode") && e.target.closest?.("main") ? e.touches[0].clientY : null;
     dy = 0;
   }, { passive: true });
   addEventListener("touchmove", (e) => {
@@ -668,7 +695,10 @@ document.addEventListener("click", async (e) => {
         actEl.disabled = true;
         if (p.viewer?.like) { await api.unlike(p.viewer.like); p.viewer.like = undefined; p.likeCount--; }
         else { const r = await api.like(p); p.viewer = { ...(p.viewer || {}), like: r.uri }; p.likeCount++; }
-        refreshPostEl(p.uri); break;
+        refreshPostEl(p.uri);
+        // the heart answers in the style's own way (css: .on-like.pop)
+        if (p.viewer?.like) document.querySelectorAll(`[data-uri="${CSS.escape(p.uri)}"] [data-act="like"]`).forEach(b => b.classList.add("pop"));
+        break;
       }
       case "repostMenu": {
         const c = await menu(actEl, [
@@ -977,7 +1007,7 @@ new MutationObserver(() => {
 /* ---------- keyboard shortcuts ---------- */
 document.addEventListener("keydown", (e) => {
   if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === "n" && api.session && !document.querySelector(".modal-bg")) { e.preventDefault(); openComposer({}, reloadView); }
+  if (e.key === "n" && api.session && !document.querySelector(".modal-bg:not(.leaving)")) { e.preventDefault(); openComposer({}, reloadView); }
   if (e.key === "/" && api.session) { e.preventDefault(); location.hash = "#/search"; }
 });
 

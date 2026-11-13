@@ -5,6 +5,7 @@ import { session } from "./api.js";
 import {
   bee, isLive, postHref, $, esc, enc, safeUrl, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
+  leave,
 } from "./ui.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
@@ -18,7 +19,7 @@ export const header = (title, back = false, right = "") =>
 // opts.cls: class of the list box («tiles» for the media grid); opts.root: the scrolling box (deck columns)
 export function paged(el, fetchPage, { cls = "", root = null } = {}) {
   const list = document.createElement("div");
-  if (cls) list.className = cls;
+  list.className = "plist" + (cls ? " " + cls : ""); // .plist: the items arrive with the style's motion (css)
   el.appendChild(list);
   let cursor, first = true;
   return infinite(list, async () => {
@@ -156,13 +157,13 @@ export async function home(el) {
       x0 = null;
       if (!horiz) return;
       const go = Math.abs(dx) > 70 ? sel + (dx < 0 ? 1 : -1) : sel;
-      if (go === sel || go < 0 || go >= tabs.length) return look(0, "", "transform .22s ease-out, opacity .22s");
+      if (go === sel || go < 0 || go >= tabs.length) return look(0, "", "transform .3s var(--ease-move, ease-out), opacity .22s");
       const dir = dx < 0 ? -1 : 1;
       look(dir * 140, "0", "transform .16s ease-in, opacity .16s");
       setTimeout(() => {
         scrollTo({ top: 0 }); show(go);
         look(-dir * 70, "0");
-        requestAnimationFrame(() => requestAnimationFrame(() => look(0, "", "transform .24s ease-out, opacity .24s")));
+        requestAnimationFrame(() => requestAnimationFrame(() => look(0, "", "transform .32s var(--ease-move, ease-out), opacity .24s")));
       }, 160);
     };
     body.addEventListener("touchend", end, { passive: true });
@@ -878,7 +879,7 @@ export async function convo(el, { id }) {
         ${row.classList.contains("mine") ? "" : `<button data-a="report" class="danger">🚩 Поскаржитися</button>`}
         <button data-a="del" class="danger">🗑️ Видалити для мене</button>
       </div></div>`;
-    const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
+    const close = () => { leave(wrap); document.removeEventListener("keydown", onKey); };
     const onKey = (e) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     wrap.addEventListener("click", async (e) => {

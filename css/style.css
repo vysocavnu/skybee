@@ -1369,3 +1369,152 @@ body.calm :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), bo
 }
 /* the own profile is open (js/app.js route → body.myprofile): no profile card on the right, the feeds move up */
 body.myprofile #sideProf { display: none; }
+
+/* =====================================================================
+   MOTION — every interface style moves in its own way (js: playNav in app.js, leave() in ui.js)
+   Skybee  — «honey»: things rise and settle softly, a warm golden pulse on what you touch
+   Glass   — iOS: springs, the push from the right / back from the left, sheets and menus that grow from where they come from
+   Material — Material 3: emphasized easing, the shared X axis, «fade through» between tabs, menus that unfold from the top
+   With «Зменшити анімацію» (body.calm) or the system's reduced motion all of it is off (see the end of this block).
+   ===================================================================== */
+:root {
+  --ease-move: cubic-bezier(.2, .8, .2, 1);          /* Skybee: a soft settle */
+  --ease-spring: cubic-bezier(.34, 1.36, .64, 1);    /* a little overshoot */
+  --dur-screen: .34s; --dur-pop: .3s; --dur-out: .18s;
+}
+:root[data-ui="glass"] { --ease-move: cubic-bezier(.32, .72, 0, 1); --ease-spring: cubic-bezier(.34, 1.56, .64, 1); --dur-screen: .44s; --dur-pop: .42s; --dur-out: .22s; }
+:root[data-ui="material"] { --ease-move: cubic-bezier(.05, .7, .1, 1); --ease-spring: cubic-bezier(.2, 0, 0, 1); --dur-screen: .4s; --dur-pop: .3s; --dur-out: .15s; }
+
+.leaving { pointer-events: none !important; }
+
+/* ---------- screens ---------- */
+@keyframes sb-screen-in { from { opacity: 0; translate: 0 18px; scale: .985; } }
+@keyframes sb-screen-back { from { opacity: 0; translate: 0 -12px; } }
+@keyframes sb-tab-in { from { opacity: 0; scale: .99; } }
+main.nav-push { animation: sb-screen-in var(--dur-screen) var(--ease-move); }
+main.nav-pop { animation: sb-screen-back var(--dur-screen) var(--ease-move); }
+main.nav-tab { animation: sb-tab-in .24s ease-out; }
+@keyframes ios-push { from { translate: min(32%, 160px) 0; opacity: .35; } }
+@keyframes ios-pop { from { translate: max(-26%, -120px) 0; opacity: .5; } }
+@keyframes ios-tab { from { opacity: 0; } }
+:root[data-ui="glass"] main.nav-push { animation: ios-push var(--dur-screen) var(--ease-move); }
+:root[data-ui="glass"] main.nav-pop { animation: ios-pop var(--dur-screen) var(--ease-move); }
+:root[data-ui="glass"] main.nav-tab { animation: ios-tab .2s ease-out; }
+@keyframes m-axis-in { 0% { translate: 30px 0; opacity: 0; } 35% { opacity: 0; } }
+@keyframes m-axis-back { 0% { translate: -30px 0; opacity: 0; } 35% { opacity: 0; } }
+@keyframes m-fade-through { 0% { opacity: 0; scale: .92; } 30% { opacity: 0; scale: .92; } }
+:root[data-ui="material"] main.nav-push { animation: m-axis-in var(--dur-screen) var(--ease-move); }
+:root[data-ui="material"] main.nav-pop { animation: m-axis-back var(--dur-screen) var(--ease-move); }
+:root[data-ui="material"] main.nav-tab { animation: m-fade-through .3s var(--ease-move); }
+
+/* posts arrive one after another at the top of a list, then simply appear as more load */
+@keyframes sb-item-in { from { opacity: 0; translate: 0 10px; } }
+@keyframes ios-item-in { from { opacity: 0; translate: 0 6px; } }
+@keyframes m-item-in { from { opacity: 0; } }
+.plist > :is(.post, .notif, .actor) { animation: sb-item-in .36s var(--ease-move) backwards; }
+:root[data-ui="glass"] .plist > :is(.post, .notif, .actor) { animation-name: ios-item-in; }
+:root[data-ui="material"] .plist > :is(.post, .notif, .actor) { animation-name: m-item-in; animation-duration: .25s; }
+.plist > :nth-child(2) { animation-delay: .03s; } .plist > :nth-child(3) { animation-delay: .06s; }
+.plist > :nth-child(4) { animation-delay: .09s; } .plist > :nth-child(5) { animation-delay: .12s; }
+.plist > :nth-child(6) { animation-delay: .15s; }
+
+/* ---------- windows (modal), bottom sheets, the chat message sheet ---------- */
+@keyframes fade-in { from { opacity: 0; } } @keyframes fade-out { to { opacity: 0; } }
+@keyframes sb-drop { 0% { opacity: 0; translate: 0 -20px; scale: .96; } 65% { opacity: 1; translate: 0 3px; scale: 1.004; } }
+@keyframes sb-lift { to { opacity: 0; translate: 0 -10px; scale: .98; } }
+.modal-bg, .msheet-bg { animation: fade-in .2s ease-out; }
+.modal-bg.leaving, .msheet-bg.leaving { animation: fade-out var(--dur-out) ease-in forwards; }
+.modal-bg > .modal { animation: sb-drop .42s var(--ease-move); }
+.modal-bg.leaving > .modal { animation: sb-lift var(--dur-out) ease-in forwards; }
+.msheet-bg > .msheet { animation: sb-drop .36s var(--ease-move); }
+.msheet-bg.leaving > .msheet { animation: sb-lift var(--dur-out) ease-in forwards; }
+/* iOS: windows grow out of the glass with a spring and shrink back; on a phone they come up from the bottom edge */
+@keyframes ios-grow { from { opacity: 0; scale: .86; } }
+@keyframes ios-shrink { to { opacity: 0; scale: .92; } }
+@keyframes ios-sheet-up { from { translate: 0 100vh; } }
+@keyframes ios-sheet-down { to { translate: 0 100vh; } }
+:root[data-ui="glass"] .modal-bg > .modal, :root[data-ui="glass"] .msheet-bg > .msheet { animation: ios-grow var(--dur-pop) var(--ease-spring); }
+:root[data-ui="glass"] .modal-bg.leaving > .modal, :root[data-ui="glass"] .msheet-bg.leaving > .msheet { animation: ios-shrink var(--dur-out) ease-in forwards; }
+/* Material: dialogs unfold (emphasized decelerate), sheets slide up; they leave fast (emphasized accelerate) */
+@keyframes m-dialog-in { from { opacity: 0; scale: .9; translate: 0 -12px; } }
+@keyframes m-dialog-out { to { opacity: 0; scale: .96; } }
+@keyframes m-sheet-in { from { translate: 0 100%; } }
+@keyframes m-sheet-out { to { translate: 0 100%; } }
+:root[data-ui="material"] .modal-bg > .modal, :root[data-ui="material"] .msheet-bg > .msheet { animation: m-dialog-in var(--dur-pop) var(--ease-move); }
+:root[data-ui="material"] .modal-bg.leaving > .modal, :root[data-ui="material"] .msheet-bg.leaving > .msheet { animation: m-dialog-out var(--dur-out) cubic-bezier(.3, 0, .8, .15) forwards; }
+@media (max-width: 640px) {
+  :root[data-ui="material"] .modal-bg:not(.dark) > .modal { animation: m-sheet-in .4s var(--ease-move); }
+  :root[data-ui="material"] .modal-bg.leaving:not(.dark) > .modal { animation: m-sheet-out .2s cubic-bezier(.3, 0, .8, .15) forwards; }
+  :root[data-ui="glass"] .msheet-bg > .msheet { animation: ios-sheet-up .5s var(--ease-move); }
+  :root[data-ui="glass"] .msheet-bg.leaving > .msheet { animation: ios-sheet-down .28s ease-in forwards; }
+}
+.modal-bg.dark > .modal { animation-name: fade-in; } /* the photo viewer only fades */
+
+/* ---------- menus («⋯») ---------- */
+@keyframes sb-menu-in { from { opacity: 0; translate: 0 -8px; scale: .97; } }
+@keyframes ios-menu-in { from { opacity: 0; scale: .5; filter: blur(6px); } }
+@keyframes m-menu-in { from { opacity: 0; scale: 1 .6; } }
+.popmenu { transform-origin: top right; animation: sb-menu-in .22s var(--ease-move); }
+.popmenu.leaving { animation: fade-out .12s ease-in forwards; }
+:root[data-ui="glass"] .popmenu { animation: ios-menu-in .4s var(--ease-spring); }
+:root[data-ui="glass"] .popmenu.leaving { animation: ios-shrink .18s ease-in forwards; }
+:root[data-ui="material"] .popmenu { transform-origin: top; animation: m-menu-in .25s var(--ease-move); }
+
+/* ---------- toasts / snackbars ---------- */
+@keyframes sb-toast-in { 0% { opacity: 0; translate: 0 18px; scale: .9; } 70% { opacity: 1; translate: 0 -2px; scale: 1.02; } }
+@keyframes ios-toast-in { from { opacity: 0; translate: 0 40px; } }
+@keyframes m-toast-in { from { opacity: 0; scale: 1 .8; } }
+.toast { animation: sb-toast-in .42s var(--ease-move); transition: opacity .25s, translate .25s; }
+.toast.out { translate: 0 10px; }
+:root[data-ui="glass"] .toast { animation: ios-toast-in .5s var(--ease-spring); }
+:root[data-ui="material"] .toast { transform-origin: bottom; animation: m-toast-in .25s var(--ease-move); }
+:root[data-ui="material"] .toast.out { translate: none; }
+
+/* ---------- the side menu on a phone (☰) ---------- */
+@media (max-width: 640px) {
+  nav.side { transition: transform .32s var(--ease-move); }
+  :root[data-ui="glass"] nav.side { transition-duration: .45s; }
+}
+
+/* ---------- touch: buttons answer the finger ---------- */
+:root:not([data-ui="material"]) :is(.btn, .ghost, .actions button, .fab, .compose-side, .sb-sw, .sb-gr) { transition: scale .35s var(--ease-spring), background .2s, color .2s, border-color .2s, box-shadow .2s; }
+:root:not([data-ui="material"]) :is(.btn, .ghost, .actions button, .fab, .compose-side, .sb-sw, .sb-gr):active { scale: .95; transition-duration: .08s; }
+:root[data-ui="glass"] :is(.btn, .ghost, .fab, .compose-side):active { scale: .93; }
+/* Skybee: the gold glows up where you press */
+:root:not([data-ui="material"]):not([data-ui="glass"]) :is(.btn, .fab, .compose-side):active { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+/* Material: no squeeze (the ripple and the state layer answer), the FAB lifts a little */
+:root[data-ui="material"] .fab { transition: width .3s var(--ease-move), padding .3s var(--ease-move), box-shadow .2s; }
+:root[data-ui="material"] .fab:active { box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+
+/* ---------- the like ---------- */
+@keyframes sb-like { 0% { scale: 1; } 25% { scale: .8; } 55% { scale: 1.35; } 100% { scale: 1; } }
+@keyframes sb-like-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--like) 55%, transparent); } to { box-shadow: 0 0 0 14px transparent; } }
+@keyframes ios-like { 0% { scale: 1; } 30% { scale: 1.45; } 60% { scale: .9; } 100% { scale: 1; } }
+@keyframes m-like { 0% { scale: .7; } 60% { scale: 1.15; } 100% { scale: 1; } }
+.actions .pop svg { animation: sb-like .5s var(--ease-move); }
+.actions .pop { border-radius: 999px; animation: sb-like-ring .6s ease-out; }
+:root[data-ui="glass"] .actions .pop svg { animation: ios-like .55s var(--ease-spring); }
+:root[data-ui="glass"] .actions .pop { animation: none; }
+:root[data-ui="material"] .actions .pop svg { animation: m-like .35s var(--ease-move); }
+:root[data-ui="material"] .actions .pop { animation: none; }
+
+/* ---------- the tab bar and the side menu: the chosen tab answers ---------- */
+@keyframes sb-hop { 0% { translate: 0 0; } 40% { translate: 0 -4px; } 100% { translate: 0 0; } }
+@keyframes ios-bounce { 0% { scale: 1; } 35% { scale: .82; } 70% { scale: 1.12; } 100% { scale: 1; } }
+@keyframes m-pill { from { scale: .4 1; opacity: .3; } }
+:is(nav.bottom, nav.side) a.on .ico { animation: sb-hop .4s var(--ease-move); }
+:root[data-ui="glass"] :is(nav.bottom, nav.side) a.on .ico { animation: ios-bounce .45s var(--ease-spring); }
+:root[data-ui="material"] :is(nav.bottom, nav.side) a.on .ico { animation: none; }
+:root[data-ui="material"] nav.bottom a.on .ni { animation: m-pill .35s var(--ease-move); }
+
+/* ---------- switches and segmented buttons glide ---------- */
+.stoggle i, .stoggle i::before, .stoggle i::after { transition-timing-function: var(--ease-spring) !important; transition-duration: .3s !important; }
+:root[data-ui="material"] .stoggle i, :root[data-ui="material"] .stoggle i::before, :root[data-ui="material"] .stoggle i::after { transition-timing-function: var(--ease-move) !important; }
+
+/* ---------- reduced motion: everything above is still ---------- */
+body.calm :is(main, .modal-bg, .modal, .msheet-bg, .msheet, .popmenu, .toast, .actions .pop, .actions .pop svg, nav.bottom .ico, nav.side .ico, nav.bottom .ni),
+body.calm .plist > * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :is(main, .modal-bg, .modal, .msheet-bg, .msheet, .popmenu, .toast, .actions .pop, .actions .pop svg, nav.bottom .ico, nav.side .ico, nav.bottom .ni),
+  .plist > * { animation: none !important; }
+}
