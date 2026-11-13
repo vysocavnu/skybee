@@ -264,12 +264,12 @@ export function renderEmbed(embed, label) {
     const pl = playerOf(x.uri);
     if (pl?.video) return `<div class="playwrap pvid" style="aspect-ratio:${pl.ratio}">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}<button class="bigplay" data-act="player" data-src="${esc(pl.src)}" title="Дивитися тут">▶</button>
-      <a class="ptitle" href="${esc(x.uri)}" target="_blank" rel="noopener"><small>${esc(host)}</small> ${esc(x.title || x.uri)}</a></div>`;
-    if (pl) return `<div class="playwrap" data-h="${pl.height}"><a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener">
+      <a class="ptitle" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener"><small>${esc(host)}</small> ${esc(x.title || x.uri)}</a></div>`;
+    if (pl) return `<div class="playwrap" data-h="${pl.height}"><a class="ext" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}
       <div><small>${esc(host)}</small><b>${esc(x.title || x.uri)}</b><small>${esc((x.description || "").slice(0, 160))}</small></div></a>
       <button class="ghost sm playbtn" data-act="player" data-src="${esc(pl.src)}">▶ Слухати тут</button></div>`;
-    return `<a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener">
+    return `<a class="ext" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}
       <div><small>${esc(host)}</small><b>${esc(x.title || x.uri)}</b><small>${esc((x.description || "").slice(0, 160))}</small></div></a>`;
   }
@@ -528,9 +528,7 @@ function loadHls() {
   if (window.Hls) return Promise.resolve();
   return hlsLoading ||= new Promise((res, rej) => {
     const s = document.createElement("script");
-    // an exact version with its checksum: a hijacked CDN or npm release cannot run its code here (it would see the sessions)
-    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js";
-    s.integrity = "sha384-p9vgU/7IYJWd3I4STrtqxqR/2cAQlhIX7D/HrTnIMEjjcUox165b7se7sxmm3zDg"; s.crossOrigin = "anonymous";
+    s.src = new URL("./vendor/hls.min.js", import.meta.url).href; // our own copy (1.6.13): nothing from a CDN runs here
     s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });
 }

@@ -25,8 +25,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
 - **Телефони (Android, iOS)** — `mobile/`: Capacitor 7 (та сама вебчастина в `mobile/www/`, `node scripts/dist.mjs mobile/www`). Нативні проєкти не комітяться —
   `npx cap add android|ios` створює їх у CI (`.github/workflows/mobile.yml`), іконки й заставка — `@capacitor/assets` з `mobile/assets/`.
-  APK — релізна збірка, підписана ключем із секретів (`ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASS`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASS`, відбиток — змінна `ANDROID_CERT_SHA256`);
-  поки секретів немає — відкритим тестовим `mobile/debug.keystore` (відбиток `fb9ab4…e785`) з попередженням у CI. Ключ прописаний у `build.gradle` кроком CI (копія в `~/.android` не діяла), CI звіряє відбиток; IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
+  APK — релізна збірка, підписана ключем із GitHub Secrets (`ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASS`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASS`; відбиток — змінна `ANDROID_CERT_SHA256`, можна з двокрапками), однаковий у всіх збірках → ставиться поверх; ключ прописаний у `build.gradle` кроком CI (копія в `~/.android` не діяла), CI звіряє відбиток. Без секрету збірка APK зупиняється; старий публічний `debug.keystore` прибрано (APK, підписані ним, треба один раз перевстановити); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
   Кожна збірка оновлює pre-release `mobile-test` (Skybee.apk, Skybee-unsigned.ipa); тег `vX.Y.Z` — ще й у реліз. Вебчастина в телефоні поки не оновлюється сама — потрібна нова збірка.
   Статус-бар і нижня панель: сторінка на весь екран (edge-to-edge), відступи — CSS-змінні `--sat/--sab/--sal/--sar` (за замовчуванням `env(safe-area-inset-*)`; у CSS не писати `env(...)` напряму).
   iPhone дає їх через `env()`, на Android `native.js` бере їх з плагіна `capacitor-plugin-safe-area` (WebView там віддає 0). `adjustMarginsForEdgeToEdge` не вмикати: поля навколо сторінки стають білими.
@@ -86,7 +85,12 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   «Показувати більше/менше такого» у фідах з `acceptsInteractions` (`sendInteractions` через проксі `<did фіда>#bsky_fg`)
 - «Хто мене заблокував» `#/settings/blocked-by` (Модерація): Bluesky такого не віддає, тож список — з відкритого індексу Constellation (`api.blockedByPage`, constellation.microcosm.blue, без ключа; Clearsky закрився), дата — з rkey (TID, `api.tidDate`), профілі — з Bluesky; видалені акаунти лише рахуються
 - `js/newbie.js` — «🌱 Для новеньких» `#/newcomers`: гід за матеріалами info.bsky.one і uabluerail.org, переказаний під екрани Skybee (українські стрічки — живі картки `getFeedGenerators`, модераційні списки mobik.zip та ін., поради, пошук, чати, фольклор). Пункт у меню з'являється, поки акаунту < 6 міс. (`isNewbie`, `createdAt` профілю); завжди є в Довідці
-- «Перевірити оновлення» (Про Skybee, лише в десктопі, і пункт у треї): `skybeeDesktop.update()` → `checkUpdatesNow` у `desktop/main.js`
+- «Перевірити оновлення» (Про Skybee, і пункт у треї десктопа): у десктопі `skybeeDesktop.update()` → `checkUpdatesNow` у `desktop/main.js`, на телефоні — `checkPhone()` з `js/updates.js`
+- **Бета-тестування** (Про Skybee, перемикач; лише десктоп із самооновленням і телефони): тестові збірки = бета-канал.
+  Десктоп: `skybeeDesktop.beta(on)` → `userData/beta.json`, `applyChannel` у main.js перемикає electron-updater на generic-фід `releases/download/desktop-test/`
+  (CI кладе туди `latest.yml`/`latest-linux.yml` під сталі назви файлів; версія тестових збірок — наступний патч + `-beta.<run_number>`, напр. 0.3.1-beta.57). Вимкнення бети не відкочує версію.
+  Телефони не оновлюються самі: `updates.js` (раз на 12 год при запуску, `autoCheck`) порівнює збірку (`App.getInfo().build` = run_number) з «№N» у назві pre-release `mobile-test` (бета)
+  і версію з тегом `/releases/latest` (усі) через api.github.com, і пропонує завантажити APK/IPA у браузері; бета на телефоні — `skybee.beta` у localStorage
 - `js/app.js` — роутер на hash (`#/profile/<handle>/post/<rkey>` тощо), навігація, глобальні дії через `data-act`
 
 ## Вигляд «Skybee 2.0 — The Social Hive»
@@ -126,6 +130,11 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Сторінки помилок сайту: `404.html` у корені (GitHub Pages і власний домен; адреси без `#`, як `/profile/x`, сам перекидає в застосунок),
   `offline.html` (service worker, сам перезавантажується з мережею), `errors/403|500|502|503|504.html` — для хостингу з власним доменом.
   Під власний домен: файл `CNAME` з доменом у корені + DNS; сторінки самі визначають, чи сайт у `/skybee/`, чи в корені.
+
+## Безпека
+- `index.html` має CSP: скрипти лише свої (+ itunes.apple.com для JSONP пошуку музики). Новий зовнішній скрипт/джерело — дописати в CSP, а краще покласти файл у `js/vendor/` (так зроблено з hls.js 1.6.13). Жодних inline-скриптів і `onclick="…"`.
+- Посилання з чужих даних (фасети, картки, LIVE) — лише через `safeUrl()` з ui.js (http/https/mailto, інше → `#`), і завжди `esc()`.
+- DevTools (F12) у десктопі — лише при запуску з вихідного коду.
 
 ## Правила
 - Без фреймворків і без кроку збірки, поки ми на вебі.

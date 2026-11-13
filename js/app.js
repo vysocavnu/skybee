@@ -10,6 +10,7 @@ import * as notify from "./notify.js";
 import * as flair from "./flair.js";
 import * as D from "./deck.js";
 import * as N from "./newbie.js";
+import * as U from "./updates.js";
 import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num, ico } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
@@ -338,7 +339,9 @@ async function route() {
   if (seg[0] === "profile" && seg[1] === "me") { location.replace(`#/profile/${api.session.handle}${seg.length > 2 ? "/" + seg.slice(2).join("/") : ""}`); return; }
   document.querySelectorAll("[data-nav]").forEach(a => {
     const h = a.dataset.nav.slice(1);
-    a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session?.handle)));
+    // «/profile/me» is the own profile; only that link (a plain replace of "/me" also hit «/messages» → no active «Чати» tab)
+    const want = h === "/profile/me" ? "/profile/" + api.session?.handle : h;
+    a.classList.toggle("on", h === "/" ? path === "/" : path === want || path.startsWith(want + "/"));
   });
   document.documentElement.classList.remove("tab-min", "fab-min", "scrolled"); // a new screen starts with the full bars
   placeLens($("nav.bottom a.on"));
@@ -1012,5 +1015,6 @@ function boot() {
       }
     }).catch(() => {});
   const sp = $("#sideProf"); if (sp) flair.paint(sp, api.session.did); // own Skybee colour on the profile card
+  setTimeout(() => U.autoCheck().catch(() => {}), 5000); // phones: a new version (or beta build) to download?
 }
 boot();

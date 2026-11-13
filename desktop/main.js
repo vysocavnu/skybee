@@ -88,6 +88,26 @@ async function updateWeb(activeRoot) {
    installer in the background (progress on the taskbar button) and asks to restart. «Later» is fine too: the update
    is installed when Skybee is closed. Only for the installed app — not when run from source (npm start). */
 let updater = null, downloaded = null; // downloaded: the version waiting to be installed
+
+/* Beta channel (Settings → Про Skybee → «Бета-тестування»): the builds of every change in main, from the «desktop-test»
+   pre-release (its latest.yml / latest-linux.yml; versions like 0.3.1-beta.57, always above the last release).
+   Turned off, the tagged releases again: the beta stays until a newer release comes out (no downgrade). */
+const BETA_FEED = "https://github.com/vysocavnu/skybee/releases/download/desktop-test/";
+const betaFile = () => path.join(app.getPath("userData"), "beta.json");
+const betaOn = () => readJson(betaFile())?.on === true;
+function applyChannel() {
+  if (!updater) return;
+  const beta = betaOn();
+  updater.allowPrerelease = beta;
+  updater.setFeedURL(beta ? { provider: "generic", url: BETA_FEED } : { provider: "github", owner: "vysocavnu", repo: "skybee", releaseType: "release" });
+}
+ipcMain.handle("skybee:beta", (_e, on) => {
+  if (typeof on === "boolean") {
+    try { fs.writeFileSync(betaFile(), JSON.stringify({ on })); } catch { throw new Error("cannot save"); }
+    applyChannel();
+  }
+  return { on: betaOn(), available: !!updater };
+});
 function askRestart(version) {
   dialog.showMessageBox(win, {
     type: "info", title: "Оновлення Skybee", noLink: true, defaultId: 0, cancelId: 1,
@@ -103,7 +123,7 @@ function setupShellUpdates() {
   try { ({ autoUpdater: updater } = require("electron-updater")); } catch { return; }
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
-  updater.allowPrerelease = false;
+  applyChannel(); // releases, or the beta builds when «Бета-тестування» is on
   let asked = false;
   updater.on("before-quit-for-update", () => { quitting = true; });
   updater.on("download-progress", (p) => win?.setProgressBar(Math.max(0.01, (p.percent || 0) / 100)));
