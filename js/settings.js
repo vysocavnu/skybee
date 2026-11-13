@@ -6,7 +6,13 @@ import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, con
 import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
-import { PALETTE, inkFor } from "./flair.js";
+import { inkFor, colorsOf } from "./flair.js";
+
+// App colour (Settings → Оформлення → Колір): replaces the gold accent. Any colour works; these are the quick picks
+export const APP_COLORS = [["#ff4d4d", "Червоний"], ["#ff7a2e", "Помаранчевий"], ["#ffa500", "Бурштиновий"], ["#ffee3a", "Лимонний"], ["#4cf04c", "Салатовий"],
+  ["#36b86a", "Зелений"], ["#4ff0f0", "Бірюзовий"], ["#4a8cff", "Синій"], ["#7a8cff", "Волошковий"], ["#a06bff", "Бузковий"], ["#ff3df5", "Пурпуровий"],
+  ["#ff8aa0", "Рожевий"], ["#d2b48c", "Пісочний"], ["#ffffff", "Білий"], ["#a8a8a8", "Сірий"], ["#6e6e6e", "Графітовий"]];
+const isHex = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 import * as flair from "./flair.js";
 import { statusBarFor } from "./native.js";
 
@@ -61,7 +67,7 @@ export async function index(el) {
     </div>
     <div class="sgroup"><button class="srow danger" data-act="logout"><span class="grow">Вийти з ${at(session.handle)}</span></button></div>`;
   // my Skybee profile colour behind the top, melting into the page; without one — a faint glow of the app accent
-  flair.load(session.did).then(got => { const h = $(".shead", el); if (h && got?.rec.color) h.style.setProperty("--pc", got.rec.color); }).catch(() => {});
+  flair.load(session.did).then(got => { const h = $(".shead", el), c = colorsOf(got?.rec); if (h && c) { h.style.setProperty("--pc", c[0]); h.style.setProperty("--pc2", c[1]); } }).catch(() => {});
   // my own profile may still be loading on the very first screen
   if (!actors.get(session.did)) api.get("app.bsky.actor.getProfile", { actor: session.did }).then(p => {
     actors.set(p.did, p);
@@ -413,7 +419,7 @@ export function applyLook() {
   const root = document.documentElement, c = store.get("skybee.color");
   root.dataset.theme = t === "system" ? sys : t;
   // app colour: the palette of the profile colour (js/flair.js); it replaces the gold accent (buttons, switches, the current tab)
-  const ok = PALETTE.some(([p]) => p === c);
+  const ok = isHex(c);
   root.classList.toggle("sb-theme", ok);
   if (ok) { root.style.setProperty("--sb", c); root.style.setProperty("--sb-ink", inkFor(c)); }
   else { root.style.removeProperty("--sb"); root.style.removeProperty("--sb-ink"); }
@@ -440,9 +446,9 @@ export async function appearance(el) {
     const uiPick = store.get("skybee.ui") || "auto", ui = uiStyle();
     el.innerHTML = header("Оформлення", true) + `
       <div class="card"><h3>Тема</h3>${seg("th", [["system", "Як у системі"], ["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]], theme)}</div>
-      <div class="card"><h3>Колір</h3><p class="muted small">Колір кнопок, перемикачів, позначок і активної вкладки — замість золотого. Палітра та сама, що й в оформленні профілю.</p><div class="sb-swatches">${
-        [["", "Золотий — як у бджілки"], ...PALETTE.filter(([c]) => c !== "#f5b301")] /* «Жовтий» is the gold itself */.map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}"${c ? ` style="background:${c}"` : ""}>${c ? "" : bee(18)}</button>`).join("")}</div>
-        <p class="small">Вибрано: <b>${color ? (PALETTE.find(([c]) => c === color)?.[1] || "") : "Золотий — як у бджілки"}</b></p></div>
+      <div class="card"><h3>Колір</h3><p class="muted small">Колір кнопок, перемикачів, позначок і активної вкладки — замість золотого.</p><div class="sb-swatches app">${
+        [["", "Золотий — як у бджілки"], ...APP_COLORS].map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}"${c ? ` style="background:${c}"` : ""}>${c ? "" : bee(18)}</button>`).join("")}<label class="sb-sw sb-any${color && !APP_COLORS.some(([c]) => c === color) ? " on" : ""}" title="Свій колір"${color && !APP_COLORS.some(([c]) => c === color) ? ` style="--own:${color}"` : ""}><input type="color" data-anycolor value="${isHex(color) ? color : "#ff4d4d"}"><b>+</b></label></div>
+        <p class="muted small">${!color ? "Золотий — як у бджілки" : APP_COLORS.find(([c]) => c === color)?.[1] || `Свій колір ${color}`}</p></div>
       <div class="card"><h3>Розмір тексту</h3>${seg("font", [["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]], font)}</div>
       <div class="card"><h3>Стиль інтерфейсу</h3>
         <p class="muted small">«Авто»: на iPhone та iPad — Liquid Glass, на Android — Material Design, на комп'ютері — Skybee. Можна вибрати будь-який на будь-якому пристрої.</p>
@@ -460,6 +466,9 @@ export async function appearance(el) {
       </div>` : ""}`;
     el.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { store.set("skybee.theme", b.dataset.th); applyLook(); draw(); });
     el.querySelectorAll("[data-color]").forEach(b => b.onclick = () => { store.set("skybee.color", b.dataset.color || null); applyLook(); draw(); });
+    const any = el.querySelector("[data-anycolor]");
+    any.oninput = () => { store.set("skybee.color", any.value.toLowerCase()); applyLook(); }; // live while the picker is open
+    any.onchange = () => { store.set("skybee.color", any.value.toLowerCase()); applyLook(); draw(); };
     el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => { store.set("skybee.font", b.dataset.font); applyLook(); draw(); });
     el.querySelectorAll("[data-ui]").forEach(b => b.onclick = () => { store.set("skybee.ui", b.dataset.ui === "auto" ? null : b.dataset.ui); applyLook(); draw(); });
     el.querySelectorAll("[data-glass]").forEach(b => b.onclick = () => { store.set("skybee.glass", b.dataset.glass === "normal" ? null : b.dataset.glass); applyLook(); draw(); });
