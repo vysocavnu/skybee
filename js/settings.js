@@ -415,8 +415,9 @@ export async function appearance(el) {
     const uiPick = store.get("skybee.ui") || "auto", ui = uiStyle();
     el.innerHTML = header("Оформлення", true) + `
       <div class="card"><h3>Тема</h3>${seg("th", [["system", "Як у системі"], ["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]], theme)}</div>
-      <div class="card"><h3>Колір</h3><p class="muted small">Ті самі кольори, що й в оформленні профілю.</p><div class="sb-swatches">${
-        [["", "Звичайний (золотий)"], ...PALETTE].map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}" style="background:${c || "#f5b301"}"></button>`).join("")}</div></div>
+      <div class="card"><h3>Колір</h3><p class="muted small">Ті самі кольори, що й в оформленні профілю. На темній темі й у сутінках колір стає глибоким темним відтінком, на світлій — яскравим.</p><div class="sb-swatches">${
+        [["", "Звичайний — без кольору"], ...PALETTE].map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}"${c ? ` style="background:${c}"` : ""}>${c ? "" : bee(18)}</button>`).join("")}</div>
+        <p class="small">Вибрано: <b>${color ? (PALETTE.find(([c]) => c === color)?.[1] || "") : "Звичайний — без кольору"}</b></p></div>
       <div class="card"><h3>Розмір тексту</h3>${seg("font", [["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]], font)}</div>
       <div class="card"><h3>Стиль інтерфейсу</h3>
         <p class="muted small">«Авто»: на iPhone та iPad — Liquid Glass, на Android — Material Design, на комп'ютері — Skybee. Можна вибрати будь-який на будь-якому пристрої.</p>

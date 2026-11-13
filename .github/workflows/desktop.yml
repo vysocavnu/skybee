@@ -151,6 +151,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: desktop-test
+          target_commitish: ${{ github.sha }} # без нього оновлення релізу падає: «Resource not accessible by integration»
           prerelease: true
           make_latest: false
           files: |
@@ -209,6 +210,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: desktop-test
+          target_commitish: ${{ github.sha }} # без нього оновлення релізу падає: «Resource not accessible by integration»
           prerelease: true
           make_latest: false
           files: Skybee.flatpak
