@@ -2,11 +2,13 @@
 <html lang="uk" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<!-- Scripts only from Skybee itself (and the iTunes music search fallback): an injected script or a javascript: link is refused -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://itunes.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; media-src 'self' https: blob:; connect-src 'self' https:; frame-src https:; worker-src 'self' blob:; font-src 'self' data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1218">
 <meta name="description" content="Skybee — відкритий клієнт для Bluesky">
+<!-- Захист від чужих скриптів: навіть якщо десь у рендері знайдеться дірка, вставлений код не виконається.
+     Скрипти — лише власні (hls.js — копія в js/vendor/). На телефонах (mobile/www) політику вмикає
+     js/native.js одразу після старту (scripts/dist.mjs): Capacitor на Android спершу вставляє свій міст вбудованим скриптом. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' app:; style-src 'self' app: 'unsafe-inline'; img-src 'self' app: https: data: blob:; media-src 'self' app: https: blob:; connect-src 'self' app: https:; font-src 'self' app: data:; worker-src 'self' blob:; manifest-src 'self' app:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://player.twitch.tv https://open.spotify.com https://w.soundcloud.com https://embed.music.apple.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title>Skybee — клієнт Bluesky</title>
 <link rel="icon" href="icons/favicon.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="favicon.ico?v=2" sizes="16x16 32x32">
