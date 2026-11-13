@@ -734,7 +734,7 @@ nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollba
    Gold only where it means something (active, important, the bee); honeycomb and the bee's flight path
    as quiet motifs; softer posts, bigger touch targets. Works in all three themes and with the app colour.
    ===================================================================== */
-:root { --honey: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.713' height='48' viewBox='0 0 27.713 48'%3E%3Cpath d='M13.856 0L27.713 8V24L13.856 32L0 24V8ZM13.856 32V48' fill='none' stroke='%23e0a82e' stroke-opacity='.22' stroke-width='.8'/%3E%3C/svg%3E"); }
+:root { --honey: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.713' height='48' viewBox='0 0 27.713 48'%3E%3Cpath d='M13.856 0L27.713 8V24L13.856 32L0 24V8ZM13.856 32V48' fill='none' stroke='%23e0a82e' stroke-opacity='.12' stroke-width='.8'/%3E%3C/svg%3E"); }
 ::selection { background: var(--accent); color: var(--accent-ink); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 button, a { touch-action: manipulation; }
@@ -1067,3 +1067,81 @@ nav.side .logo { color: var(--text); }
 .uipv-skybee i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 26px; background: #171b23; }
 .uipv-skybee i:nth-child(2) { left: 0; top: 16px; width: 3px; height: 14px; border-radius: 0 3px 3px 0; background: #f5b301; box-shadow: 0 0 8px #f5b301; }
 .uipv-skybee i:nth-child(3) { left: 36px; right: 10px; top: 14px; height: 18px; border-radius: 9px; background: #f5b301; }
+
+/* =====================================================================
+   Review pass (second opinion): three different characters, not three skins of one theme
+   ===================================================================== */
+/* a readable gold for small marks on a light page (#f5b301 on white is too faint) */
+:root { --accent-mark: var(--accent); }
+:root[data-theme="light"] { --accent-mark: color-mix(in srgb, var(--accent) 62%, #000); }
+nav.side a.on .ico, nav.bottom a.on .ico { color: var(--accent-mark); }
+.tabs > .on::after { box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 35%, transparent); }
+/* a bit more compact posts, a calmer ✏️ button */
+.post { padding: 12px 16px; }
+@media (max-width: 640px) { .fab { box-shadow: 0 4px 16px rgba(0,0,0,.28); } .post { padding: 12px 14px; } }
+/* the welcome screen keeps its honeycomb a little brighter */
+body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%, transparent 80%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.713' height='48' viewBox='0 0 27.713 48'%3E%3Cpath d='M13.856 0L27.713 8V24L13.856 32L0 24V8ZM13.856 32V48' fill='none' stroke='%23e0a82e' stroke-opacity='.2' stroke-width='.8'/%3E%3C/svg%3E") 0 0 / 44px 76px, var(--bg); }
+
+/* ---------- Skybee Classic: gold only where it means something ---------- */
+:root[data-ui="skybee"] .post:hover { background: var(--hover); }
+:root[data-ui="skybee"] .card { border-radius: 14px; box-shadow: none; }
+:root[data-ui="skybee"] .tabs > .on { color: var(--text); }
+:root[data-ui="skybee"] .empty::before { opacity: .65; }
+:root[data-ui="skybee"] nav.side a.on .ico, :root[data-ui="skybee"] nav.bottom a.on .ico { filter: none; }
+
+/* ---------- Liquid Glass: glass is the navigation layer; content stays solid ---------- */
+:root[data-ui="glass"] { --g-a: 76%; --g-blur: 24px; --g-edge: rgba(255,255,255,.17); --g-hi: rgba(255,255,255,.24); --g-shadow: 0 8px 28px rgba(0,0,0,.20); }
+:root[data-ui="glass"][data-glass="clear"] { --g-a: 52%; --g-blur: 18px; }
+:root[data-ui="glass"][data-glass="frost"] { --g-a: 88%; --g-blur: 34px; }
+:root[data-ui="glass"][data-theme="light"] { --g-a: 82%; --g-edge: rgba(255,255,255,.82); --g-hi: rgba(255,255,255,.95); --g-shadow: 0 6px 24px rgba(20,30,50,.10); }
+:root[data-ui="glass"] :is(.card, .dcol, .dhead) { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+  border-color: color-mix(in srgb, var(--line) 70%, transparent); }
+:root[data-ui="glass"] .dhead { border-color: transparent; border-bottom: 1px solid var(--line); }
+:root[data-ui="glass"] :is(.topbar, nav.bottom, nav.side, .modal, .popmenu, .toast, .chatbar, .msheet) { border-color: var(--g-edge); }
+/* secondary buttons are plain, not glass: one yellow main action, the rest quiet */
+:root[data-ui="glass"] .ghost { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border-color: color-mix(in srgb, var(--text) 18%, transparent); }
+:root[data-ui="glass"] .btn { background: var(--accent); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 3px 10px color-mix(in srgb, var(--accent) 22%, transparent); }
+/* no glow around active icons; the active item changes shape smoothly */
+:root[data-ui="glass"] :is(nav.side, nav.bottom) a.on .ico { filter: none; }
+:root[data-ui="glass"] :is(nav.side, nav.bottom) a { transition: background .25s ease, box-shadow .25s ease, color .2s, transform .25s cubic-bezier(.3,1.5,.6,1); }
+:root[data-ui="glass"] :is(nav.side, nav.bottom) a.on { transform: scale(1.02); }
+:root[data-ui="glass"] nav.bottom a:active { transform: scale(.94); }
+@media (max-width: 640px) {
+  :root[data-ui="glass"] .fab { background: var(--accent); color: var(--accent-ink); border: 1px solid rgba(255,255,255,.35);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 5px 18px rgba(0,0,0,.22); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :root[data-ui="glass"].glass-float nav.bottom { border-radius: 32px; padding: 5px 7px; }
+  :root[data-ui="glass"].glass-float main { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float .fab { bottom: calc(94px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"] nav.bottom a.on { color: var(--text); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-ui="glass"] :is(.topbar, nav.bottom, nav.side, .modal, .popmenu, .toast, .chatbar, .msheet) { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ---------- Material 3: tonal surfaces, the brand gold as a hint, not a flood ---------- */
+:root[data-ui="material"].m-tonal { --m-s1: color-mix(in srgb, var(--accent) 3%, var(--bg)); --m-s2: color-mix(in srgb, var(--accent) 7%, var(--bg));
+  --m-c: color-mix(in srgb, var(--accent) 17%, var(--bg)); --m-out: var(--line); }
+:root[data-ui="material"] .card { border-radius: 18px; box-shadow: none; }
+:root[data-ui="material"] .modal { box-shadow: 0 8px 24px rgba(0,0,0,.20); }
+:root[data-ui="material"] nav.side a.on, :root[data-ui="material"] nav.side a.on .ico { color: var(--text); }
+:root[data-ui="material"] .compose-side { background: var(--accent); color: var(--accent-ink); }
+:root[data-ui="material"] .seg button.on, :root[data-ui="material"] .seg label:has(:checked) { color: var(--text); font-weight: 600; }
+:root[data-ui="material"] .btn { box-shadow: none; font-weight: 600; }
+:root[data-ui="material"] .tabs > .on { color: var(--text); }
+@media (max-width: 640px) {
+  :root[data-ui="material"] nav.bottom { box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
+  :root[data-ui="material"] nav.bottom a.on, :root[data-ui="material"] nav.bottom a.on .ico { color: var(--text); }
+  :root[data-ui="material"].m-labels nav.bottom .bl { letter-spacing: 0; }
+  :root[data-ui="material"] main { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------- accessibility, every style ---------- */
+@media (pointer: coarse) { :root[data-ui] .actions button { min-width: 44px; min-height: 44px; } }
+@media (max-width: 640px) { :root[data-ui] nav.bottom a { min-height: 48px; min-width: 48px; } }
+:root[data-ui] :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (prefers-contrast: more) {
+  :root[data-ui] { --line: var(--muted); }
+  :root[data-ui] .ghost { border-width: 2px; }
+}
+@media (forced-colors: active) { :root[data-ui] :focus-visible { outline: 2px solid Highlight; } }
