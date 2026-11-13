@@ -55,7 +55,7 @@ if (isNative || window.skybeeDesktop) {
   addEventListener("touchstart", (e) => {
     const t = e.touches[0];
     drop();
-    if (e.touches.length !== 1 || t.clientX > EDGE || document.querySelector(".lb")) return; // the photo viewer has its own gestures
+    if (e.touches.length !== 1 || t.clientX > EDGE || document.querySelector(".lb") || e.target.closest?.("nav.bottom")) return; // the photo viewer and the tab bar have their own gestures
     x0 = t.clientX; y0 = t.clientY; dx = 0;
   }, { passive: true });
   addEventListener("touchmove", (e) => {

@@ -327,6 +327,7 @@ async function route() {
     const h = a.dataset.nav.slice(1);
     a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session?.handle)));
   });
+  placeLens($("nav.bottom a.on"));
   main.innerHTML = "";
   document.body.classList.remove("deckmode");
   main._tint = null; // the page colour stays only if the new screen claims it (profile, post)
@@ -374,6 +375,56 @@ window.addEventListener("skybee:share", (e) => shareDialog(...e.detail));
 window.addEventListener("skybee:report", (e) => reportDialog(e.detail));
 // pinned feeds changed: the right column's list and the home tabs are built again
 window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
+
+/* ---------- bottom bar: the bubble under the current tab, and dragging a finger along the bar to switch tabs ---------- */
+// The bubble (.navlens, shown in Liquid Glass) slides to the tab; holding the bar and moving along it carries the bubble
+// with the finger, and letting go opens the tab under it — as the tab bar does on iPhone. Works in every style.
+function placeLens(a) {
+  const bar = $("nav.bottom"); if (!bar) return;
+  let lens = bar.querySelector(".navlens");
+  if (!lens) { lens = document.createElement("span"); lens.className = "navlens"; lens.setAttribute("aria-hidden", "true"); bar.prepend(lens); }
+  if (!a || !a.offsetWidth) { lens.style.opacity = "0"; return; }
+  lens.style.opacity = "1";
+  lens.style.width = a.offsetWidth + "px";
+  lens.style.transform = `translateX(${a.offsetLeft}px)`;
+}
+addEventListener("resize", () => placeLens($("nav.bottom a.on")));
+{
+  let drag = null;
+  const tabAt = (bar, x) => [...bar.querySelectorAll("a")].find(a => { const r = a.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+  const stop = () => {
+    if (!drag) return;
+    drag.bar.classList.remove("dragging");
+    drag.bar.querySelectorAll(".peek").forEach(a => a.classList.remove("peek"));
+    drag = null;
+  };
+  addEventListener("pointerdown", (e) => {
+    const bar = e.target.closest?.("nav.bottom");
+    if (!bar || e.pointerType === "mouse") return;
+    drag = { bar, x0: e.clientX, from: e.target.closest("a"), cur: e.target.closest("a"), moved: false };
+  }, { passive: true });
+  addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientX - drag.x0) < 10) return;
+    drag.moved = true;
+    drag.bar.classList.add("dragging");
+    const a = tabAt(drag.bar, e.clientX);
+    if (a && a !== drag.cur) {
+      drag.cur?.classList.remove("peek");
+      drag.cur = a; a.classList.add("peek");
+      placeLens(a);
+      navigator.vibrate?.(6);
+    }
+  }, { passive: true });
+  addEventListener("pointerup", () => {
+    if (!drag) return;
+    const { moved, cur, from } = drag;
+    stop();
+    if (moved && cur && cur !== from) location.hash = cur.getAttribute("href");
+    else placeLens($("nav.bottom a.on"));
+  }, { passive: true });
+  addEventListener("pointercancel", () => { stop(); placeLens($("nav.bottom a.on")); }, { passive: true });
+}
 
 /* ---------- Material ripple: a circle spreads from the finger on buttons and menu items (Settings → Appearance) ---------- */
 addEventListener("pointerdown", (e) => {

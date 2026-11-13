@@ -96,6 +96,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   (`devicePlatform()`: Capacitor `getPlatform()`, у браузері — user agent). `applyLook` ставить `html[data-ui]`; у CSS завжди `:root[data-ui=…]`
   (кнопки вибору теж мають `data-ui`, як колись `data-theme` ламав кнопку «Світла»).
 - Liquid Glass: скляні шапка/картки/вікна/меню (`--glass`, blur + saturate, відблиск зверху), капсули-кнопки, сегменти iOS, перемикач iOS;
+  нижня панель: бульбашка `.navlens` їде до активної вкладки, перетягування пальцем уздовж панелі перемикає вкладки (`placeLens` + pointer-обробник в app.js, працює в усіх стилях); ☰-меню на телефоні — на всю висоту без заокруглень;
   свої налаштування — скло `skybee.glass` (clear/normal/frost → `html[data-glass]`), плаваюча панель вкладок `skybee.glassFloat` (`html.glass-float`).
 - Material 3: тональні поверхні від кольору застосунку (`--m-s1/--m-s2/--m-c`), навігаційна панель 80dp з «пігулкою» під іконкою й підписами (`.bl`),
   FAB-квадрат 16dp, сегментовані кнопки з ✓, перемикач M3, хвиля (`.ripple`, обробник у app.js); налаштування `skybee.mTonal`, `skybee.mLabels`, `skybee.mRipple` (значення "0" вимикає).

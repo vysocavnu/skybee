@@ -869,11 +869,9 @@ nav.side .logo { color: var(--text); }
 /* a real banner (or the profile colour from flair.js) replaces that: one picture, covering */
 .banner[style*="background-image"], .sp-banner[style*="background-image"] { background-size: cover; background-position: center; background-repeat: no-repeat; }
 
-/* Honey Status: the Skybee status bubble gets a small glowing honey drop */
-.sb-bubble { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); padding-left: 24px; }
-.sb-bubble::after { content: ""; position: absolute; left: 10px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-.sb-bubble::before { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+/* Honey Status: the Skybee status bubble with a soft gold outline; the tail is one piece with it (same fill and edge) */
+.sb-bubble { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); display: flex; align-items: center; min-height: 32px; }
+.sb-bubble::before { left: 12px; bottom: -6px; width: 10px; height: 10px; border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius: 0 0 3px 0; }
 
 /* Bee Trail on the welcome screen: the bee arrives along its dashed loop */
 .loginbee { position: relative; }
@@ -1166,3 +1164,28 @@ nav.side { padding-top: calc(12px + var(--sat)); }
 .login { padding-bottom: calc(16px + var(--sab)); }
 /* «no colour» swatch: the usual dark look with the gold bee, so it can't be mistaken for «Жовтий» */
 .sb-sw.none { display: grid; place-items: center; background: #0f1218; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+/* ---------- bottom bar: a bubble slides to the current tab; drag a finger along the bar to switch (js: navLens in app.js) ---------- */
+nav.bottom a:hover { text-decoration: none; }
+.navlens { display: none; }
+@media (max-width: 640px) {
+  nav.bottom { touch-action: none; }
+  nav.bottom a { position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
+  :root[data-ui="glass"] nav.bottom a.on, :root[data-ui="glass"].glass-float nav.bottom a.on { background: none; box-shadow: none; }
+  :root[data-ui="glass"] .navlens { display: block; position: absolute; z-index: 0; left: 0; top: 5px; bottom: calc(5px + var(--sab)); border-radius: 28px; pointer-events: none;
+    background: rgba(255,255,255,.13); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 2px 10px rgba(0,0,0,.18);
+    transition: transform .38s cubic-bezier(.3,1.35,.5,1), width .38s cubic-bezier(.3,1.35,.5,1), opacity .2s, scale .2s; }
+  :root[data-ui="glass"].glass-float .navlens { bottom: 5px; }
+  :root[data-ui="glass"][data-theme="light"] .navlens { background: rgba(0,0,0,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 2px 8px rgba(0,0,0,.08); }
+  /* while dragging, the bubble swells like a lens */
+  :root[data-ui="glass"] nav.bottom.dragging .navlens { scale: 1.12; background: rgba(255,255,255,.2); transition-duration: .22s; }
+  :root[data-ui="glass"] nav.bottom.dragging a.peek { color: var(--accent-mark); }
+  /* Material / Skybee: the tab under the finger takes the indicator */
+  :root[data-ui="material"] nav.bottom.dragging a.on:not(.peek) .ni { background: none; }
+  :root[data-ui="material"] nav.bottom.dragging a.peek .ni { background: var(--m-c); }
+  :root:not([data-ui="material"]):not([data-ui="glass"]) nav.bottom.dragging a.on:not(.peek)::after { display: none; }
+  :root:not([data-ui="material"]):not([data-ui="glass"]) nav.bottom.dragging a.peek::after { content: ""; position: absolute; bottom: 3px; left: 50%; width: 18px; height: 3px;
+    margin-left: -9px; border-radius: 3px; background: var(--accent); }
+  /* the side menu (☰) reaches the screen edges: no floating card on a phone */
+  :root[data-ui="glass"] nav.side { top: 0; bottom: 0; height: 100%; margin: 0; border-radius: 0; border-width: 0 1px 0 0; padding-bottom: calc(12px + var(--sab)); }
+}
