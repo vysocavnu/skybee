@@ -64,19 +64,19 @@ nav.bottom, .fab, .only-mobile { display: none; }
   #app { display: block; }
   /* the side menu becomes a drawer opened with the ☰ button */
   nav.side { position: fixed; z-index: 60; left: 0; top: 0; bottom: 0; height: auto; width: min(300px, 84vw); background: var(--bg); border-right: 1px solid var(--line);
-    overflow-y: auto; transform: translateX(-105%); transition: transform .2s; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    overflow-y: auto; transform: translateX(-105%); transition: transform .2s; padding-bottom: calc(12px + var(--sab)); }
   body.drawer nav.side { transform: none; }
   body.drawer::after { content: ""; position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); }
   nav.side .nl, nav.side .logo span, .compose-side span { display: inline; }
   nav.side a, .me { justify-content: flex-start; }
   nav.side .me .nl { display: flex; }
   .only-mobile { display: inline-flex; }
-  main { border: 0; padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  main { border: 0; padding-bottom: calc(80px + var(--sab)); }
   nav.bottom { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: var(--bg); border-top: 1px solid var(--line);
-    padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); justify-content: space-around; }
+    padding: 6px 0 calc(6px + var(--sab)); justify-content: space-around; }
   nav.bottom a { font-size: 22px; padding: 6px 14px; color: var(--text); opacity: .65; }
   nav.bottom a.on { opacity: 1; }
-  .fab { display: block; position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 21; width: 56px; height: 56px; border-radius: 50%;
+  .fab { display: block; position: fixed; right: 16px; bottom: calc(76px + var(--sab)); z-index: 21; width: 56px; height: 56px; border-radius: 50%;
     border: 0; background: var(--accent); font-size: 22px; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
 }
 
@@ -233,9 +233,9 @@ nav.bottom, .fab, .only-mobile { display: none; }
 .bubble { max-width: 75%; padding: 8px 12px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 .msg.mine .bubble { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .msg.mine .bubble a { color: inherit; text-decoration: underline; }
-.chatbar { position: fixed; bottom: 0; width: min(600px, 100%); display: flex; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); z-index: 15; }
+.chatbar { position: fixed; bottom: 0; width: min(600px, 100%); display: flex; gap: 8px; padding: 10px 16px calc(10px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); z-index: 15; }
 .chatbar textarea { border-radius: 20px; resize: none; max-height: 120px; }
-@media (max-width: 640px) { .chatbar { bottom: calc(58px + env(safe-area-inset-bottom)); } }
+@media (max-width: 640px) { .chatbar { bottom: calc(58px + var(--sab)); } }
 .more { margin: 12px auto; display: flex; }
 
 /* ---------- modal / menu / toast ---------- */
@@ -470,7 +470,7 @@ body.deckmode main { border-right: 0; padding-bottom: 0; height: 100vh; display:
 @media (max-width: 1100px) { body.deckmode #app { grid-template-columns: 80px minmax(0, 1fr); } }
 /* phones: one column per screen, swiped sideways */
 @media (max-width: 640px) {
-  body.deckmode main { height: calc(100dvh - 58px - env(safe-area-inset-bottom)); }
+  body.deckmode main { height: calc(100dvh - 58px - var(--sab)); }
   .deck { padding: 0; gap: 0; scroll-snap-type: x mandatory; }
   .dcol { flex-basis: 100vw; border-radius: 0; border-width: 0 1px 0 0; scroll-snap-align: start; }
 }
@@ -695,7 +695,7 @@ nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollba
 @media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
   /* laid out like the desktop: menu with labels on the left, posts in the middle, own profile and feeds on the right;
      clear of the notch and the rounded corners */
-  #app { grid-template-columns: 168px minmax(0, 1fr) 236px; padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  #app { grid-template-columns: 168px minmax(0, 1fr) 236px; padding: 0 var(--sar) 0 var(--sal); }
   body.deckmode #app { grid-template-columns: 168px minmax(0, 1fr); }
   aside.right { display: block; padding: 6px 10px; }
   aside.right .card { margin: 8px 0; padding: 12px; }
@@ -705,7 +705,7 @@ nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollba
   nav.side a, .me { justify-content: flex-start; }
   /* the right column holds the home feeds and the own profile, as on the desktop */
   #feedTabs, nav.side a[data-nav^="#/profile"] { display: none; }
-  nav.side { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 0; }
+  nav.side { padding: 6px 8px calc(6px + var(--sab)); gap: 0; }
   nav.side a { padding: 6px 10px; gap: 10px; font-size: 16px; }
   nav.side .logo { font-size: 20px; margin-bottom: 2px; }
   .compose-side { margin-top: 6px; padding: 8px; font-size: 15px; }
@@ -820,7 +820,7 @@ body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%
 
 /* phone: bigger tap zones, a gold mark under the current tab, a rounder ✏️ */
 @media (max-width: 640px) {
-  nav.bottom { min-height: 58px; align-items: center; padding: 4px 0 calc(4px + env(safe-area-inset-bottom));
+  nav.bottom { min-height: 58px; align-items: center; padding: 4px 0 calc(4px + var(--sab));
     background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
   nav.bottom a { position: relative; min-width: 52px; min-height: 48px; display: flex; justify-content: center; align-items: center; font-size: 23px; border-radius: 12px; }
   nav.bottom a.on::after { content: ""; position: absolute; bottom: 3px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--accent);
@@ -961,13 +961,13 @@ nav.side .logo { color: var(--text); }
   :root[data-ui="glass"] nav.bottom .bl { display: block; font-size: 10px; font-weight: 600; }
   :root[data-ui="glass"] nav.bottom .ico { width: 24px !important; height: 24px !important; }
   /* floating capsule over the feed */
-  :root[data-ui="glass"].glass-float nav.bottom { left: 14px; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom)); padding: 5px 6px; border-radius: 34px; border: 1px solid var(--g-edge);
+  :root[data-ui="glass"].glass-float nav.bottom { left: 14px; right: 14px; bottom: calc(10px + var(--sab)); padding: 5px 6px; border-radius: 34px; border: 1px solid var(--g-edge);
     box-shadow: inset 0 1px 0 var(--g-hi), var(--g-shadow); justify-content: space-between; }
   :root[data-ui="glass"].glass-float nav.bottom a { flex: 1; border-radius: 28px; }
   :root[data-ui="glass"].glass-float nav.bottom a.on { background: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--g-hi); }
-  :root[data-ui="glass"].glass-float main { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
-  :root[data-ui="glass"].glass-float .fab { bottom: calc(92px + env(safe-area-inset-bottom)); }
-  :root[data-ui="glass"].glass-float .chatbar { bottom: calc(80px + env(safe-area-inset-bottom)); border-radius: 26px; left: 10px; right: 10px; width: auto; border: 1px solid var(--g-edge); }
+  :root[data-ui="glass"].glass-float main { padding-bottom: calc(110px + var(--sab)); }
+  :root[data-ui="glass"].glass-float .fab { bottom: calc(92px + var(--sab)); }
+  :root[data-ui="glass"].glass-float .chatbar { bottom: calc(80px + var(--sab)); border-radius: 26px; left: 10px; right: 10px; width: auto; border: 1px solid var(--g-edge); }
   :root[data-ui="glass"] .fab { background: color-mix(in srgb, var(--accent) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
 }
 
@@ -1029,7 +1029,7 @@ nav.side .logo { color: var(--text); }
 @media (max-width: 640px) {
   :root[data-ui="material"] nav.side { background: var(--m-s1); border-right: 0; border-radius: 0 16px 16px 0; }
   /* navigation bar: 80dp, an indicator pill behind the icon, label below */
-  :root[data-ui="material"] nav.bottom { min-height: 80px; padding: 12px 0 calc(16px + env(safe-area-inset-bottom)); background: var(--m-s2); border-top: 0;
+  :root[data-ui="material"] nav.bottom { min-height: 80px; padding: 12px 0 calc(16px + var(--sab)); background: var(--m-s2); border-top: 0;
     -webkit-backdrop-filter: none; backdrop-filter: none; align-items: flex-start; }
   :root[data-ui="material"] nav.bottom a { flex: 1; flex-direction: column; gap: 4px; min-height: 0; padding: 0; border-radius: 0; overflow: visible; color: var(--muted); }
   :root[data-ui="material"] nav.bottom a.on { color: var(--text); }
@@ -1040,12 +1040,12 @@ nav.side .logo { color: var(--text); }
   :root[data-ui="material"] nav.bottom .ico { width: 24px !important; height: 24px !important; }
   :root[data-ui="material"].m-labels nav.bottom .bl { display: block; font-size: 12px; font-weight: 500; letter-spacing: .03em; }
   :root[data-ui="material"]:not(.m-labels) nav.bottom { min-height: 64px; padding-top: 16px; }
-  :root[data-ui="material"] main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  :root[data-ui="material"] main { padding-bottom: calc(100px + var(--sab)); }
   /* FAB: a 56dp rounded square in the tonal container */
-  :root[data-ui="material"] .fab { width: 56px; height: 56px; border-radius: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); background: var(--m-c); color: var(--m-on-c);
+  :root[data-ui="material"] .fab { width: 56px; height: 56px; border-radius: 16px; right: 16px; bottom: calc(96px + var(--sab)); background: var(--m-c); color: var(--m-on-c);
     box-shadow: 0 3px 6px rgba(0,0,0,.3), 0 2px 4px rgba(0,0,0,.2); }
-  :root[data-ui="material"] .chatbar { bottom: calc(80px + env(safe-area-inset-bottom)); background: var(--m-s2); border-top: 0; }
-  :root[data-ui="material"]:not(.m-labels) .chatbar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  :root[data-ui="material"] .chatbar { bottom: calc(80px + var(--sab)); background: var(--m-s2); border-top: 0; }
+  :root[data-ui="material"]:not(.m-labels) .chatbar { bottom: calc(64px + var(--sab)); }
 }
 
 /* the three style tiles in settings */
@@ -1111,8 +1111,8 @@ body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%
   :root[data-ui="glass"] .fab { background: var(--accent); color: var(--accent-ink); border: 1px solid rgba(255,255,255,.35);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 5px 18px rgba(0,0,0,.22); -webkit-backdrop-filter: none; backdrop-filter: none; }
   :root[data-ui="glass"].glass-float nav.bottom { border-radius: 32px; padding: 5px 7px; }
-  :root[data-ui="glass"].glass-float main { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
-  :root[data-ui="glass"].glass-float .fab { bottom: calc(94px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float main { padding-bottom: calc(140px + var(--sab)); }
+  :root[data-ui="glass"].glass-float .fab { bottom: calc(94px + var(--sab)); }
   :root[data-ui="glass"] nav.bottom a.on { color: var(--text); }
 }
 @media (prefers-reduced-transparency: reduce) {
@@ -1133,7 +1133,7 @@ body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%
   :root[data-ui="material"] nav.bottom { box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
   :root[data-ui="material"] nav.bottom a.on, :root[data-ui="material"] nav.bottom a.on .ico { color: var(--text); }
   :root[data-ui="material"].m-labels nav.bottom .bl { letter-spacing: 0; }
-  :root[data-ui="material"] main { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  :root[data-ui="material"] main { padding-bottom: calc(120px + var(--sab)); }
 }
 
 /* ---------- accessibility, every style ---------- */
@@ -1146,11 +1146,11 @@ body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%
 }
 @media (forced-colors: active) { :root[data-ui] :focus-visible { outline: 2px solid Highlight; } }
 
-/* ---------- status bar and notch (phones): nothing goes under the clock and the camera ----------
-   iPhone (viewport-fit=cover, contentInset never) reports the top inset here; on Android the shell itself puts the page
-   below the status bar (capacitor.config: adjustMarginsForEdgeToEdge), so this is 0 there. The bars reach up behind the
-   status bar with their own background, as in native apps. */
-:root { --sat: env(safe-area-inset-top, 0px); }
+/* ---------- status bar, notch and Android's bottom bar (phones): nothing goes under them ----------
+   --sat/--sab/--sal/--sar are the safe-area insets. iPhone (viewport-fit=cover, contentInset never) gives them through env();
+   Android draws the page edge to edge behind the bars but its WebView may report 0 there, so js/native.js puts the real
+   insets from the SafeArea plugin into these variables. The bars reach up behind the status bar with their own background. */
+:root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px); }
 .topbar, .guestbar { padding-top: calc(10px + var(--sat)); min-height: calc(54px + var(--sat)); }
 .guestbar { padding-top: calc(8px + var(--sat)); min-height: 0; }
 body.guest .topbar { top: calc(49px + var(--sat)); padding-top: 10px; min-height: 54px; }
@@ -1163,3 +1163,4 @@ nav.side { padding-top: calc(12px + var(--sat)); }
   nav.side { padding-top: calc(6px + var(--sat)); }
 }
 :root[data-ui="material"] .topbar { min-height: calc(64px + var(--sat)); }
+.login { padding-bottom: calc(16px + var(--sab)); }

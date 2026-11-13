@@ -11,7 +11,9 @@
     "@capacitor/app": "7.1.2",
     "@capacitor/cli": "7.6.10",
     "@capacitor/core": "7.6.10",
-    "@capacitor/ios": "7.6.10"
+    "@capacitor/ios": "7.6.10",
+    "@capacitor/status-bar": "7.0.6",
+    "capacitor-plugin-safe-area": "4.0.3"
   },
   "devDependencies": {
     "@capacitor/assets": "3.0.5"

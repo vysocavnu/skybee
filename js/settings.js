@@ -7,6 +7,7 @@ import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
 import { PALETTE, inkFor } from "./flair.js";
+import { statusBarFor } from "./native.js";
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -403,7 +404,10 @@ export function applyLook() {
   document.body.style.fontSize = (store.get("skybee.font") || "15") + "px";
   document.body.classList.toggle("calm", store.get("skybee.calm") === "1");
   document.body.classList.toggle("nolinkthumbs", store.get("skybee.noLinkThumbs") === "1");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0f1218");
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0f1218";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
+  // phone status bar icons: light on a dark page (the light theme with a deep app colour counts as dark)
+  statusBarFor(root.dataset.theme !== "light" || root.style.colorScheme === "dark");
 }
 export async function appearance(el) {
   const draw = () => {
