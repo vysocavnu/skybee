@@ -12,6 +12,31 @@ export function bee(size = 24, full = size >= 40) {
   const w = size >= 120 ? 2.6 : size >= 40 ? 3.4 : size >= 24 ? 5 : 6;
   return `<svg class="bee" viewBox="0 0 100 100" aria-hidden="true" style="width:${size}px;height:${size}px;fill:none;stroke:url(#beeGold);stroke-width:${w};stroke-linecap:round;stroke-linejoin:round"><g transform="translate(6 0)"><path d="M56 50C43 39 30 22 32 4C47 12 59 30 56 50Z"/><path d="M56 50C44 35 23 19 5 15C17 33 39 45 56 50Z"/><path d="M56 50C42 41 22 39 10 47C24 55 42 55 56 50Z"/>${full ? `<g class="fl"><path d="M44 22c-4-1-6 3-3 5c3 2 6-1 4-4"/><path d="M50 36c-1-4-6-4-6 0c0 3 4 3 4 1"/><path d="M38 12c-2 2-1 6 3 6"/><path d="M24 25c-4 0-4 4-1 5c3 1 4-2 2-3"/><path d="M38 36c-2-3-7-2-6 2"/><path d="M26 46c-2-2-6-1-5 2c1 2 4 2 4 0"/><path d="M40 47c-3-2-7 0-5 3"/></g>` : ""}<path d="M44 57C51 53 59 58 58 67C57 79 43 92 28 99C23 91 22 82 26 74C30 65 37 59 44 57Z"/><path d="M32 64C39 64 46 67 51 72"/><path d="M28 73C35 73 41 76 46 81"/>${full ? `<path d="M26 83C31 83 36 85 39 88"/>` : ""}<path d="M60 66C66 62 68 57 64 52C61 48 63 45 67 45"/><ellipse cx="72" cy="43" rx="6.5" ry="9" transform="rotate(-30 72 43)"/><path d="M69 34C70 28 73 25 77 23"/><path d="M73 36C76 31 80 29 85 29"/></g></svg>`;
 }
+/* ---------- Skybee icons: one line set (24×24, stroke = currentColor), gold where active (css) ---------- */
+const ICO = {
+  home: '<path d="M4 11l8-7 8 7v9H4z"/><rect x="10" y="14" width="4" height="6"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  bell: '<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21.5h4"/>',
+  chat: '<path d="M4 5h16v11H11l-5 4v-4H4z"/><path d="M8 9.5h8M8 12.5h5"/>',
+  hash: '<path d="M9 4L7.5 20M16.5 4L15 20M4.5 9h16M3.5 15h16"/>',
+  deck: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M9 4v16M15 4v16"/>',
+  list: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  bookmark: '<path d="M6 3h12v18l-6-4.5L6 21z"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="7" r="2.5"/><path d="M17.5 12.5c2.4.3 4 2 4 4.5"/>',
+  settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
+  pen: '<path d="M4 20l1-4.5L16 4.5l3.5 3.5L8.5 19z"/><path d="M13.5 7l3.5 3.5M4 20h16"/>',
+  sprout: '<path d="M12 21v-9"/><path d="M12 12c0-4-3-6-7-6 0 4 3 6 7 6zM12 14c0-3.5 2.5-6 7-6 0 3.5-2.5 6-7 6z"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="1.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  media: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/>',
+  brush: '<rect x="4" y="3" width="16" height="6" rx="1"/><path d="M12 9v3H7v3"/><rect x="5.5" y="15" width="3" height="6" rx="1"/>',
+  a11y: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.5" r="1.2"/><path d="M8 10.5l4 1 4-1M12 11.5v3l-2 3.5M12 14.5l2 3.5"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><path d="M12 17v.01"/>',
+  info: '<rect x="4" y="4" width="16" height="14" rx="1.5"/><path d="M9 18l3 3 3-3M12 8v.01M12 11v4"/>',
+};
+export const ico = (n, size = 24) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${size}px;height:${size}px">${ICO[n] || ""}</svg>`;
 // the gradient every bee uses, put into the page once
 if (!document.getElementById("beeGold")) document.body.insertAdjacentHTML("afterbegin",
   `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="beeGold" x1="0" y1="0" x2="1" y2="1">
@@ -558,5 +583,6 @@ export function infinite(container, loader, root = null) {
   return () => io.disconnect();
 }
 
-export const empty = (msg) => `<p class="muted center pad">${esc(msg)}</p>`;
+// Empty screen: the bee at the end of its dashed flight path over faint honeycomb (css: .empty)
+export const empty = (msg) => `<div class="empty"><div class="etrail" aria-hidden="true"><svg viewBox="0 0 120 60"><path d="M4 52c14-2 22-12 18-22s-14-6-10 2 22 10 38-6S88 6 104 10"/></svg>${bee(30)}</div><p class="muted center">${esc(msg)}</p></div>`;
 export const spinner = () => `<div class="sentinel"><div class="spinner"></div></div>`;

@@ -380,7 +380,7 @@ main { overflow-x: clip; }
 .srow { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; background: none; border: 0; color: var(--text); text-align: left; font-size: 1.05em; }
 .srow:hover { background: var(--hover); text-decoration: none; }
 .srow.danger { color: var(--danger); }
-.sicon svg { width: 24px; height: 24px; display: block; }
+.sicon { flex: none; display: grid; place-items: center; width: 26px; color: var(--muted); }
 .schev { color: var(--muted); } .schev svg { width: 18px; height: 18px; display: block; }
 .savas { display: flex; } .savas .avatar + .avatar { margin-left: -8px; }
 .savas .avatar { border: 2px solid var(--bg); }
@@ -407,12 +407,13 @@ body.nolinkthumbs .ext img { display: none; }
 .banner { position: relative; }
 /* page colour: the middle column (profile or post) takes one base colour (--sb) and it fades softly into the side menus.
    Dark and dim themes get its deep shade with light text, the light theme gets the colour as it is;
-   --sb-ink (set in js/flair.js) is the text colour that reads on it */
-main.sb-tint, .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
+   --sb-ink (set in js/flair.js) is the text colour that reads on it.
+   html.sb-theme: the same colours for the whole app (Settings → Appearance → Colour, skybee.color) */
+main.sb-tint, .sideprof.sb-tint, html.sb-theme { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
   --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
   --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
-[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
-[data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
+[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint, html.sb-theme[data-theme="dim"] { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
+[data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint, html.sb-theme[data-theme="light"] { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
   --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
   --accent: var(--sb-ink); --accent-ink: var(--sb); }
 main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -687,3 +688,460 @@ details.nb[open] > summary { margin-bottom: 10px; }
 details.nb .rowlink { display: block; padding: 8px 0; border-top: 1px solid var(--line); }
 details.nb .actor { padding-left: 0; padding-right: 0; }
 .nbauthor { margin: 0 0 8px; color: var(--muted); }
+
+/* ---------- phone turned sideways (Android/iOS app, phone browser) ---------- */
+/* older WebViews let ::-webkit-scrollbar win over scrollbar-width: keep the hidden bars hidden there too */
+nav.side::-webkit-scrollbar, .tabs::-webkit-scrollbar, .nchips::-webkit-scrollbar { display: none; width: 0; height: 0; }
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
+  /* laid out like the desktop: menu with labels on the left, posts in the middle, own profile and feeds on the right;
+     clear of the notch and the rounded corners */
+  #app { grid-template-columns: 168px minmax(0, 1fr) 236px; padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+  body.deckmode #app { grid-template-columns: 168px minmax(0, 1fr); }
+  aside.right { display: block; padding: 6px 10px; }
+  aside.right .card { margin: 8px 0; padding: 12px; }
+  .sideprof { margin: 8px 0; }
+  nav.side .nl, nav.side .logo span, .compose-side span { display: inline; }
+  nav.side .me .nl { display: flex; }
+  nav.side a, .me { justify-content: flex-start; }
+  /* the right column holds the home feeds and the own profile, as on the desktop */
+  #feedTabs, nav.side a[data-nav^="#/profile"] { display: none; }
+  nav.side { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 0; }
+  nav.side a { padding: 6px 10px; gap: 10px; font-size: 16px; }
+  nav.side .logo { font-size: 20px; margin-bottom: 2px; }
+  .compose-side { margin-top: 6px; padding: 8px; font-size: 15px; }
+  .me { padding: 4px 6px; }
+  /* less chrome on top: more room for posts on a short screen */
+  .topbar { min-height: 46px; padding: 5px 16px; }
+  .tabs > * { padding: 10px 14px; }
+  .imgs img, .video { max-height: 78vh; }
+  .imgs.n2 img, .imgs.n3 img, .imgs.n4 img { max-height: 46vh; }
+}
+/* a smaller phone sideways: icons only in the menu, so the posts keep their width */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) and (max-width: 780px) {
+  #app { grid-template-columns: 60px minmax(0, 1fr) 220px; }
+  body.deckmode #app { grid-template-columns: 60px minmax(0, 1fr); }
+  nav.side .nl, nav.side .logo span, .compose-side span, nav.side .me .nl { display: none; }
+  nav.side a, .me { justify-content: center; }
+}
+
+/* swipe back from the left edge in the apps (js/native.js) */
+.swipeback { position: fixed; left: 0; z-index: 90; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; pointer-events: none;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); font-size: 20px; box-shadow: 0 4px 16px rgba(0,0,0,.35); transition: background .12s, color .12s; }
+.swipeback.ready { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+/* =====================================================================
+   Skybee 2.0 — «The Social Hive»: the same screens and classes, a look of its own.
+   Gold only where it means something (active, important, the bee); honeycomb and the bee's flight path
+   as quiet motifs; softer posts, bigger touch targets. Works in all three themes and with the app colour.
+   ===================================================================== */
+:root { --honey: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.713' height='48' viewBox='0 0 27.713 48'%3E%3Cpath d='M13.856 0L27.713 8V24L13.856 32L0 24V8ZM13.856 32V48' fill='none' stroke='%23e0a82e' stroke-opacity='.12' stroke-width='.8'/%3E%3C/svg%3E"); }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+button, a { touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .spinner { animation-duration: .8s !important; }
+}
+
+/* buttons: the gold one is the brand's, rounded squares instead of plain pills */
+.btn { border-radius: 14px; font-weight: 700; transition: filter .15s, transform .15s; }
+.btn:hover { filter: brightness(1.08); text-decoration: none; }
+.btn:active, .ghost:active { transform: scale(.97); }
+.ghost { border-radius: 12px; transition: background .15s, border-color .15s, transform .15s; }
+.ghost:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.ghost.icon { border-radius: 50%; }
+
+/* feed: one calm surface, more air, a soft hover */
+.post { gap: 13px; padding: 14px 18px; transition: background .18s ease; }
+.post:hover { background: color-mix(in srgb, var(--hover) 70%, transparent); }
+.post.focus:hover { background: none; }
+.meta { gap: 5px; }
+.meta b { font-weight: 700; }
+.text { line-height: 1.55; margin: 4px 0 10px; }
+.text.big { font-size: 19px; line-height: 1.5; }
+.imgs, .video, .ext, .quote { border-radius: 14px; }
+
+/* actions under a post: bigger targets, each lights up in its own colour */
+.actions { max-width: 460px; margin-top: 2px; }
+.actions button { min-width: 38px; min-height: 36px; justify-content: center; gap: 6px; border-radius: 12px; padding: 6px 10px;
+  transition: background .15s, color .15s, transform .15s; }
+.actions button:hover { background: var(--hover); color: var(--text); }
+.actions button:active { transform: scale(.92); }
+.actions [data-act="like"]:hover { color: var(--like); background: color-mix(in srgb, var(--like) 12%, transparent); }
+.actions [data-act="repostMenu"]:hover { color: var(--repost); background: color-mix(in srgb, var(--repost) 12%, transparent); }
+.actions [data-act="bookmark"]:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* side menu: a gold bar marks where you are — a Skybee detail */
+nav.side a { position: relative; border-radius: 12px; transition: background .15s; }
+nav.side a.on { background: var(--hover); }
+nav.side a.on::before { content: ""; position: absolute; left: 0; top: 22%; height: 56%; width: 3px; border-radius: 0 4px 4px 0; background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent); }
+nav.side .logo.on { background: none; } nav.side .logo.on::before { display: none; }
+nav.side .logo { letter-spacing: -.5px; margin-bottom: 10px; }
+
+/* right column: softer, rounder widgets; links warm up on hover */
+aside.right .card { border-radius: 18px; padding: 16px 18px; }
+aside.right .card h3 { font-size: 15px; }
+aside.right .card a { transition: color .15s; }
+aside.right .card a:not(.ghost):not(.btn):hover { color: var(--accent); text-decoration: none; }
+.sideprof { border-radius: 18px; }
+
+/* profile: a lower banner, a bolder name */
+.banner { height: 135px; }
+.phead { padding: 0 20px 16px; }
+.phead h1 { font-size: 28px; font-weight: 800; letter-spacing: -.6px; }
+.counts { gap: 20px; }
+.bio { line-height: 1.6; }
+
+/* settings switches: a warm glow when on */
+.stoggle input:checked + i { box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent); }
+.stoggle input:checked + i::after { background: radial-gradient(circle at 40% 35%, #fff, #fff4d6 60%, #ffe2a0); }
+
+/* «Колонки»: a workspace — columns as panels with a gold line under the header, honeycomb behind */
+.deck { gap: 12px; padding: 14px; background: var(--honey) 0 0 / 44px 76px; }
+.dcol { border-radius: 16px; background: var(--bg); box-shadow: 0 4px 18px rgba(0,0,0,.18); transition: border-color .15s; }
+.dcol:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.dhead { min-height: 50px; padding: 6px 8px 6px 14px; border-bottom: 2px solid var(--accent); }
+.dhead .dtitle { font-size: 15px; font-weight: 750; }
+.dhead .icon { min-width: 34px; min-height: 34px; border-radius: 10px; }
+.dhead .icon:hover { background: var(--hover); }
+
+/* empty screens: the bee at the end of its flight path, honeycomb fading out around it */
+.empty { position: relative; padding: 36px 16px 28px; text-align: center; isolation: isolate; }
+.empty::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--honey) center / 44px 76px;
+  -webkit-mask: radial-gradient(ellipse at 50% 40%, #000, transparent 70%); mask: radial-gradient(ellipse at 50% 40%, #000, transparent 70%); }
+.etrail { position: relative; width: 150px; height: 64px; margin: 0 auto 6px; }
+.etrail svg:not(.bee) { position: absolute; inset: 0; width: 100%; height: 100%; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 4 5; opacity: .7; }
+.etrail .bee { position: absolute; right: -8px; top: -12px; transform: rotate(18deg); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--bee-hi) 45%, transparent)); }
+.empty p { margin: 0; }
+
+/* sign-in screen: honeycomb at the edges, clear in the middle */
+body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%, transparent 80%), var(--honey) 0 0 / 44px 76px, var(--bg); }
+
+/* phone: bigger tap zones, a gold mark under the current tab, a rounder ✏️ */
+@media (max-width: 640px) {
+  nav.bottom { min-height: 58px; align-items: center; padding: 4px 0 calc(4px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  nav.bottom a { position: relative; min-width: 52px; min-height: 48px; display: flex; justify-content: center; align-items: center; font-size: 23px; border-radius: 12px; }
+  nav.bottom a.on::after { content: ""; position: absolute; bottom: 3px; left: 50%; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); }
+  .fab { width: 58px; height: 58px; right: 18px; box-shadow: 0 5px 22px rgba(0,0,0,.3), 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .post { padding: 13px 14px; gap: 10px; }
+  .actions { max-width: 100%; }
+  .actions button { min-width: 42px; min-height: 40px; }
+  .text { font-size: 1.05em; }
+}
+
+/* ---------- Skybee 2.0, part 2: the brand's own icons, tabs, banner, status, workspace density ---------- */
+/* line icons (ico() in ui.js): muted at rest, text colour on hover, gold where you are */
+.ico { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ni { width: 26px; height: 26px; display: inline-grid; place-items: center; vertical-align: middle; }
+nav.side a { color: var(--muted); }
+nav.side a:hover, nav.side a.on { color: var(--text); }
+nav.side a.on .ico { color: var(--accent); stroke-width: 2.1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); }
+nav.side .logo { color: var(--text); }
+.compose-side { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.compose-side .ico { stroke-width: 2.2; }
+.fab { display: none; place-items: center; color: var(--accent-ink); }
+.fab .ico { margin: auto; stroke-width: 2.2; }
+.srow .sicon .ico { width: 22px; height: 22px; }
+.srow:hover .sicon { color: var(--accent); }
+
+/* tabs and top bar: thinner lines, a short glowing gold underline instead of a full-width bar */
+.topbar { border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.topbar h2 { letter-spacing: -.3px; font-weight: 800; }
+.tabs { border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.tabs > * { position: relative; border-bottom: 0; transition: color .15s, background .15s; }
+.tabs > .on::after { content: ""; position: absolute; left: 50%; bottom: 0; width: min(56px, 60%); height: 3px; transform: translateX(-50%); border-radius: 3px 3px 0 0;
+  background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
+.chip { transition: border-color .15s, background .15s; }
+.chip:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); text-decoration: none; }
+
+/* fewer frames: cards are surfaces with a hairline, not boxes */
+.card { border-color: color-mix(in srgb, var(--line) 65%, transparent); border-radius: 16px; }
+.modal { border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+.sgroup { border-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.post { border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+
+/* a profile without its own banner: warm honey light over honeycomb instead of the old gold-to-blue */
+.banner, .sp-banner { background: var(--honey) 0 0 / 44px 76px, radial-gradient(ellipse at 75% 0%, rgba(245,179,1,.38), transparent 60%),
+  linear-gradient(135deg, #3a2a08, #17130b 60%, #0f1218); }
+/* a real banner (or the profile colour from flair.js) replaces that: one picture, covering */
+.banner[style*="background-image"], .sp-banner[style*="background-image"] { background-size: cover; background-position: center; background-repeat: no-repeat; }
+
+/* Honey Status: the Skybee status bubble gets a small glowing honey drop */
+.sb-bubble { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); padding-left: 24px; }
+.sb-bubble::after { content: ""; position: absolute; left: 10px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.sb-bubble::before { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+
+/* Bee Trail on the welcome screen: the bee arrives along its dashed loop */
+.loginbee { position: relative; }
+.loginbee::before { content: ""; position: absolute; left: 50%; top: 50%; width: 260px; height: 130px; margin: -40px 0 0 -250px; pointer-events: none; opacity: .55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 130'%3E%3Cpath d='M4 122c26-4 42-26 34-48S6 60 16 78s52 20 82-6 70-58 130-50' fill='none' stroke='%23c9a24d' stroke-width='1.6' stroke-dasharray='5 6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+@media (max-width: 520px) { .loginbee::before { width: 180px; height: 90px; margin: -26px 0 0 -170px; } }
+
+/* «Колонки»: compact mode — narrower columns, denser posts */
+.deck.compact { gap: 8px; padding: 10px; }
+.deck.compact .dcol { flex-basis: 300px; }
+.deck.compact .dbody .post { padding: 8px 10px; gap: 8px; font-size: .93em; }
+.deck.compact .dbody .actions button { min-height: 30px; padding: 3px 6px; }
+.deck.compact .dhead { min-height: 42px; }
+
+/* phone: line icons in the bottom bar, gold for the current one */
+@media (max-width: 640px) {
+  nav.bottom a { opacity: 1; color: var(--muted); }
+  nav.bottom a.on { color: var(--accent); }
+  nav.bottom a.on .ico { stroke-width: 2.1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); }
+  .fab { display: grid; }
+}
+
+/* =====================================================================
+   Interface styles (Settings → Appearance → «Стиль інтерфейсу», applyLook → html[data-ui]):
+   Liquid Glass — iPhone/iPad by default; Material Design 3 — Android by default; any of them on any device.
+   Always :root[data-ui=…] — the style buttons in settings carry data-ui too.
+   ===================================================================== */
+.bl { display: none; }
+
+/* ---------------------------- Liquid Glass ---------------------------- */
+:root[data-ui="glass"] { --g-a: 58%; --g-blur: 26px; --g-edge: rgba(255,255,255,.14); --g-hi: rgba(255,255,255,.22); --g-shadow: 0 10px 34px rgba(0,0,0,.32);
+  --glass: color-mix(in srgb, var(--panel) var(--g-a), transparent); }
+:root[data-ui="glass"][data-glass="clear"] { --g-a: 34%; --g-blur: 18px; }
+:root[data-ui="glass"][data-glass="frost"] { --g-a: 80%; --g-blur: 38px; }
+:root[data-ui="glass"][data-theme="light"] { --g-edge: rgba(255,255,255,.75); --g-hi: rgba(255,255,255,.9); --g-shadow: 0 10px 30px rgba(15,20,25,.12); }
+:root[data-ui="glass"] body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  /* soft coloured light behind the glass, so it has something to bend */
+  background: radial-gradient(60vw 50vh at 85% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(50vw 50vh at -10% 110%, color-mix(in srgb, var(--link) 12%, transparent), transparent 70%), var(--bg) fixed; }
+:root[data-ui="glass"] main { border-color: transparent; }
+:root[data-ui="glass"] :is(.topbar, nav.bottom, .card, .modal, .popmenu, .toast, .chatbar, .dhead, nav.side, .msheet) {
+  background: var(--glass); -webkit-backdrop-filter: blur(var(--g-blur)) saturate(180%); backdrop-filter: blur(var(--g-blur)) saturate(180%); }
+:root[data-ui="glass"] :is(.card, .modal, .popmenu, nav.bottom, .toast, .fab, .dcol) { border: 1px solid var(--g-edge);
+  box-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 rgba(255,255,255,.04), var(--g-shadow); }
+:root[data-ui="glass"] .topbar { border-bottom: 1px solid var(--g-edge); box-shadow: inset 0 -1px 0 rgba(0,0,0,.06); }
+:root[data-ui="glass"] .card { border-radius: 24px; }
+:root[data-ui="glass"] .modal { border-radius: 30px; }
+:root[data-ui="glass"] .popmenu { border-radius: 20px; padding: 8px; }
+:root[data-ui="glass"] .popmenu button { border-radius: 12px; }
+:root[data-ui="glass"] .toast { color: var(--text); }
+:root[data-ui="glass"] .modal-bg { background: rgba(0,0,0,.35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+/* capsule buttons with a light catching the top edge */
+:root[data-ui="glass"] .btn { border-radius: 999px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent) 55%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+:root[data-ui="glass"] .ghost { border-radius: 999px; background: var(--glass); border-color: var(--g-edge); box-shadow: inset 0 1px 0 var(--g-hi);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+:root[data-ui="glass"] .ghost.icon { border-radius: 50%; }
+:root[data-ui="glass"] .imgs, :root[data-ui="glass"] .video, :root[data-ui="glass"] .ext, :root[data-ui="glass"] .quote { border-radius: 20px; }
+/* segmented control: a glass track with a brighter sliding thumb */
+:root[data-ui="glass"] .seg { gap: 2px; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+:root[data-ui="glass"] .seg button, :root[data-ui="glass"] .seg label { border: 0; border-radius: 999px; background: none; }
+:root[data-ui="glass"] .seg button.on, :root[data-ui="glass"] .seg label:has(:checked) { background: color-mix(in srgb, #fff 16%, var(--glass));
+  box-shadow: inset 0 1px 0 var(--g-hi), 0 2px 8px rgba(0,0,0,.18); font-weight: 600; }
+:root[data-ui="glass"][data-theme="light"] .seg button.on, :root[data-ui="glass"][data-theme="light"] .seg label:has(:checked) { background: #fff; }
+/* iOS switch */
+:root[data-ui="glass"] .stoggle i { width: 51px; height: 31px; }
+:root[data-ui="glass"] .stoggle i::after { top: 2px; left: 2px; width: 27px; height: 27px; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+:root[data-ui="glass"] .stoggle input:checked + i { box-shadow: none; }
+:root[data-ui="glass"] .stoggle input:checked + i::after { transform: translateX(20px); background: #fff; }
+/* side menu: a floating glass panel; where you are — a glass pill */
+:root[data-ui="glass"] nav.side { top: 10px; height: calc(100vh - 20px); margin: 10px 0; border-radius: 28px; border: 1px solid var(--g-edge); box-shadow: inset 0 1px 0 var(--g-hi), var(--g-shadow); }
+:root[data-ui="glass"] nav.side a { border-radius: 999px; }
+:root[data-ui="glass"] nav.side a.on { background: color-mix(in srgb, #fff 10%, transparent); box-shadow: inset 0 1px 0 var(--g-hi); }
+:root[data-ui="glass"] nav.side a.on::before { display: none; }
+:root[data-ui="glass"] .tabs > .on::after { width: auto; left: 18%; right: 18%; transform: none; height: 3px; border-radius: 3px; bottom: 4px; }
+:root[data-ui="glass"] .dcol { border-radius: 24px; background: var(--glass); }
+:root[data-ui="glass"] .dhead { border-bottom: 1px solid var(--g-edge); }
+@media (max-width: 640px) {
+  :root[data-ui="glass"] nav.side { top: 0; height: auto; margin: 0; border-radius: 0 28px 28px 0; }
+  /* tab bar: icons over small labels, the current one in a glass pill */
+  :root[data-ui="glass"] nav.bottom { border-width: 0; border-top: 1px solid var(--g-edge); box-shadow: inset 0 1px 0 var(--g-hi); }
+  :root[data-ui="glass"] nav.bottom a { flex-direction: column; gap: 1px; min-height: 52px; color: var(--muted); }
+  :root[data-ui="glass"] nav.bottom a.on { color: var(--accent); }
+  :root[data-ui="glass"] nav.bottom a.on::after { display: none; }
+  :root[data-ui="glass"] nav.bottom .bl { display: block; font-size: 10px; font-weight: 600; }
+  :root[data-ui="glass"] nav.bottom .ico { width: 24px !important; height: 24px !important; }
+  /* floating capsule over the feed */
+  :root[data-ui="glass"].glass-float nav.bottom { left: 14px; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom)); padding: 5px 6px; border-radius: 34px; border: 1px solid var(--g-edge);
+    box-shadow: inset 0 1px 0 var(--g-hi), var(--g-shadow); justify-content: space-between; }
+  :root[data-ui="glass"].glass-float nav.bottom a { flex: 1; border-radius: 28px; }
+  :root[data-ui="glass"].glass-float nav.bottom a.on { background: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--g-hi); }
+  :root[data-ui="glass"].glass-float main { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float .fab { bottom: calc(92px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float .chatbar { bottom: calc(80px + env(safe-area-inset-bottom)); border-radius: 26px; left: 10px; right: 10px; width: auto; border: 1px solid var(--g-edge); }
+  :root[data-ui="glass"] .fab { background: color-mix(in srgb, var(--accent) 72%, transparent); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+}
+
+/* ---------------------------- Material Design 3 ---------------------------- */
+:root[data-ui="material"] { --m-s1: var(--panel); --m-s2: var(--hover); --m-c: color-mix(in srgb, var(--text) 14%, var(--bg)); --m-on-c: var(--text); --m-out: var(--line); }
+:root[data-ui="material"].m-tonal { --m-s1: color-mix(in srgb, var(--accent) 6%, var(--bg)); --m-s2: color-mix(in srgb, var(--accent) 11%, var(--bg));
+  --m-c: color-mix(in srgb, var(--accent) 26%, var(--bg)); --m-out: color-mix(in srgb, var(--accent) 22%, var(--line)); }
+:root[data-ui="material"] body { font-family: Roboto, "Google Sans", "Segoe UI", system-ui, sans-serif; letter-spacing: .01em; }
+:root[data-ui="material"] main { border-color: transparent; }
+:root[data-ui="material"] .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 0; min-height: 64px; }
+:root[data-ui="material"] .topbar h2 { font-weight: 500; font-size: 22px; letter-spacing: 0; }
+/* filled cards and dialogs, no outlines */
+:root[data-ui="material"] .card { background: var(--m-s1); border: 0; border-radius: 16px; }
+:root[data-ui="material"] .modal { background: var(--m-s2); border: 0; border-radius: 28px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+:root[data-ui="material"] .popmenu { background: var(--m-s2); border: 0; border-radius: 12px; padding: 8px 0; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+:root[data-ui="material"] .popmenu button { border-radius: 0; padding: 12px 16px; }
+:root[data-ui="material"] .toast { border-radius: 8px; background: var(--text); color: var(--bg); padding: 14px 18px; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+:root[data-ui="material"] .post { border-bottom-color: var(--m-out); }
+/* buttons: filled and outlined pills, 40px tall */
+:root[data-ui="material"] .btn { border-radius: 999px; min-height: 40px; padding: 10px 24px; font-weight: 500; letter-spacing: .02em; box-shadow: none; filter: none; }
+:root[data-ui="material"] .btn:hover { box-shadow: 0 1px 3px rgba(0,0,0,.3); filter: none; }
+:root[data-ui="material"] .ghost { border-radius: 999px; border-color: var(--m-out); font-weight: 500; }
+:root[data-ui="material"] .ghost:hover { border-color: var(--m-out); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+:root[data-ui="material"] .ghost.icon { border: 0; }
+:root[data-ui="material"] :is(.btn, .ghost):active { transform: none; }
+:root[data-ui="material"] .chip { border-radius: 8px; border-color: var(--m-out); }
+:root[data-ui="material"] .chip.on { background: var(--m-c); color: var(--m-on-c); border-color: transparent; }
+/* segmented buttons: one outlined pill split into parts, the chosen one filled */
+:root[data-ui="material"] .seg { gap: 0; }
+:root[data-ui="material"] .seg > * { border-radius: 0; border: 1px solid var(--m-out); margin-left: -1px; background: none; min-height: 40px; font-weight: 500; }
+:root[data-ui="material"] .seg > :first-child { border-radius: 999px 0 0 999px; margin-left: 0; }
+:root[data-ui="material"] .seg > :last-child { border-radius: 0 999px 999px 0; }
+:root[data-ui="material"] .seg > :only-child { border-radius: 999px; }
+:root[data-ui="material"] .seg button.on, :root[data-ui="material"] .seg label:has(:checked) { background: var(--m-c); color: var(--m-on-c); border-color: var(--m-out); }
+:root[data-ui="material"] .seg button.on::before { content: "✓ "; }
+/* M3 switch: outlined track off, filled on, the thumb grows */
+:root[data-ui="material"] .stoggle i { width: 52px; height: 32px; background: var(--m-s2); border: 2px solid var(--muted); box-shadow: none; }
+:root[data-ui="material"] .stoggle i::after { top: 6px; left: 6px; width: 16px; height: 16px; background: var(--muted); transition: transform .15s, width .15s, height .15s, top .15s, left .15s; }
+:root[data-ui="material"] .stoggle input:checked + i { background: var(--accent); border-color: var(--accent); box-shadow: none; }
+:root[data-ui="material"] .stoggle input:checked + i::after { top: 2px; left: 2px; width: 24px; height: 24px; transform: translateX(20px); background: var(--accent-ink); }
+/* navigation drawer: tall pill items, the current one in a tonal container */
+:root[data-ui="material"] nav.side a { border-radius: 999px; min-height: 52px; }
+:root[data-ui="material"] nav.side a.on { background: var(--m-c); color: var(--m-on-c); }
+:root[data-ui="material"] nav.side a.on::before { display: none; }
+:root[data-ui="material"] nav.side a.on .ico { color: var(--m-on-c); filter: none; }
+:root[data-ui="material"] .compose-side { border-radius: 16px; min-height: 56px; background: var(--m-c); color: var(--m-on-c); box-shadow: 0 3px 6px rgba(0,0,0,.25); }
+/* primary tabs: the indicator as wide as the label */
+:root[data-ui="material"] .tabs { border-bottom-color: var(--m-out); }
+:root[data-ui="material"] .tabs > .on { color: var(--accent); }
+:root[data-ui="material"][data-theme="light"] .tabs > .on { color: var(--text); }
+:root[data-ui="material"] .tabs > .on::after { left: 16px; right: 16px; width: auto; transform: none; box-shadow: none; }
+:root[data-ui="material"] .dcol { border: 0; background: var(--m-s1); border-radius: 16px; box-shadow: none; }
+:root[data-ui="material"] .dhead { background: var(--m-s2); border-bottom: 0; }
+:root[data-ui="material"] aside.right .card, :root[data-ui="material"] .sideprof { border-radius: 16px; }
+/* ripple */
+:root[data-ui="material"] :is(.btn, .ghost, .actions button, .srow, nav.side a, nav.bottom a, .tabs > *, .chip, .popmenu button, .seg button, .fab) { position: relative; overflow: hidden; }
+.ripple { position: absolute; border-radius: 50%; pointer-events: none; background: currentColor; opacity: .16; transform: scale(0); animation: ripple .55s ease-out forwards; }
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+@media (max-width: 640px) {
+  :root[data-ui="material"] nav.side { background: var(--m-s1); border-right: 0; border-radius: 0 16px 16px 0; }
+  /* navigation bar: 80dp, an indicator pill behind the icon, label below */
+  :root[data-ui="material"] nav.bottom { min-height: 80px; padding: 12px 0 calc(16px + env(safe-area-inset-bottom)); background: var(--m-s2); border-top: 0;
+    -webkit-backdrop-filter: none; backdrop-filter: none; align-items: flex-start; }
+  :root[data-ui="material"] nav.bottom a { flex: 1; flex-direction: column; gap: 4px; min-height: 0; padding: 0; border-radius: 0; overflow: visible; color: var(--muted); }
+  :root[data-ui="material"] nav.bottom a.on { color: var(--text); }
+  :root[data-ui="material"] nav.bottom a.on::after { display: none; }
+  :root[data-ui="material"] nav.bottom .ni { width: 64px; height: 32px; border-radius: 16px; transition: background .2s; }
+  :root[data-ui="material"] nav.bottom a.on .ni { background: var(--m-c); }
+  :root[data-ui="material"] nav.bottom a.on .ico { color: var(--m-on-c); filter: none; }
+  :root[data-ui="material"] nav.bottom .ico { width: 24px !important; height: 24px !important; }
+  :root[data-ui="material"].m-labels nav.bottom .bl { display: block; font-size: 12px; font-weight: 500; letter-spacing: .03em; }
+  :root[data-ui="material"]:not(.m-labels) nav.bottom { min-height: 64px; padding-top: 16px; }
+  :root[data-ui="material"] main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  /* FAB: a 56dp rounded square in the tonal container */
+  :root[data-ui="material"] .fab { width: 56px; height: 56px; border-radius: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); background: var(--m-c); color: var(--m-on-c);
+    box-shadow: 0 3px 6px rgba(0,0,0,.3), 0 2px 4px rgba(0,0,0,.2); }
+  :root[data-ui="material"] .chatbar { bottom: calc(80px + env(safe-area-inset-bottom)); background: var(--m-s2); border-top: 0; }
+  :root[data-ui="material"]:not(.m-labels) .chatbar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+}
+
+/* the three style tiles in settings */
+.uipreview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.uipv { position: relative; height: 96px; border-radius: 16px; border: 2px solid var(--line); overflow: hidden; padding: 0; display: block; text-align: left; }
+.uipv.on { border-color: var(--accent); }
+.uipv b { position: absolute; left: 8px; bottom: 6px; font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.uipv i { position: absolute; display: block; }
+.uipv-glass { background: radial-gradient(circle at 80% 10%, #f5b301aa, transparent 55%), radial-gradient(circle at 0 100%, #4c9bffaa, transparent 55%), #1b2030; }
+.uipv-glass i:nth-child(1) { left: 10px; right: 10px; top: 10px; height: 18px; border-radius: 9px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); backdrop-filter: blur(6px); }
+.uipv-glass i:nth-child(2) { left: 14px; right: 14px; bottom: 26px; height: 22px; border-radius: 12px; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
+.uipv-glass i:nth-child(3) { left: 50%; bottom: 31px; width: 24px; height: 12px; margin-left: -12px; border-radius: 6px; background: rgba(255,255,255,.45); }
+.uipv-material { background: #1f1b13; }
+.uipv-material i:nth-child(1) { left: 10px; right: 10px; top: 12px; height: 28px; border-radius: 12px; background: #3a3220; }
+.uipv-material i:nth-child(2) { left: 0; right: 0; bottom: 0; height: 26px; background: #2c2618; }
+.uipv-material i:nth-child(3) { right: 10px; bottom: 32px; width: 22px; height: 22px; border-radius: 7px; background: #f5c94a; }
+.uipv-material b { bottom: auto; top: 18px; left: 16px; color: #f5e6c0; text-shadow: none; }
+.uipv-skybee { background: var(--honey) 0 0 / 22px 38px, #0f1218; }
+.uipv-skybee i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 26px; background: #171b23; }
+.uipv-skybee i:nth-child(2) { left: 0; top: 16px; width: 3px; height: 14px; border-radius: 0 3px 3px 0; background: #f5b301; box-shadow: 0 0 8px #f5b301; }
+.uipv-skybee i:nth-child(3) { left: 36px; right: 10px; top: 14px; height: 18px; border-radius: 9px; background: #f5b301; }
+
+/* =====================================================================
+   Review pass (second opinion): three different characters, not three skins of one theme
+   ===================================================================== */
+/* a readable gold for small marks on a light page (#f5b301 on white is too faint) */
+:root { --accent-mark: var(--accent); }
+:root[data-theme="light"] { --accent-mark: color-mix(in srgb, var(--accent) 62%, #000); }
+nav.side a.on .ico, nav.bottom a.on .ico { color: var(--accent-mark); }
+.tabs > .on::after { box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 35%, transparent); }
+/* a bit more compact posts, a calmer ✏️ button */
+.post { padding: 12px 16px; }
+@media (max-width: 640px) { .fab { box-shadow: 0 4px 16px rgba(0,0,0,.28); } .post { padding: 12px 14px; } }
+/* the welcome screen keeps its honeycomb a little brighter */
+body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%, transparent 80%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.713' height='48' viewBox='0 0 27.713 48'%3E%3Cpath d='M13.856 0L27.713 8V24L13.856 32L0 24V8ZM13.856 32V48' fill='none' stroke='%23e0a82e' stroke-opacity='.2' stroke-width='.8'/%3E%3C/svg%3E") 0 0 / 44px 76px, var(--bg); }
+
+/* ---------- Skybee Classic: gold only where it means something ---------- */
+:root[data-ui="skybee"] .post:hover { background: var(--hover); }
+:root[data-ui="skybee"] .card { border-radius: 14px; box-shadow: none; }
+:root[data-ui="skybee"] .tabs > .on { color: var(--text); }
+:root[data-ui="skybee"] .empty::before { opacity: .65; }
+:root[data-ui="skybee"] nav.side a.on .ico, :root[data-ui="skybee"] nav.bottom a.on .ico { filter: none; }
+
+/* ---------- Liquid Glass: glass is the navigation layer; content stays solid ---------- */
+:root[data-ui="glass"] { --g-a: 76%; --g-blur: 24px; --g-edge: rgba(255,255,255,.17); --g-hi: rgba(255,255,255,.24); --g-shadow: 0 8px 28px rgba(0,0,0,.20); }
+:root[data-ui="glass"][data-glass="clear"] { --g-a: 52%; --g-blur: 18px; }
+:root[data-ui="glass"][data-glass="frost"] { --g-a: 88%; --g-blur: 34px; }
+:root[data-ui="glass"][data-theme="light"] { --g-a: 82%; --g-edge: rgba(255,255,255,.82); --g-hi: rgba(255,255,255,.95); --g-shadow: 0 6px 24px rgba(20,30,50,.10); }
+:root[data-ui="glass"] :is(.card, .dcol, .dhead) { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+  border-color: color-mix(in srgb, var(--line) 70%, transparent); }
+:root[data-ui="glass"] .dhead { border-color: transparent; border-bottom: 1px solid var(--line); }
+:root[data-ui="glass"] :is(.topbar, nav.bottom, nav.side, .modal, .popmenu, .toast, .chatbar, .msheet) { border-color: var(--g-edge); }
+/* secondary buttons are plain, not glass: one yellow main action, the rest quiet */
+:root[data-ui="glass"] .ghost { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border-color: color-mix(in srgb, var(--text) 18%, transparent); }
+:root[data-ui="glass"] .btn { background: var(--accent); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 3px 10px color-mix(in srgb, var(--accent) 22%, transparent); }
+/* no glow around active icons; the active item changes shape smoothly */
+:root[data-ui="glass"] :is(nav.side, nav.bottom) a.on .ico { filter: none; }
+:root[data-ui="glass"] :is(nav.side, nav.bottom) a { transition: background .25s ease, box-shadow .25s ease, color .2s, transform .25s cubic-bezier(.3,1.5,.6,1); }
+:root[data-ui="glass"] :is(nav.side, nav.bottom) a.on { transform: scale(1.02); }
+:root[data-ui="glass"] nav.bottom a:active { transform: scale(.94); }
+@media (max-width: 640px) {
+  :root[data-ui="glass"] .fab { background: var(--accent); color: var(--accent-ink); border: 1px solid rgba(255,255,255,.35);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 5px 18px rgba(0,0,0,.22); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :root[data-ui="glass"].glass-float nav.bottom { border-radius: 32px; padding: 5px 7px; }
+  :root[data-ui="glass"].glass-float main { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"].glass-float .fab { bottom: calc(94px + env(safe-area-inset-bottom)); }
+  :root[data-ui="glass"] nav.bottom a.on { color: var(--text); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-ui="glass"] :is(.topbar, nav.bottom, nav.side, .modal, .popmenu, .toast, .chatbar, .msheet) { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ---------- Material 3: tonal surfaces, the brand gold as a hint, not a flood ---------- */
+:root[data-ui="material"].m-tonal { --m-s1: color-mix(in srgb, var(--accent) 3%, var(--bg)); --m-s2: color-mix(in srgb, var(--accent) 7%, var(--bg));
+  --m-c: color-mix(in srgb, var(--accent) 17%, var(--bg)); --m-out: var(--line); }
+:root[data-ui="material"] .card { border-radius: 18px; box-shadow: none; }
+:root[data-ui="material"] .modal { box-shadow: 0 8px 24px rgba(0,0,0,.20); }
+:root[data-ui="material"] nav.side a.on, :root[data-ui="material"] nav.side a.on .ico { color: var(--text); }
+:root[data-ui="material"] .compose-side { background: var(--accent); color: var(--accent-ink); }
+:root[data-ui="material"] .seg button.on, :root[data-ui="material"] .seg label:has(:checked) { color: var(--text); font-weight: 600; }
+:root[data-ui="material"] .btn { box-shadow: none; font-weight: 600; }
+:root[data-ui="material"] .tabs > .on { color: var(--text); }
+@media (max-width: 640px) {
+  :root[data-ui="material"] nav.bottom { box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
+  :root[data-ui="material"] nav.bottom a.on, :root[data-ui="material"] nav.bottom a.on .ico { color: var(--text); }
+  :root[data-ui="material"].m-labels nav.bottom .bl { letter-spacing: 0; }
+  :root[data-ui="material"] main { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------- accessibility, every style ---------- */
+@media (pointer: coarse) { :root[data-ui] .actions button { min-width: 44px; min-height: 44px; } }
+@media (max-width: 640px) { :root[data-ui] nav.bottom a { min-height: 48px; min-width: 48px; } }
+:root[data-ui] :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (prefers-contrast: more) {
+  :root[data-ui] { --line: var(--muted); }
+  :root[data-ui] .ghost { border-width: 2px; }
+}
+@media (forced-colors: active) { :root[data-ui] :focus-visible { outline: 2px solid Highlight; } }

@@ -116,7 +116,10 @@ export async function deck(el) {
   document.body.classList.add("deckmode");
   let cols = loadCols();
   const stops = new Map();
-  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>Колонки</h2><div class="grow"></div><button class="btn sm" data-d="add">＋ Колонка</button></div><div class="deck"></div>`;
+  // compact or roomy columns (narrower, denser posts — handy on a big monitor), remembered on this device
+  const compact = () => { try { return localStorage.getItem("skybee.deckCompact") === "1"; } catch { return false; } };
+  const densBtn = () => `<button class="ghost sm" data-d="density" title="Щільність колонок">${compact() ? "▤ Компактно" : "▥ Звичайно"}</button>`;
+  el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>Колонки</h2><div class="grow"></div>${densBtn()}<button class="btn sm" data-d="add">＋ Колонка</button></div><div class="deck${compact() ? " compact" : ""}"></div>`;
   const row = $(".deck", el);
   const account = (c) => api.accounts.find(a => a.did === c.as);
   const colHtml = (c) => {
@@ -152,6 +155,10 @@ export async function deck(el) {
     const b = e.target.closest("[data-d]"); if (!b) return;
     e.preventDefault();
     if (b.dataset.d === "add") return add();
+    if (b.dataset.d === "density") {
+      try { localStorage.setItem("skybee.deckCompact", compact() ? "0" : "1"); } catch {}
+      row.classList.toggle("compact", compact()); b.outerHTML = densBtn(); return;
+    }
     const id = b.closest(".dcol")?.dataset.id, i = cols.findIndex(c => c.id === id), c = cols[i];
     if (!c) return;
     if (b.dataset.d === "refresh") load(c);

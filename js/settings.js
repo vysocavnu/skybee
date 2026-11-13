@@ -2,10 +2,11 @@
 import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
-import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors } from "./ui.js";
+import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors, ico } from "./ui.js";
 import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
+import { PALETTE, inkFor } from "./flair.js";
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -16,22 +17,8 @@ const saved = (promise, undo) => promise.then(() => toast("Збережено"),
 const needMain = (ex) => ex.status === 401 || ex.status === 403 || /token|scope|privileged|Bad token/i.test(ex.message)
   ? "Ця дія потребує входу з основним паролем. Вийди й увійди знову, обравши «Основний пароль»." : errText(ex);
 
-/* ---------- small icons (stroke, 24×24) ---------- */
-const svg = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
-const IC = {
-  user: svg(`<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>`),
-  users: svg(`<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17" cy="7" r="2.5"/><path d="M17 12.5c2.8 0 4.5 1.7 4.5 4.5"/>`),
-  lock: svg(`<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/>`),
-  shield: svg(`<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>`),
-  bell: svg(`<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>`),
-  media: svg(`<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><circle cx="7" cy="6.5" r=".5"/>`),
-  brush: svg(`<rect x="4" y="3" width="16" height="6" rx="1.5"/><path d="M12 9v3H7v3"/><rect x="5.5" y="15" width="3" height="6" rx="1"/>`),
-  a11y: svg(`<circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.5" r="1.2"/><path d="M8 10.5l4 1 4-1M12 11.5v3l-2 3.5M12 14.5l2 3.5"/>`),
-  globe: svg(`<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>`),
-  help: svg(`<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><circle cx="12" cy="17" r=".6"/>`),
-  info: svg(`<rect x="4" y="4" width="16" height="14" rx="2"/><path d="M9 18l3 3 3-3"/><path d="M12 8v.5M12 11v4"/>`),
-  chev: svg(`<path d="M9 5l7 7-7 7"/>`),
-};
+/* ---------- section icons: the same line set as the main menu (ico in ui.js) ---------- */
+const IC = new Proxy({ chev: `<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>` }, { get: (o, k) => o[k] ?? ico(k) });
 const row = (href, icon, label, extra = "") =>
   `<a class="srow" href="${href}"><span class="sicon">${IC[icon]}</span><span class="grow">${label}</span>${extra}<span class="schev">${IC.chev}</span></a>`;
 const toggle = (id, label, on, hint = "", disabled = false) =>
@@ -378,10 +365,41 @@ export async function media(el) {
 }
 
 /* ================= APPEARANCE ================= */
+// What the phone is: the app knows it from Capacitor, a browser from the user agent (iPad says «Macintosh» but has touch)
+export function devicePlatform() {
+  const p = window.Capacitor?.getPlatform?.();
+  if (p === "ios" || p === "android") return p;
+  const ua = navigator.userAgent || "";
+  if (/android/i.test(ua)) return "android";
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  return "other";
+}
+// skybee.ui: auto | glass | material | skybee; «auto» = Liquid Glass on iPhone/iPad, Material on Android, the Skybee look elsewhere
+export function uiStyle() {
+  const v = store.get("skybee.ui") || "auto";
+  if (v !== "auto") return v;
+  return { ios: "glass", android: "material" }[devicePlatform()] || "skybee";
+}
 export function applyLook() {
   const t = store.get("skybee.theme") || "dark";
   const sys = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  document.documentElement.dataset.theme = t === "system" ? sys : t;
+  const root = document.documentElement, c = store.get("skybee.color");
+  root.dataset.theme = t === "system" ? sys : t;
+  // app colour: the same palette and look as the profile colour (js/flair.js), but for the whole app
+  const ok = PALETTE.some(([p]) => p === c);
+  root.classList.toggle("sb-theme", ok);
+  if (ok) { root.style.setProperty("--sb", c); root.style.setProperty("--sb-ink", inkFor(c)); }
+  else { root.style.removeProperty("--sb"); root.style.removeProperty("--sb-ink"); }
+  // light theme on a deep colour has white text: let the browser draw inputs and scrollbars for a dark page
+  root.style.colorScheme = ok && root.dataset.theme === "light" && inkFor(c) === "#ffffff" ? "dark" : "";
+  // interface style: Liquid Glass (iPhone by default) or Material Design (Android by default), each with its own options
+  const ui = uiStyle();
+  root.dataset.ui = ui;
+  root.dataset.glass = store.get("skybee.glass") || "normal";
+  root.classList.toggle("glass-float", store.get("skybee.glassFloat") !== "0");
+  root.classList.toggle("m-labels", store.get("skybee.mLabels") !== "0");
+  root.classList.toggle("m-tonal", store.get("skybee.mTonal") !== "0");
+  root.classList.toggle("m-ripple", store.get("skybee.mRipple") !== "0");
   document.body.style.fontSize = (store.get("skybee.font") || "15") + "px";
   document.body.classList.toggle("calm", store.get("skybee.calm") === "1");
   document.body.classList.toggle("nolinkthumbs", store.get("skybee.noLinkThumbs") === "1");
@@ -389,12 +407,35 @@ export function applyLook() {
 }
 export async function appearance(el) {
   const draw = () => {
-    const theme = store.get("skybee.theme") || "dark", font = store.get("skybee.font") || "15";
+    const theme = store.get("skybee.theme") || "dark", font = store.get("skybee.font") || "15", color = store.get("skybee.color") || "";
+    const uiPick = store.get("skybee.ui") || "auto", ui = uiStyle();
     el.innerHTML = header("Оформлення", true) + `
-      <div class="card"><h3>Тема</h3>${seg("theme", [["system", "Як у системі"], ["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]], theme)}</div>
-      <div class="card"><h3>Розмір тексту</h3>${seg("font", [["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]], font)}</div>`;
-    el.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { store.set("skybee.theme", b.dataset.theme); applyLook(); draw(); });
+      <div class="card"><h3>Тема</h3>${seg("th", [["system", "Як у системі"], ["dark", "Темна"], ["dim", "Сутінки"], ["light", "Світла"]], theme)}</div>
+      <div class="card"><h3>Колір</h3><p class="muted small">Ті самі кольори, що й в оформленні профілю.</p><div class="sb-swatches">${
+        [["", "Звичайний (золотий)"], ...PALETTE].map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}" style="background:${c || "#f5b301"}"></button>`).join("")}</div></div>
+      <div class="card"><h3>Розмір тексту</h3>${seg("font", [["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]], font)}</div>
+      <div class="card"><h3>Стиль інтерфейсу</h3>
+        <p class="muted small">«Авто»: на iPhone та iPad — Liquid Glass, на Android — Material Design, на комп'ютері — Skybee. Можна вибрати будь-який на будь-якому пристрої.</p>
+        ${seg("ui", [["auto", "Авто"], ["glass", "Liquid Glass"], ["material", "Material"], ["skybee", "Skybee"]], uiPick)}
+        <div class="uipreview">${["glass", "material", "skybee"].map(v => `<button type="button" class="uipv uipv-${v}${ui === v ? " on" : ""}" data-ui="${v}" aria-label="${{ glass: "Liquid Glass", material: "Material Design", skybee: "Skybee" }[v]}"><i></i><i></i><i></i><b>${{ glass: "Liquid Glass", material: "Material", skybee: "Skybee" }[v]}</b></button>`).join("")}</div>
+      </div>
+      ${ui === "glass" ? `<div class="card"><h3>Liquid Glass</h3>
+        <div class="field">Скло${seg("glass", [["clear", "Прозоре"], ["normal", "Звичайне"], ["frost", "Матове"]], store.get("skybee.glass") || "normal")}</div>
+        ${toggle("glassFloat", "Плаваюча панель вкладок", store.get("skybee.glassFloat") !== "0", "Нижня панель — скляна капсула над стрічкою, як в iOS")}
+      </div>` : ""}
+      ${ui === "material" ? `<div class="card"><h3>Material Design</h3>
+        ${toggle("mTonal", "Кольори Material You", store.get("skybee.mTonal") !== "0", "Поверхні й кнопки відтінені кольором застосунку")}
+        ${toggle("mLabels", "Підписи в нижній панелі", store.get("skybee.mLabels") !== "0")}
+        ${toggle("mRipple", "Хвиля при натисканні", store.get("skybee.mRipple") !== "0", "Кругла «хвиля» від пальця на кнопках і пунктах")}
+      </div>` : ""}`;
+    el.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { store.set("skybee.theme", b.dataset.th); applyLook(); draw(); });
+    el.querySelectorAll("[data-color]").forEach(b => b.onclick = () => { store.set("skybee.color", b.dataset.color || null); applyLook(); draw(); });
     el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => { store.set("skybee.font", b.dataset.font); applyLook(); draw(); });
+    el.querySelectorAll("[data-ui]").forEach(b => b.onclick = () => { store.set("skybee.ui", b.dataset.ui === "auto" ? null : b.dataset.ui); applyLook(); draw(); });
+    el.querySelectorAll("[data-glass]").forEach(b => b.onclick = () => { store.set("skybee.glass", b.dataset.glass === "normal" ? null : b.dataset.glass); applyLook(); draw(); });
+    for (const k of ["glassFloat", "mTonal", "mLabels", "mRipple"]) {
+      const i = el.querySelector("#" + k); if (i) i.onchange = () => { store.set("skybee." + k, i.checked ? null : "0"); applyLook(); };
+    }
   };
   draw();
 }
@@ -502,7 +543,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }
