@@ -327,6 +327,7 @@ async function route() {
     const h = a.dataset.nav.slice(1);
     a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session?.handle)));
   });
+  document.documentElement.classList.remove("tab-min"); // a new screen starts with the full tab bar
   placeLens($("nav.bottom a.on"));
   main.innerHTML = "";
   document.body.classList.remove("deckmode");
@@ -389,6 +390,22 @@ function placeLens(a) {
   lens.style.transform = `translateX(${a.offsetLeft}px)`;
 }
 addEventListener("resize", () => placeLens($("nav.bottom a.on")));
+// Liquid Glass on a phone: scrolling down shrinks the tab capsule to the current tab, scrolling up (or reaching the top) brings it back
+{
+  let lastY = scrollY, acc = 0;
+  addEventListener("scroll", () => {
+    const r = document.documentElement, y = scrollY, d = y - lastY; lastY = y;
+    const on = $("nav.bottom a.on");
+    // only on a tab screen (a settings page or a post has no tab to keep), and not on search, which has its own circle
+    if (r.dataset.ui !== "glass" || !r.classList.contains("glass-float") || innerWidth > 640 || !on || on.dataset.nav === "#/search") return r.classList.remove("tab-min");
+    acc = Math.sign(d) === Math.sign(acc) ? acc + d : d;
+    const min = r.classList.contains("tab-min");
+    if (!min && acc > 40 && y > 160) r.classList.add("tab-min");
+    else if (min && (acc < -24 || y < 60)) r.classList.remove("tab-min");
+    else return;
+    setTimeout(() => placeLens($("nav.bottom a.on")), 360);
+  }, { passive: true });
+}
 {
   let drag = null;
   const tabAt = (bar, x) => [...bar.querySelectorAll("a")].find(a => { const r = a.getBoundingClientRect(); return x >= r.left && x <= r.right; });

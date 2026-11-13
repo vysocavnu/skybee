@@ -2,7 +2,7 @@
 import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
-import { $, esc, enc, num, name, vname, avatar, richText, renderActor, renderFeedCard, empty, spinner, toast, modal, menu, confirmBox, profileHref, actors, at } from "./ui.js";
+import { $, esc, enc, num, name, vname, avatar, richText, renderActor, renderFeedCard, empty, spinner, toast, modal, menu, confirmBox, profileHref, actors, at, ico } from "./ui.js";
 import { header, paged, renderListCard, homeTabs } from "./views.js";
 
 const reload = () => window.dispatchEvent(new Event("hashchange"));
@@ -305,7 +305,7 @@ export async function sidebar(el) {
   // the home screen's feeds live here on wide screens (the tabs above the posts are hidden there)
   let cur = 0; try { cur = +sessionStorage.getItem("skybee.tab") || 0; } catch {}
   if (tabs.length) html += `<div class="card small sidefeeds"><h3>Фіди</h3>${tabs.map((t, i) =>
-    `<button class="sfeed${i === cur ? " on" : ""}" data-sfeed="${i}">${{ timeline: "🏠", feed: "#️⃣", list: "📋", my: "🧩" }[t.kind] || "#️⃣"} <span class="clip">${esc(t.label)}</span></button>`).join("")}
+    `<button class="sfeed${i === cur ? " on" : ""}" data-sfeed="${i}">${ico({ timeline: "home", feed: "hash", list: "list", my: "deck" }[t.kind] || "hash", 18)} <span class="clip">${esc(t.label)}</span></button>`).join("")}
     <a class="rowlink" href="#/feeds">Усі фіди →</a></div>`;
   if (sug?.actors?.length) html += `<div class="card small"><h3>Кого почитати</h3>${sug.actors.map(a => {
     actors.set(a.did, a);
