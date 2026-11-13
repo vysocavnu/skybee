@@ -337,6 +337,9 @@ async function route() {
   const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
   if (path === "/login" && api.session) { location.replace("#/"); return; }
   if (seg[0] === "profile" && seg[1] === "me") { location.replace(`#/profile/${api.session.handle}${seg.length > 2 ? "/" + seg.slice(2).join("/") : ""}`); return; }
+  // the own profile is open: the profile card in the right column would only repeat it, so the feeds take its place
+  const mine = seg[0] === "profile" && api.session && [api.session.handle, api.session.did].includes(seg[1]) && !["post", "followers", "follows", "known"].includes(seg[2]);
+  document.body.classList.toggle("myprofile", !!mine);
   document.querySelectorAll("[data-nav]").forEach(a => {
     const h = a.dataset.nav.slice(1);
     // «/profile/me» is the own profile; only that link (a plain replace of "/me" also hit «/messages» → no active «Чати» tab)

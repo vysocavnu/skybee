@@ -1367,3 +1367,5 @@ body.calm :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), bo
   :root[data-ui] nav.side .logo { height: 40px; }
   nav.side { overflow-y: auto; }
 }
+/* the own profile is open (js/app.js route → body.myprofile): no profile card on the right, the feeds move up */
+body.myprofile #sideProf { display: none; }
