@@ -2,8 +2,7 @@
 # - будь-які зміни застосунку (веб чи mobile/) або ручний запуск → файли в артефактах запуску
 #   і в тестовому (pre-release) релізі «mobile-test» — його зручно відкрити просто з телефона
 # - тег vX.Y.Z або ручний запуск із полем «version» → файли ще й у звичайному релізі разом із десктопом
-# APK підписаний ключем із GitHub Secrets (той самий у кожній збірці, тож нова ставиться поверх старої);
-# доки секретів нема — публічним тестовим mobile/debug.keystore (небезпечно: ним може підписати будь-хто).
+# APK підписаний ключем із GitHub Secrets (той самий у кожній збірці, тож нова ставиться поверх старої).
 # IPA — без підпису (для нього потрібен акаунт Apple Developer): поставити на iPhone можна через Sideloadly чи AltStore,
 # вони підпишуть його вашим Apple ID.
 name: Mobile (Android, iOS)
@@ -80,8 +79,7 @@ jobs:
           echo "VER=$V" >> "$GITHUB_ENV"
       - name: Ключ підпису
         # Справжній ключ — лише в GitHub Secrets (ANDROID_KEYSTORE = keystore у base64, ANDROID_KEYSTORE_PASSWORD,
-        # ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD), у репозиторії його немає. Тестовий mobile/debug.keystore публічний:
-        # будь-хто може підписати ним підробку, яка встане поверх Skybee, тож він лише запасний варіант, доки секретів нема.
+        # ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD), у репозиторії його немає. Старий тестовий ключ був публічним — прибраний.
         # Ключ прописано в самій збірці: копія в ~/.android/ не діяла (Gradle робив свій випадковий ключ).
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE }}
@@ -90,22 +88,18 @@ jobs:
           KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -n "$KS" ]; then
-            echo "$KS" | base64 -d > "$RUNNER_TEMP/skybee.keystore"
+            # base64 з Linux/macOS чи з Windows (certutil додає рядки -----BEGIN/END----- і переноси)
+            printf '%s' "$KS" | grep -v -- '-----' | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/skybee.keystore"
+            keytool -list -keystore "$RUNNER_TEMP/skybee.keystore" -storepass "$KS_PASS" -alias "$KS_ALIAS" > /dev/null \
+              || { echo "::error::Ключ із секретів не відкривається: перевір ANDROID_KEYSTORE (base64), пароль і псевдонім (ANDROID_KEY_ALIAS)"; exit 1; }
             {
               echo "SKYBEE_KS=$RUNNER_TEMP/skybee.keystore"
               echo "SKYBEE_KS_PASS=$KS_PASS"
               echo "SKYBEE_KS_ALIAS=$KS_ALIAS"
               echo "SKYBEE_KS_KEY_PASS=${KS_KEY_PASS:-$KS_PASS}"
-              echo "SKYBEE_KS_REAL=1"
             } >> "$GITHUB_ENV"
           else
-            echo "::warning::Секрету ANDROID_KEYSTORE немає — APK підписано публічним тестовим ключем mobile/debug.keystore (небезпечно)"
-            {
-              echo "SKYBEE_KS=$PWD/debug.keystore"
-              echo "SKYBEE_KS_PASS=android"
-              echo "SKYBEE_KS_ALIAS=androiddebugkey"
-              echo "SKYBEE_KS_KEY_PASS=android"
-            } >> "$GITHUB_ENV"
+            echo "::error::Немає секрету ANDROID_KEYSTORE — APK нема чим підписати (Settings → Secrets and variables → Actions)"; exit 1
           fi
           cat >> android/app/build.gradle <<'GRADLE'
 
@@ -132,9 +126,8 @@ jobs:
         run: |
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
           "$APKSIGNER" verify --print-certs Skybee.apk | tee certs.txt
-          # відбиток справжнього ключа — змінна репозиторію ANDROID_CERT_SHA256 (не секрет); тестового — fb9ab4…e785
+          # відбиток ключа — змінна репозиторію ANDROID_CERT_SHA256 (не секрет; береться з рядка «SHA-256 digest» вище)
           WANT="${{ vars.ANDROID_CERT_SHA256 }}"
-          [ -z "$SKYBEE_KS_REAL" ] && WANT=fb9ab4a7cd9235533d9e2deba6d216df403250299bca5f29aba6ce642311e785
           if [ -n "$WANT" ]; then
             grep -qi "SHA-256 digest: $WANT" certs.txt \
               || { echo "::error::APK підписаний не тим ключем — його не вдасться поставити поверх попередньої версії"; exit 1; }
