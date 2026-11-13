@@ -34,6 +34,8 @@ const ICO = {
   a11y: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.5" r="1.2"/><path d="M8 10.5l4 1 4-1M12 11.5v3l-2 3.5M12 14.5l2 3.5"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><path d="M12 17v.01"/>',
+  qr: '<rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1"/><path d="M14 14h3v3M20.5 14v.01M14 20.5h.01M17 20.5h3.5V17"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
   info: '<rect x="4" y="4" width="16" height="14" rx="1.5"/><path d="M9 18l3 3 3-3M12 8v.01M12 11v4"/>',
 };
 export const ico = (n, size = 24) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width:${size}px;height:${size}px">${ICO[n] || ""}</svg>`;

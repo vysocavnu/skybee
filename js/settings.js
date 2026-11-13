@@ -7,6 +7,7 @@ import { header } from "./views.js";
 import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
 import { PALETTE, inkFor } from "./flair.js";
+import * as flair from "./flair.js";
 import { statusBarFor } from "./native.js";
 
 const store = {
@@ -27,13 +28,25 @@ const toggle = (id, label, on, hint = "", disabled = false) =>
 const seg = (attr, items, cur) => `<div class="seg">${items.map(([v, l]) => `<button data-${attr}="${v}" class="${v === cur ? "on" : ""}">${l}</button>`).join("")}</div>`;
 
 /* ================= MAIN LIST ================= */
+// Like Telegram: my profile on top over my Skybee profile colour (fading softly into the theme), then the accounts on this
+// device as a list — each with its unread count, a tap switches to it — and «Додати акаунт»; QR and «Змінити» in the top bar
 export async function index(el) {
   const me = actors.get(session.did) || session;
   const others = api.accounts.filter(a => a.did !== session.did);
-  el.innerHTML = header("Налаштування") + `
-    <a class="shead" href="#/profile/${encodeURIComponent(session.handle)}">${avatar(me, 88)}<b>${vname(me)}</b><span class="muted">${at(session.handle)}</span></a>
-    <div class="sgroup">${row("#/settings/accounts", "users", others.length ? "Перемкнути акаунт" : "Акаунти на цьому пристрої",
-      `<span class="savas">${others.slice(0, 3).map(a => avatar(actors.get(a.did) || a, 28)).join("")}</span>`)}</div>
+  const head = (p) => `${avatar(p, 96)}<b>${vname(p)}</b><span class="muted">${at(session.handle)}</span>`;
+  const acc = (a) => {
+    const p = actors.get(a.did) || a;
+    return `<button class="srow acc" data-act="switchAccount" data-did="${esc(a.did)}" title="Перемкнутися на ${esc(at(a.handle))}">${avatar(p, 34)}
+      <span class="grow"><b>${name(p)}</b><small class="muted">${at(a.handle)}</small></span><span class="acc-n" data-n="${esc(a.did)}"></span></button>`;
+  };
+  el.innerHTML = header("Налаштування", false,
+    `<button class="ghost icon" data-act="shareMe" title="QR-код і посилання на мій профіль">${ico("qr", 20)}</button><button class="ghost sm" data-act="editProfile">Змінити</button>`) + `
+    <a class="shead" href="#/profile/${encodeURIComponent(session.handle)}">${head(me)}</a>
+    <div class="sgroup accs">
+      ${others.map(acc).join("")}
+      <button class="srow" data-act="addAccount"><span class="sicon">${ico("plus")}</span><span class="grow">Додати акаунт</span></button>
+      ${others.length ? row("#/settings/accounts", "users", "Керувати акаунтами") : ""}
+    </div>
     <div class="sgroup">
       ${row("#/settings/account", "user", "Акаунт")}
       ${row("#/settings/privacy", "lock", "Конфіденційність і безпека")}
@@ -47,16 +60,27 @@ export async function index(el) {
       ${row("#/settings/about", "info", "Про Skybee")}
     </div>
     <div class="sgroup"><button class="srow danger" data-act="logout"><span class="grow">Вийти з ${at(session.handle)}</span></button></div>`;
+  // my Skybee profile colour behind the top, melting into the page; without one — a faint glow of the app accent
+  flair.load(session.did).then(got => { const h = $(".shead", el); if (h && got?.rec.color) h.style.setProperty("--pc", got.rec.color); }).catch(() => {});
   // my own profile may still be loading on the very first screen
   if (!actors.get(session.did)) api.get("app.bsky.actor.getProfile", { actor: session.did }).then(p => {
     actors.set(p.did, p);
-    const h = $(".shead", el); if (h) h.innerHTML = `${avatar(p, 88)}<b>${vname(p)}</b><span class="muted">${at(session.handle)}</span>`;
+    const h = $(".shead", el); if (h) h.innerHTML = head(p);
   }).catch(() => {});
-  // fresh avatars of the other accounts for the switch row
-  if (others.length) api.get("app.bsky.actor.getProfiles", { actors: others.map(a => a.did).slice(0, 25) }).then(d => {
+  if (!others.length) return;
+  // fresh names and avatars of the other accounts, and how many unseen notifications each has (asked as that account)
+  api.get("app.bsky.actor.getProfiles", { actors: others.map(a => a.did).slice(0, 25) }).then(d => {
     d.profiles.forEach(p => actors.set(p.did, p));
-    const box = $(".savas", el); if (box) box.innerHTML = others.slice(0, 3).map(a => avatar(actors.get(a.did) || a, 28)).join("");
-  }).catch(() => {});
+    const box = $(".accs", el); if (!box) return;
+    for (const a of others) { const b = box.querySelector(`[data-did="${CSS.escape(a.did)}"]`); if (b) b.outerHTML = acc(a); }
+    others.forEach(count);
+  }).catch(() => others.forEach(count));
+  function count(a) {
+    api.get("app.bsky.notification.getUnreadCount", {}, { as: a }).then(r => {
+      const n = el.querySelector(`[data-n="${CSS.escape(a.did)}"]`);
+      if (n && r?.count) n.textContent = r.count > 99 ? "99+" : r.count;
+    }).catch(() => {});
+  }
 }
 
 /* ================= ACCOUNTS ON THIS DEVICE ================= */
