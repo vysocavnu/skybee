@@ -326,7 +326,9 @@ async function route() {
   if (seg[0] === "profile" && seg[1] === "me") { location.replace(`#/profile/${api.session.handle}${seg.length > 2 ? "/" + seg.slice(2).join("/") : ""}`); return; }
   document.querySelectorAll("[data-nav]").forEach(a => {
     const h = a.dataset.nav.slice(1);
-    a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session?.handle)));
+    // «/profile/me» is the own profile; only that link (a plain replace of "/me" also hit «/messages» → no active «Чати» tab)
+    const want = h === "/profile/me" ? "/profile/" + api.session?.handle : h;
+    a.classList.toggle("on", h === "/" ? path === "/" : path === want || path.startsWith(want + "/"));
   });
   document.documentElement.classList.remove("tab-min", "fab-min", "scrolled"); // a new screen starts with the full bars
   placeLens($("nav.bottom a.on"));
