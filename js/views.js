@@ -3,7 +3,7 @@ import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
 import {
-  bee, isLive, postHref, $, esc, enc, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
+  bee, isLive, postHref, $, esc, enc, safeUrl, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
 } from "./ui.js";
 import * as notify from "./notify.js";
@@ -383,7 +383,7 @@ function liveCard(p) {
   if (!isLive(p)) return "";
   const x = p.status.embed?.external || {};
   let host = ""; try { host = new URL(x.uri).hostname.replace(/^www\./, ""); } catch {}
-  return `<a class="livecard" href="${esc(x.uri || "#")}" target="_blank" rel="noopener">${x.thumb ? `<img src="${esc(x.thumb)}" alt="">` : ""}
+  return `<a class="livecard" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener">${x.thumb ? `<img src="${esc(x.thumb)}" alt="">` : ""}
     <span class="grow"><b class="livedot">● В ефірі</b> <span class="small muted">${esc(host)}</span><span class="clip">${esc(x.title || x.uri || "Трансляція")}</span></span></a>`;
 }
 

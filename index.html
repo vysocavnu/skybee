@@ -2,6 +2,8 @@
 <html lang="uk" data-theme="dark">
 <head>
 <meta charset="utf-8">
+<!-- Scripts only from Skybee itself (and the iTunes music search fallback): an injected script or a javascript: link is refused -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://itunes.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; media-src 'self' https: blob:; connect-src 'self' https:; frame-src https:; worker-src 'self' blob:; font-src 'self' data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1218">
 <meta name="description" content="Skybee — відкритий клієнт для Bluesky">

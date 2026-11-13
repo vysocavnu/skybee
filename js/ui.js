@@ -5,6 +5,8 @@ import { session, mutedWords, adultEnabled, labelPref, labelDef, labelName, labe
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const enc = encodeURIComponent;
+// Links from other people's data (posts, bios, messages, cards): only web and mail links; javascript:, data: and the like become harmless
+export const safeUrl = (u) => typeof u === "string" && /^(https?:\/\/|mailto:)/i.test(u.trim()) ? u.trim() : "#";
 
 // The Skybee bee: gold line art. Its gold follows the theme (--bee-hi / --bee-lo in style.css).
 // Small sizes get thicker lines and no filigree on the wings, so it still reads at 16–24 px
@@ -112,7 +114,7 @@ export function richText(text = "", facets) {
     out += esc(td.decode(bytes.slice(pos, s)));
     const seg = esc(td.decode(bytes.slice(s, e)));
     const ft = f.features?.[0] || {};
-    if (ft.$type === "app.bsky.richtext.facet#link") out += `<a href="${esc(ft.uri)}" target="_blank" rel="noopener">${seg}</a>`;
+    if (ft.$type === "app.bsky.richtext.facet#link") out += `<a href="${esc(safeUrl(ft.uri))}" target="_blank" rel="noopener">${seg}</a>`;
     else if (ft.$type === "app.bsky.richtext.facet#mention") out += `<a href="#/profile/${enc(ft.did)}">${seg}</a>`;
     else if (ft.$type === "app.bsky.richtext.facet#tag") out += `<a href="#/tag/${enc(ft.tag)}">${seg}</a>`;
     else out += seg;
@@ -261,12 +263,12 @@ export function renderEmbed(embed, label) {
     const pl = playerOf(x.uri);
     if (pl?.video) return `<div class="playwrap pvid" style="aspect-ratio:${pl.ratio}">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}<button class="bigplay" data-act="player" data-src="${esc(pl.src)}" title="Дивитися тут">▶</button>
-      <a class="ptitle" href="${esc(x.uri)}" target="_blank" rel="noopener"><small>${esc(host)}</small> ${esc(x.title || x.uri)}</a></div>`;
-    if (pl) return `<div class="playwrap" data-h="${pl.height}"><a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener">
+      <a class="ptitle" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener"><small>${esc(host)}</small> ${esc(x.title || x.uri)}</a></div>`;
+    if (pl) return `<div class="playwrap" data-h="${pl.height}"><a class="ext" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}
       <div><small>${esc(host)}</small><b>${esc(x.title || x.uri)}</b><small>${esc((x.description || "").slice(0, 160))}</small></div></a>
       <button class="ghost sm playbtn" data-act="player" data-src="${esc(pl.src)}">▶ Слухати тут</button></div>`;
-    return `<a class="ext" href="${esc(x.uri)}" target="_blank" rel="noopener">
+    return `<a class="ext" href="${esc(safeUrl(x.uri))}" target="_blank" rel="noopener">
       ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy">` : ""}
       <div><small>${esc(host)}</small><b>${esc(x.title || x.uri)}</b><small>${esc((x.description || "").slice(0, 160))}</small></div></a>`;
   }
@@ -523,7 +525,7 @@ function loadHls() {
   if (window.Hls) return Promise.resolve();
   return hlsLoading ||= new Promise((res, rej) => {
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js";
+    s.src = new URL("./vendor/hls.min.js", import.meta.url).href; // our own copy (1.6.13): nothing from a CDN runs here
     s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });
 }

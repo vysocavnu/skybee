@@ -24,7 +24,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
 - **Телефони (Android, iOS)** — `mobile/`: Capacitor 7 (та сама вебчастина в `mobile/www/`, `node scripts/dist.mjs mobile/www`). Нативні проєкти не комітяться —
   `npx cap add android|ios` створює їх у CI (`.github/workflows/mobile.yml`), іконки й заставка — `@capacitor/assets` з `mobile/assets/`.
-  APK підписаний тестовим ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх; ключ прописаний у `build.gradle` кроком CI, бо копія в `~/.android` не діяла; CI перевіряє SHA-256 відбиток `fb9ab4…e785`); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
+  APK підписаний ключем із GitHub Secrets (`ANDROID_KEYSTORE` у base64, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; відбиток — змінна `ANDROID_CERT_SHA256`), однаковий у всіх збірках → ставиться поверх; ключ прописаний у `build.gradle` кроком CI, бо копія в `~/.android` не діяла. Поки секретів нема — запасний публічний `mobile/debug.keystore` (відбиток `fb9ab4…e785`) із попередженням: ним може підписати підробку будь-хто; IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
   Кожна збірка оновлює pre-release `mobile-test` (Skybee.apk, Skybee-unsigned.ipa); тег `vX.Y.Z` — ще й у реліз. Вебчастина в телефоні поки не оновлюється сама — потрібна нова збірка.
   Статус-бар і нижня панель: сторінка на весь екран (edge-to-edge), відступи — CSS-змінні `--sat/--sab/--sal/--sar` (за замовчуванням `env(safe-area-inset-*)`; у CSS не писати `env(...)` напряму).
   iPhone дає їх через `env()`, на Android `native.js` бере їх з плагіна `capacitor-plugin-safe-area` (WebView там віддає 0). `adjustMarginsForEdgeToEdge` не вмикати: поля навколо сторінки стають білими.
@@ -113,6 +113,11 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Сторінки помилок сайту: `404.html` у корені (GitHub Pages і власний домен; адреси без `#`, як `/profile/x`, сам перекидає в застосунок),
   `offline.html` (service worker, сам перезавантажується з мережею), `errors/403|500|502|503|504.html` — для хостингу з власним доменом.
   Під власний домен: файл `CNAME` з доменом у корені + DNS; сторінки самі визначають, чи сайт у `/skybee/`, чи в корені.
+
+## Безпека
+- `index.html` має CSP: скрипти лише свої (+ itunes.apple.com для JSONP пошуку музики). Новий зовнішній скрипт/джерело — дописати в CSP, а краще покласти файл у `js/vendor/` (так зроблено з hls.js 1.6.13). Жодних inline-скриптів і `onclick="…"`.
+- Посилання з чужих даних (фасети, картки, LIVE) — лише через `safeUrl()` з ui.js (http/https/mailto, інше → `#`), і завжди `esc()`.
+- DevTools (F12) у десктопі — лише при запуску з вихідного коду.
 
 ## Правила
 - Без фреймворків і без кроку збірки, поки ми на вебі.

@@ -251,7 +251,8 @@ function createWindow() {
     if (k.type !== "keyDown") return;
     if (k.key === "F5" || (k.control && k.key.toLowerCase() === "r")) { win.webContents.reload(); e.preventDefault(); }
     if (k.key === "F11") { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
-    if (k.key === "F12") { win.webContents.toggleDevTools(); e.preventDefault(); }
+    // developer tools only when run from source: no «paste this into the console» tricks in the installed app
+    if (k.key === "F12" && !app.isPackaged) { win.webContents.toggleDevTools(); e.preventDefault(); }
   });
   win.webContents.on("did-finish-load", () => { if (pendingLink) { win.webContents.send("skybee:link", pendingLink); pendingLink = null; } });
   win.on("closed", () => { win = null; });
