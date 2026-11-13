@@ -285,7 +285,7 @@ function shell() {
     <div class="card small muted">${bee(16)} Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
   <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}" aria-label="${l}"><span class="ni">${ico(i, 26)}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span><span class="bl">${l}</span></a>`).join("")}</nav>
-  <button class="fab" data-act="compose" title="Новий пост">${ico("pen", 24)}</button>`;
+  <button class="fab" data-act="compose" title="Новий пост">${ico("pen", 24)}<span class="fl">Новий пост</span></button>`;
 }
 
 /* ---------- badges ---------- */
@@ -327,7 +327,7 @@ async function route() {
     const h = a.dataset.nav.slice(1);
     a.classList.toggle("on", h === "/" ? path === "/" : path.startsWith(h.replace("/me", "/" + api.session?.handle)));
   });
-  document.documentElement.classList.remove("tab-min"); // a new screen starts with the full tab bar
+  document.documentElement.classList.remove("tab-min", "fab-min", "scrolled"); // a new screen starts with the full bars
   placeLens($("nav.bottom a.on"));
   main.innerHTML = "";
   document.body.classList.remove("deckmode");
@@ -408,15 +408,22 @@ addEventListener("resize", () => placeLens($("nav.bottom a.on")));
   setTimeout(watch, 0); setTimeout(watch, 1500);
   document.fonts?.ready.then(again).catch(() => {});
 }
-// Liquid Glass on a phone: scrolling down shrinks the tab capsule to the current tab, scrolling up (or reaching the top) brings it back
+// While reading, the chrome steps back:
+// - Liquid Glass on a phone: scrolling down shrinks the tab capsule to the current tab, scrolling up (or reaching the top) brings it back
+// - Material: the top app bar takes its «scrolled» colour, and the extended ✏️ «Новий пост» button shrinks to its icon (as in Gmail)
 {
   let lastY = scrollY, acc = 0;
   addEventListener("scroll", () => {
     const r = document.documentElement, y = scrollY, d = y - lastY; lastY = y;
+    acc = Math.sign(d) === Math.sign(acc) ? acc + d : d;
+    r.classList.toggle("scrolled", y > 4);
+    if (r.dataset.ui === "material") {
+      if (acc > 30 && y > 120) r.classList.add("fab-min");
+      else if (acc < -20 || y < 60) r.classList.remove("fab-min");
+    } else r.classList.remove("fab-min");
     const on = $("nav.bottom a.on");
     // only on a tab screen (a settings page or a post has no tab to keep), and not on search, which has its own circle
     if (r.dataset.ui !== "glass" || !r.classList.contains("glass-float") || innerWidth > 640 || !on || on.dataset.nav === "#/search") return r.classList.remove("tab-min");
-    acc = Math.sign(d) === Math.sign(acc) ? acc + d : d;
     const min = r.classList.contains("tab-min");
     if (!min && acc > 40 && y > 160) r.classList.add("tab-min");
     else if (min && (acc < -24 || y < 60)) r.classList.remove("tab-min");
