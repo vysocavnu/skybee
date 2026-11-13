@@ -118,7 +118,7 @@ export async function deck(el) {
   const stops = new Map();
   // compact or roomy columns (narrower, denser posts — handy on a big monitor), remembered on this device
   const compact = () => { try { return localStorage.getItem("skybee.deckCompact") === "1"; } catch { return false; } };
-  const densBtn = () => `<button class="ghost sm" data-d="density" title="Щільність колонок">${compact() ? "▤ Компактно" : "▥ Звичайно"}</button>`;
+  const densBtn = () => `<button class="ghost sm" data-d="density" title="Щільність колонок">${compact() ? "▤ <span class=\"dl\">Компактно</span>" : "▥ <span class=\"dl\">Звичайно</span>"}</button>`;
   el.innerHTML = `<div class="topbar">${MENU_BTN}<h2>Колонки</h2><div class="grow"></div>${densBtn()}<button class="btn sm" data-d="add">＋ Колонка</button></div><div class="deck${compact() ? " compact" : ""}"></div>`;
   const row = $(".deck", el);
   const account = (c) => api.accounts.find(a => a.did === c.as);

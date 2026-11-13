@@ -456,8 +456,10 @@ export function menu(anchor, items) {
     const w = m.offsetWidth, h = m.offsetHeight;
     m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
     m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + scrollY + "px";
-    const done = (v) => { m.remove(); document.removeEventListener("click", outside, true); res(v); };
+    const done = (v) => { m.remove(); document.removeEventListener("click", outside, true); document.removeEventListener("keydown", esc_); res(v); };
     const outside = (e) => { if (!m.contains(e.target)) { e.stopPropagation(); e.preventDefault(); done(null); } };
+    const esc_ = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(null); } }; // Esc (and Android «Back») closes the menu too
+    document.addEventListener("keydown", esc_);
     m.addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (b) done(b.dataset.m); });
     setTimeout(() => document.addEventListener("click", outside, true));
   });
