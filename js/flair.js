@@ -41,10 +41,13 @@ function clean(v) {
   return Object.keys(out).length ? out : null;
 }
 
+const flairAll = () => { try { return localStorage.getItem("skybee.flairAll") === "1"; } catch { return false; } };
 export function load(did) {
   if (!cache.has(did)) cache.set(did, (async () => {
     const pds = did === api.session?.did ? api.session.pds : (await api.resolvePds(did)).pds;
     if (!api.pdsOk(pds)) return null; // resolvePds already refuses such servers; the own session is checked here too
+    // someone else's own server would see the IP and the time of everyone opening their profile: only on request
+    if (did !== api.session?.did && !api.bskyHost(pds) && !flairAll()) return null;
     const r = await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=${NSID}&rkey=self`);
     if (!r.ok) return null; // no record: this person has no Skybee look
     const rec = clean((await r.json()).value);

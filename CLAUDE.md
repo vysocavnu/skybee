@@ -25,7 +25,8 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
 - **Телефони (Android, iOS)** — `mobile/`: Capacitor 7 (та сама вебчастина в `mobile/www/`, `node scripts/dist.mjs mobile/www`). Нативні проєкти не комітяться —
   `npx cap add android|ios` створює їх у CI (`.github/workflows/mobile.yml`), іконки й заставка — `@capacitor/assets` з `mobile/assets/`.
-  APK підписаний тестовим ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх; ключ прописаний у `build.gradle` кроком CI, бо копія в `~/.android` не діяла; CI перевіряє SHA-256 відбиток `fb9ab4…e785`); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
+  APK — релізна збірка, підписана ключем із секретів (`ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASS`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASS`, відбиток — змінна `ANDROID_CERT_SHA256`);
+  поки секретів немає — відкритим тестовим `mobile/debug.keystore` (відбиток `fb9ab4…e785`) з попередженням у CI. Ключ прописаний у `build.gradle` кроком CI (копія в `~/.android` не діяла), CI звіряє відбиток; IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
   Кожна збірка оновлює pre-release `mobile-test` (Skybee.apk, Skybee-unsigned.ipa); тег `vX.Y.Z` — ще й у реліз. Вебчастина в телефоні поки не оновлюється сама — потрібна нова збірка.
   Статус-бар і нижня панель: сторінка на весь екран (edge-to-edge), відступи — CSS-змінні `--sat/--sab/--sal/--sar` (за замовчуванням `env(safe-area-inset-*)`; у CSS не писати `env(...)` напряму).
   iPhone дає їх через `env()`, на Android `native.js` бере їх з плагіна `capacitor-plugin-safe-area` (WebView там віддає 0). `adjustMarginsForEdgeToEdge` не вмикати: поля навколо сторінки стають білими.
@@ -111,11 +112,12 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 ## Безпека
 - Токени сесій у `localStorage`, тож будь-який вставлений скрипт = захоплений акаунт. Тому: усе чуже — через `esc()`; посилання з записів — лише `http(s)`/`mailto` (`safeUrl` в ui.js);
   `index.html` має **Content-Security-Policy** (скрипти — лише свої й hls.js із jsdelivr з точною версією та `integrity`; без вбудованих `on…=` обробників і `<script>`; новий зовнішній плеєр — дописати у `frame-src`).
-  Для телефонів `scripts/dist.mjs` CSP прибирає (міст Capacitor на Android — вбудований скрипт).
+  На телефонах `scripts/dist.mjs` перетворює її на `<meta name="skybee-csp">`, а `native.js` вмикає одразу після старту (міст Capacitor на Android — вбудований скрипт, він має виконатися раніше).
 - Адреса PDS з DID-документа — лише публічний https-хост (`api.pdsOk`). Перед надсиланням пароля на сервер не Bluesky (`api.bskyHost`) — питання з адресою сервера (раз на сервер, `skybee.trustedPds`);
   посилання `#/login?new=1&handle=…` / `skybee://login` попереджає, що його могли підкинути.
-- «Оформлення» чужих профілів: обкладинка й уривок треку — лише з CDN музичних сервісів (`MEDIA_HOSTS` у flair.js), щоб власник профілю не бачив IP глядачів.
-- Android: APK — релізна збірка (не debuggable), `allowBackup="false"`. Ключ підпису `mobile/debug.keystore` публічний — треба замінити на власний у GitHub Secrets (робить автор).
+- «Оформлення» чужих профілів: обкладинка й уривок треку — лише з CDN музичних сервісів (`MEDIA_HOSTS` у flair.js), щоб власник профілю не бачив IP глядачів;
+  з власних серверів (не `*.bsky.network`) — лише якщо ввімкнено «Оформлення з власних серверів» (`skybee.flairAll`, Вміст і медіа).
+- Android: APK — релізна збірка (не debuggable), `allowBackup="false"`, ключ — із секретів (див. «Телефони»).
 - Actions у workflow закріплені на SHA (коментар — версія).
 
 ## Помилки

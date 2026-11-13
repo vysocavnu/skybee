@@ -4,3 +4,7 @@ desktop/dist/
 flatpak/dl/
 flatpak/skybee-linux-x64.tar.gz
 flatpak/.flatpak-builder/
+
+# ключі підпису Android: лише в секретах GitHub, ніколи в репозиторії
+mobile/release.keystore
+*.jks
