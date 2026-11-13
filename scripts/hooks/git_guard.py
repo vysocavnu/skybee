@@ -23,10 +23,10 @@ SEP = r"&&|\|\||[;|\n]"
 SAFE_HEREDOC = re.compile(r"(?:^|[\s;&|])(?:cat|python3?(?:\.exe)?\s+(?:\S*[/\\])?scripts[/\\](?:notify|post|tg_confirm)\.py[^\n<]*"
                           r"|git\s+(?:commit|tag)\b[^\n<]*\s-F\s*-)\s*$", re.I)
 SAFE_SUBST_CAT = re.compile(r"git\s+(?:commit|tag)\b[^\n<]*\s(?:-[a-z]*m|--message)[\s=]*\"?\$\(cat\s*$", re.I)
-PROTECTED_FILES = ["scripts/hooks/git_guard.py", "scripts/tg_confirm.py", "scripts/post.py", "scripts/notify.py",
+PROTECTED_FILES = ["scripts/hooks/git_guard.py", "scripts/tg_confirm.py", "scripts/tg_bot.py", "scripts/post.py", "scripts/notify.py",
                    "scripts/check_mail.py", "scripts/bsky_search.py", ".claude/settings.json",
                    ".claude/settings.local.json", ".git/config", ".git/hooks/pre-push"]
-PROTECTED = re.compile(r"scripts/hooks|hooks/|git_guard|tg_confirm|settings\.json|scripts/(post|notify|check_mail|bsky_search)\.py|\.claude/|\.claude\b"
+PROTECTED = re.compile(r"scripts/hooks|hooks/|git_guard|tg_confirm|tg_bot|\.skybee-bot|settings\.json|scripts/(post|notify|check_mail|bsky_search)\.py|\.claude/|\.claude\b"
                        r"|settings\.local|\.gitconfig|\.config/git|/git/config|(^|[^\w])\.git([/\s'\"),]|$)"
                        r"|\.bashrc|\.bash_profile|\.bash_login|\.profile\b|\.zshrc|\.zprofile|profile\.ps1|\$profile"
                        r"|/etc/(bash|profile|gitconfig)|\.inputrc")
@@ -145,6 +145,15 @@ def main():
     # 1) Захищені файли: лише читати й запускати.
     if re.search(r"disableallhooks|managed-settings", low):
         deny("Налаштування хуків змінює лише власник вручну.")
+    # Міст Telegram (tg_bot.py, порт 47321) запускає й зупиняє лише власник: підроблений міст
+    # міг би «натискати Так» замість тебе.
+    if re.search(r"stop-process|\bspps\b|taskkill|\btskill\b|\bkill(all)?\b|\bpkill\b|wmic|terminate\b"
+                 r"|invoke-cimmethod|\.kill\(|\bkill\s*-\d|get-nettcpconnection.*owningprocess", low) or (
+            re.search(r"47321|tg_bot|skybee-bot", low)
+            and re.search(r"(?<![\w.-])(python[\d.]*|pythonw|py|node|start|start-process|saps|cmd|powershell|pwsh|bash|sh)(\.exe)?(\s|$)"
+                          r"|socket|http\.server", low)) \
+            or any(w[0].endswith("start_tg_bot.cmd") for w in segments(low)):
+        deny("Зупиняти процеси й чіпати Skybee-бота (міст Telegram) агентам заборонено — лише власник вручну.")
     for t in re.findall(r"\d?>{1,2}\s*([^\s&|;]+)", low):
         if PROTECTED.search(t):
             deny("Хук, скрипти згоди, .git і налаштування змінює лише власник вручну.")
