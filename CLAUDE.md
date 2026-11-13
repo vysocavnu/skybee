@@ -18,7 +18,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   (Actions → Desktop → Run workflow, поле «version» = `vX.Y.Z`; з цієї сесії Claude тегів пушити не може) — викладе `.exe`, `.blockmap`, `latest.yml`, Linux і Flatpak.
   Встановлення на всіх користувачів (perMachine), тож Windows один раз попросить дозвіл адміністратора на оновлення.
   Закриття вікна ховає Skybee в трей (сповіщення й далі приходять; «Вийти» — у меню трею; там же «Запускати разом із Windows» → `--hidden`).
-  `preload.js` — єдиний міст: `version()`, `update()`, `onLink(cb)` (посилання `skybee://`). Дозволи Electron — лише сповіщення (для Skybee), повний екран, копіювання, DRM (`setPermissionRequestHandler`);
+  `preload.js` — єдиний міст: `version()`, `update()`, `beta(on)`, `onLink(cb)` (посилання `skybee://`). Дозволи Electron — лише сповіщення (для Skybee), повний екран, копіювання, DRM (`setPermissionRequestHandler`);
   F12 — лише з вихідного коду або `SKYBEE_DEVTOOLS=1`; electron fuses (без RunAsNode / NODE_OPTIONS / --inspect) у `build.electronFuses`.
   Версія — у `desktop/package.json`. **Linux**: той самий workflow збирає AppImage (оновлюється сам, `latest-linux.yml`) і tar.gz,
   а з tar.gz — **Flatpak** (`flatpak/`: маніфест на `org.electronjs.Electron2.BaseApp` + zypak, `.desktop`, metainfo, іконка; README — як подати у Flathub).
@@ -114,14 +114,15 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Bluesky із хмарної сесії недоступний: екрани перевіряються Playwright-ом із підмінними відповідями XRPC (`context.route` на `https://pds.test/xrpc/*`, сесія з `pds: "https://pds.test"` у `skybee.session`) — так видно помилки консолі й графічні дефекти в усіх стилях.
 
 ## Безпека
-- Токени сесій у `localStorage`, тож будь-який вставлений скрипт = захоплений акаунт. Тому: усе чуже — через `esc()`; посилання з записів — лише `http(s)`/`mailto` (`safeUrl` в ui.js);
-  `index.html` має **Content-Security-Policy** (скрипти — лише свої й hls.js із jsdelivr з точною версією та `integrity`; без вбудованих `on…=` обробників і `<script>`; новий зовнішній плеєр — дописати у `frame-src`).
+- Токени сесій у `localStorage`, тож будь-який вставлений скрипт = захоплений акаунт. Тому: усе чуже — через `esc()`; посилання з записів — лише `http(s)`/`mailto` (`safeUrl` в ui.js; не посилання → просто текст, завжди з `esc()`);
+  `index.html` має **Content-Security-Policy** (скрипти — лише свої; hls.js — копія 1.6.13 у `js/vendor/`, новий зовнішній скрипт так само класти туди, а не з CDN; без вбудованих `on…=` обробників і `<script>`; новий зовнішній плеєр — дописати у `frame-src`).
   На телефонах `scripts/dist.mjs` перетворює її на `<meta name="skybee-csp">`, а `native.js` вмикає одразу після старту (міст Capacitor на Android — вбудований скрипт, він має виконатися раніше).
 - Адреса PDS з DID-документа — лише публічний https-хост (`api.pdsOk`). Перед надсиланням пароля на сервер не Bluesky (`api.bskyHost`) — питання з адресою сервера (раз на сервер, `skybee.trustedPds`);
   посилання `#/login?new=1&handle=…` / `skybee://login` попереджає, що його могли підкинути.
 - «Оформлення» чужих профілів: обкладинка й уривок треку — лише з CDN музичних сервісів (`MEDIA_HOSTS` у flair.js), щоб власник профілю не бачив IP глядачів;
   з власних серверів (не `*.bsky.network`) — лише якщо ввімкнено «Оформлення з власних серверів» (`skybee.flairAll`, Вміст і медіа).
 - Android: APK — релізна збірка (не debuggable), `allowBackup="false"`, ключ — із секретів (див. «Телефони»).
+- Десктоп: F12 — лише з вихідного коду або `SKYBEE_DEVTOOLS=1`.
 - Actions у workflow закріплені на SHA (коментар — версія).
 
 ## Помилки
@@ -130,11 +131,6 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 - Сторінки помилок сайту: `404.html` у корені (GitHub Pages і власний домен; адреси без `#`, як `/profile/x`, сам перекидає в застосунок),
   `offline.html` (service worker, сам перезавантажується з мережею), `errors/403|500|502|503|504.html` — для хостингу з власним доменом.
   Під власний домен: файл `CNAME` з доменом у корені + DNS; сторінки самі визначають, чи сайт у `/skybee/`, чи в корені.
-
-## Безпека
-- `index.html` має CSP: скрипти лише свої (+ itunes.apple.com для JSONP пошуку музики). Новий зовнішній скрипт/джерело — дописати в CSP, а краще покласти файл у `js/vendor/` (так зроблено з hls.js 1.6.13). Жодних inline-скриптів і `onclick="…"`.
-- Посилання з чужих даних (фасети, картки, LIVE) — лише через `safeUrl()` з ui.js (http/https/mailto, інше → `#`), і завжди `esc()`.
-- DevTools (F12) у десктопі — лише при запуску з вихідного коду.
 
 ## Правила
 - Без фреймворків і без кроку збірки, поки ми на вебі.
