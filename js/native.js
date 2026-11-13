@@ -5,6 +5,22 @@ export const isNative = !!cap?.isNativePlatform?.();
 
 if (isNative) {
   document.documentElement.classList.add("native", "native-" + cap.getPlatform());
+  // Android: the page runs edge to edge (behind the status bar and the bottom bar) and the WebView may report no safe area,
+  // so the real insets come from the SafeArea plugin into --sat/--sab/--sal/--sar (css). An older Android that still keeps
+  // the page between the bars gets nothing: there the page is already as tall as the space between them.
+  const SafeArea = cap.Plugins?.SafeArea;
+  if (cap.getPlatform() === "android" && SafeArea) {
+    let edge = null; // decided once: the keyboard later shrinks the page, which must not switch the insets off
+    const put = (r) => {
+      const i = r?.insets; if (!i) return;
+      if (edge === null) edge = Math.abs(screen.height - innerHeight) < (i.top + i.bottom) / 2 + 1; // page reaches under the bars?
+      const st = document.documentElement.style;
+      for (const [k, v] of [["--sat", i.top], ["--sab", i.bottom], ["--sal", i.left], ["--sar", i.right]]) st.setProperty(k, (edge ? v : 0) + "px");
+    };
+    SafeArea.getSafeAreaInsets?.().then(put).catch(() => {});
+    SafeArea.addListener?.("safeAreaChanged", put);
+    addEventListener("resize", () => SafeArea.getSafeAreaInsets?.().then(put).catch(() => {}));
+  }
   // Links to other sites open in the phone's browser: the shell sends any navigation away from the app there,
   // but a WebView ignores target=_blank and window.open — so turn those into a plain navigation.
   const open = (url) => { if (/^https?:/i.test(url)) location.href = url; };
@@ -75,4 +91,10 @@ export function onLink(fn) {
   if (!App) return;
   App.addListener?.("appUrlOpen", (e) => e?.url && fn(e.url));
   App.getLaunchUrl?.().then((r) => r?.url && fn(r.url)).catch(() => {});
+}
+
+// Status bar icons that read on the page: light icons on a dark page, dark on a light one (called by applyLook)
+export function statusBarFor(darkPage) {
+  const StatusBar = isNative && cap.Plugins?.StatusBar;
+  StatusBar?.setStyle?.({ style: darkPage ? "DARK" : "LIGHT" })?.catch?.(() => {});
 }
