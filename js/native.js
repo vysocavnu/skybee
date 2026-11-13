@@ -42,9 +42,9 @@ if (isNative) {
 
 // What «Back» closes before it leaves the screen: an open «⋯» menu, then a window, then the side menu. True if something closed.
 function closeTop() {
-  const pop = document.querySelector(".popmenu");
+  const pop = document.querySelector(".popmenu:not(.leaving)");
   if (pop) { document.body.click(); pop.remove(); return true; }
-  if (document.querySelector(".modal-bg, .msheet-bg")) { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); return true; }
+  if (document.querySelector(".modal-bg:not(.leaving), .msheet-bg:not(.leaving)")) { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); return true; }
   if (document.body.classList.contains("drawer")) { document.body.classList.remove("drawer"); return true; }
   return false;
 }

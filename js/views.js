@@ -5,6 +5,7 @@ import { session } from "./api.js";
 import {
   bee, isLive, postHref, $, esc, enc, safeUrl, num, ago, name, avatar, richText, linkify, renderPost, renderActor, renderFeedCard, followBtn,
   infinite, empty, spinner, toast, modal, menu, profileHref, cachePost, actors, mutedBy, gateLine, pwa, vname, warnLabel, hiddenReplies, renderEmbed, at,
+  leave,
 } from "./ui.js";
 import * as notify from "./notify.js";
 import * as flair from "./flair.js";
@@ -18,7 +19,7 @@ export const header = (title, back = false, right = "") =>
 // opts.cls: class of the list box («tiles» for the media grid); opts.root: the scrolling box (deck columns)
 export function paged(el, fetchPage, { cls = "", root = null } = {}) {
   const list = document.createElement("div");
-  if (cls) list.className = cls;
+  list.className = "plist" + (cls ? " " + cls : ""); // .plist: the items arrive with the style's motion (css)
   el.appendChild(list);
   let cursor, first = true;
   return infinite(list, async () => {
@@ -103,6 +104,7 @@ export async function home(el) {
     sel = i; try { sessionStorage.setItem("skybee.tab", i); } catch {}
     window.dispatchEvent(new CustomEvent("skybee:hometab", { detail: i }));
     tabEl.innerHTML = tabs.map((t, n) => `<button class="${n === i ? "on" : ""}" data-tab="${n}">${esc(t.label)}</button>`).join("");
+    tabEl.querySelector(".on")?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); // a swipe can reach a tab that is off screen
     stop?.(); body.innerHTML = ""; body.parentElement.querySelectorAll(".sentinel").forEach(s => s.remove());
     const t = tabs[i], grid = isGrid("home");
     pill.hidden = true; latest = null;
@@ -131,6 +133,42 @@ export async function home(el) {
   }, 60000);
   onGrid(el, () => show(sel));
   tabEl.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) show(+b.dataset.tab); });
+  // Swiping the feed sideways opens the next or previous feed, as in the Bluesky app. The posts follow the finger;
+  // the first and the last feed only give a little. Not from the very left edge: that is «Back» in the apps (native.js)
+  {
+    let x0 = null, y0 = 0, dx = 0, horiz = null;
+    const look = (x, o, t) => { body.style.transition = t || "none"; body.style.transform = x ? `translateX(${x}px)` : ""; body.style.opacity = o ?? ""; };
+    body.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      x0 = e.touches.length === 1 && tabs.length > 1 && t.clientX > 36 && !e.target.closest("input, textarea, video, iframe, .playwrap") ? t.clientX : null;
+      y0 = t.clientY; dx = 0; horiz = null;
+    }, { passive: true });
+    body.addEventListener("touchmove", (e) => {
+      if (x0 == null) return;
+      const t = e.touches[0]; dx = t.clientX - x0;
+      const dy = t.clientY - y0;
+      if (horiz === null && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) horiz = Math.abs(dx) > Math.abs(dy) * 1.4;
+      if (!horiz) return;
+      const edge = (dx > 0 && sel === 0) || (dx < 0 && sel === tabs.length - 1);
+      look(edge ? dx * .15 : dx * .55, String(1 - Math.min(Math.abs(dx) / 700, .3)));
+    }, { passive: true });
+    const end = () => {
+      if (x0 == null) return;
+      x0 = null;
+      if (!horiz) return;
+      const go = Math.abs(dx) > 70 ? sel + (dx < 0 ? 1 : -1) : sel;
+      if (go === sel || go < 0 || go >= tabs.length) return look(0, "", "transform .3s var(--ease-move, ease-out), opacity .22s");
+      const dir = dx < 0 ? -1 : 1;
+      look(dir * 140, "0", "transform .16s ease-in, opacity .16s");
+      setTimeout(() => {
+        scrollTo({ top: 0 }); show(go);
+        look(-dir * 70, "0");
+        requestAnimationFrame(() => requestAnimationFrame(() => look(0, "", "transform .32s var(--ease-move, ease-out), opacity .24s")));
+      }, 160);
+    };
+    body.addEventListener("touchend", end, { passive: true });
+    body.addEventListener("touchcancel", end, { passive: true });
+  }
   el.querySelector("[data-act=refresh]").onclick = () => { scrollTo(0, 0); show(sel); };
   // a feed picked in the right column
   const pick = (e) => { scrollTo(0, 0); show(Math.min(e.detail, tabs.length - 1)); };
@@ -841,7 +879,7 @@ export async function convo(el, { id }) {
         ${row.classList.contains("mine") ? "" : `<button data-a="report" class="danger">🚩 Поскаржитися</button>`}
         <button data-a="del" class="danger">🗑️ Видалити для мене</button>
       </div></div>`;
-    const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
+    const close = () => { leave(wrap); document.removeEventListener("keydown", onKey); };
     const onKey = (e) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     wrap.addEventListener("click", async (e) => {
