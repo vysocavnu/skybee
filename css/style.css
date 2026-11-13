@@ -1354,3 +1354,37 @@ body.calm :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), bo
 @media (prefers-reduced-motion: reduce) {
   :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), main.sb-tint::before { animation: none !important; }
 }
+
+/* ---------- phone sideways: posts in the very middle, side columns equal and narrow ---------- */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
+  #app { grid-template-columns: 184px minmax(0, 1fr) 184px; }
+  body.deckmode #app { grid-template-columns: 184px minmax(0, 1fr); }
+  aside.right { padding: 6px 8px; }
+  aside.right .card, :root[data-ui] aside.right .card { margin: 8px 0; padding: 10px 12px; }
+  aside.right .card h3 { font-size: 14px; }
+  .sideprof, :root[data-ui] aside.right .card.sideprof { margin: 8px 0; padding: 0; }
+  .sideprof .sp-banner { height: 56px; }
+  .sideprof .sp-body { padding: 0 12px 12px; }
+  .sideprof .sp-ava { margin-top: -26px; }
+  .sideprof .sp-ava .avatar { width: 52px !important; height: 52px !important; }
+  .sideprof .sp-name { font-size: 15px; overflow-wrap: anywhere; }
+  .sideprof .sp-counts { font-size: 12px; gap: 2px 8px; }
+  .sideprof .sp-btns { flex-direction: column; align-items: stretch; gap: 6px; }
+  .sideprof .sp-btns > * { width: 100%; text-align: center; justify-content: center; margin: 0; }
+  .sidefeeds .sfeed { font-size: 14px; padding-top: 7px; padding-bottom: 7px; }
+}
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) and (max-width: 780px) {
+  /* menu icons sit right next to the posts, the empty room goes to the outer edge, so the posts stay centred */
+  #app { grid-template-columns: 140px minmax(0, 1fr) 140px; }
+  nav.side { width: 64px; justify-self: end; }
+  body.deckmode #app { grid-template-columns: 64px minmax(0, 1fr); }
+  aside.right { padding: 6px 6px; }
+  aside.right .card, :root[data-ui] aside.right .card { padding: 8px 10px; }
+  .sideprof .sp-banner { height: 44px; }
+  .sideprof .sp-body { padding: 0 10px 10px; }
+  .sideprof .sp-ava { margin-top: -22px; }
+  .sideprof .sp-ava .avatar { width: 44px !important; height: 44px !important; }
+  .sideprof .sp-name { font-size: 14px; }
+  .sideprof .sp-bio { -webkit-line-clamp: 3; }
+  .sidefeeds .sfeed { font-size: 13px; gap: 8px; }
+}
