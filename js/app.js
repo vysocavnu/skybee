@@ -175,7 +175,8 @@ function signupScreen() {
       info = await api.describeServer(pds);
       f.domain.innerHTML = (info.availableUserDomains || []).map(d => `<option>${esc(d)}</option>`).join("");
       f.invite.hidden = !info.inviteCodeRequired;
-      $("[data-terms]", f).href = info.links?.termsOfService || pds; $("[data-privacy]", f).href = info.links?.privacyPolicy || pds;
+      const web = (u) => (/^https?:\/\//i.test(u || "") ? u : pds); // the server chooses these links: only web pages
+      $("[data-terms]", f).href = web(info.links?.termsOfService); $("[data-privacy]", f).href = web(info.links?.privacyPolicy);
     } catch (ex) { err.textContent = errText(ex); }
   };
   f.srv.onchange = load; f.custom.onchange = load; load();

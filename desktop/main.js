@@ -282,6 +282,13 @@ else {
       }
       return new Response("", { status: 404 });
     });
+    // Electron grants every permission by default — to Skybee and to the players it embeds (YouTube, Spotify…) alike.
+    // Only what Skybee uses is allowed: notifications for its own page; full screen, copying and DRM audio for everyone.
+    const ALLOWED = new Set(["fullscreen", "clipboard-sanitized-write", "mediaKeySystem"]);
+    const allow = (perm, origin) => ALLOWED.has(perm) || (perm === "notifications" && String(origin || "").startsWith(HOME));
+    const ses = require("electron").session.defaultSession;
+    ses.setPermissionRequestHandler((wc, perm, cb, d) => cb(allow(perm, d?.requestingUrl || wc?.getURL())));
+    ses.setPermissionCheckHandler((wc, perm, origin) => allow(perm, origin && origin + "/"));
     createWindow();
     try { setupTray(); } catch { /* no tray on this system: closing the window quits */ quitting = true; }
     // Flathub forbids apps that fetch and run their own code past it: there updates come only through Flathub

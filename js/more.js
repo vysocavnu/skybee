@@ -277,7 +277,8 @@ export async function appPasswords(el) {
       const p = await api.createAppPassword(form.name.value.trim(), form.dm.checked);
       form.reset();
       const m = modal(`<h3>Пароль створено</h3><p class="small muted">Збережи його зараз — більше він не показуватиметься.</p>
-        <input readonly value="${esc(p.password)}" onfocus="this.select()"><div class="row end"><button class="ghost" data-copy>Копіювати</button><button class="btn" data-x>Готово</button></div>`);
+        <input readonly value="${esc(p.password)}" data-selectall><div class="row end"><button class="ghost" data-copy>Копіювати</button><button class="btn" data-x>Готово</button></div>`);
+      m.querySelector("[data-selectall]").addEventListener("focus", (ev) => ev.target.select()); // no inline handlers: they would break a Content-Security-Policy
       m.addEventListener("click", async (ev) => {
         if (ev.target.closest("[data-copy]")) { await navigator.clipboard.writeText(p.password); toast("Скопійовано"); }
         if (ev.target.closest("[data-x]")) m.close();
