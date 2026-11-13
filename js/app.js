@@ -404,7 +404,10 @@ function placeLens(a) {
   lens.style.opacity = "1";
   const inset = 3; // a little air from the capsule edge, so the bubble never touches it or the search circle
   lens.style.width = a.offsetWidth - inset * 2 + "px";
-  lens.style.transform = `translateX(${a.offsetLeft + inset}px)`;
+  // from the boxes on screen, not offsetLeft: the same in every browser, whatever the tab's own scale or position
+  const r = a.getBoundingClientRect(); // its centre: a pressed tab (scale .94) keeps its centre, not its edges
+  const x = r.left + r.width / 2 - a.offsetWidth / 2 - bar.getBoundingClientRect().left - bar.clientLeft;
+  lens.style.setProperty("--lx", Math.round(x + inset) + "px");
 }
 addEventListener("resize", () => placeLens($("nav.bottom a.on")));
 // The tabs change size after the bubble was placed — fonts arrive, a badge appears, the bar collapses or expands —
@@ -474,14 +477,20 @@ addEventListener("resize", () => placeLens($("nav.bottom a.on")));
       navigator.vibrate?.(6);
     }
   }, { passive: true });
-  addEventListener("pointerup", () => {
+  const finish = () => {
     if (!drag) return;
     const { moved, cur, from } = drag;
     stop();
     if (moved && cur && cur !== from) location.hash = cur.getAttribute("href");
     else placeLens($("nav.bottom a.on"));
-  }, { passive: true });
+  };
+  addEventListener("pointerup", finish, { passive: true });
   addEventListener("pointercancel", () => { stop(); placeLens($("nav.bottom a.on")); }, { passive: true });
+  // iPhone does not always send pointerup/pointercancel to the bar (a system gesture, the screen changing under the finger):
+  // the end of the touch, a screen change or leaving the app also end the drag, so the bubble never stays swollen
+  addEventListener("touchend", () => setTimeout(finish, 40), { passive: true }); // pointerup normally comes first and has done it
+  for (const ev of ["touchcancel", "hashchange", "blur"]) addEventListener(ev, () => { if (drag) { stop(); placeLens($("nav.bottom a.on")); } }, { passive: true });
+  document.addEventListener("visibilitychange", () => { if (document.hidden && drag) stop(); });
 }
 
 /* ---------- Material ripple: a circle spreads from the finger on buttons and menu items (Settings → Appearance) ---------- */
