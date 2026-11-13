@@ -24,7 +24,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
 - **Телефони (Android, iOS)** — `mobile/`: Capacitor 7 (та сама вебчастина в `mobile/www/`, `node scripts/dist.mjs mobile/www`). Нативні проєкти не комітяться —
   `npx cap add android|ios` створює їх у CI (`.github/workflows/mobile.yml`), іконки й заставка — `@capacitor/assets` з `mobile/assets/`.
-  APK підписаний тестовим ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
+  APK підписаний тестовим ключем `mobile/debug.keystore` (однаковий у всіх збірках → ставиться поверх; ключ прописаний у `build.gradle` кроком CI, бо копія в `~/.android` не діяла; CI перевіряє SHA-256 відбиток `fb9ab4…e785`); IPA — без підпису (Sideloadly/AltStore підписують Apple ID).
   Кожна збірка оновлює pre-release `mobile-test` (Skybee.apk, Skybee-unsigned.ipa); тег `vX.Y.Z` — ще й у реліз. Вебчастина в телефоні поки не оновлюється сама — потрібна нова збірка.
   `js/native.js`: лише в Capacitor — зовнішні посилання й `window.open` → системний браузер, кнопка «Назад» Android (меню → вікно → бічне меню → крок назад → вихід); у всіх застосунках (і десктопі з сенсорним екраном) — свайп від лівого краю вправо = «Назад» (`closeTop`, стрілка `.swipeback`).
 

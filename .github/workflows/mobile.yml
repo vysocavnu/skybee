@@ -71,12 +71,37 @@ jobs:
           sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"$V\"/" android/app/build.gradle
           grep -n "versionCode\|versionName" android/app/build.gradle
           echo "VER=$V" >> "$GITHUB_ENV"
+      - name: Підпис ключем mobile/debug.keystore
+        # Копія в ~/.android/ не діяла: Gradle на раннері створював свій випадковий ключ, і кожен APK мав інший підпис
+        # (Android не ставив новий поверх старого). Тепер ключ прописано в самій збірці.
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  skybee {
+                      storeFile rootProject.file("../debug.keystore")
+                      storePassword "android"
+                      keyAlias "androiddebugkey"
+                      keyPassword "android"
+                  }
+              }
+              buildTypes {
+                  debug { signingConfig signingConfigs.skybee }
+              }
+          }
+          GRADLE
       - name: Збірка APK
         run: |
-          mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
           cd android && ./gradlew assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk ../Skybee.apk
           ls -la ../Skybee.apk
+      - name: Перевірка підпису (той самий ключ у кожній збірці)
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$APKSIGNER" verify --print-certs Skybee.apk | tee certs.txt
+          grep -qi "SHA-256 digest: fb9ab4a7cd9235533d9e2deba6d216df403250299bca5f29aba6ce642311e785" certs.txt \
+            || { echo "::error::APK підписаний не ключем mobile/debug.keystore — його не вдасться поставити поверх попередньої версії"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: Skybee-Android
