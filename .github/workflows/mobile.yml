@@ -78,20 +78,20 @@ jobs:
           grep -n "versionCode\|versionName" android/app/build.gradle
           echo "VER=$V" >> "$GITHUB_ENV"
       - name: Ключ підпису
-        # Справжній ключ — лише в GitHub Secrets (ANDROID_KEYSTORE = keystore у base64, ANDROID_KEYSTORE_PASSWORD,
-        # ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD), у репозиторії його немає. Старий тестовий ключ був публічним — прибраний.
+        # Справжній ключ — лише в GitHub Secrets (ANDROID_KEYSTORE_B64 = keystore у base64, ANDROID_KEYSTORE_PASS,
+        # ANDROID_KEY_ALIAS, ANDROID_KEY_PASS), у репозиторії його немає. Старий тестовий ключ був публічним — прибраний.
         # Ключ прописано в самій збірці: копія в ~/.android/ не діяла (Gradle робив свій випадковий ключ).
         env:
-          KS: ${{ secrets.ANDROID_KEYSTORE }}
-          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
         run: |
           if [ -n "$KS" ]; then
             # base64 з Linux/macOS чи з Windows (certutil додає рядки -----BEGIN/END----- і переноси)
             printf '%s' "$KS" | grep -v -- '-----' | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/skybee.keystore"
             keytool -list -keystore "$RUNNER_TEMP/skybee.keystore" -storepass "$KS_PASS" -alias "$KS_ALIAS" > /dev/null \
-              || { echo "::error::Ключ із секретів не відкривається: перевір ANDROID_KEYSTORE (base64), пароль і псевдонім (ANDROID_KEY_ALIAS)"; exit 1; }
+              || { echo "::error::Ключ із секретів не відкривається: перевір ANDROID_KEYSTORE_B64 (base64), ANDROID_KEYSTORE_PASS, пароль і псевдонім (ANDROID_KEY_ALIAS)"; exit 1; }
             {
               echo "SKYBEE_KS=$RUNNER_TEMP/skybee.keystore"
               echo "SKYBEE_KS_PASS=$KS_PASS"
@@ -99,7 +99,7 @@ jobs:
               echo "SKYBEE_KS_KEY_PASS=${KS_KEY_PASS:-$KS_PASS}"
             } >> "$GITHUB_ENV"
           else
-            echo "::error::Немає секрету ANDROID_KEYSTORE — APK нема чим підписати (Settings → Secrets and variables → Actions)"; exit 1
+            echo "::error::Немає секрету ANDROID_KEYSTORE_B64 — APK нема чим підписати (Settings → Secrets and variables → Actions)"; exit 1
           fi
           cat >> android/app/build.gradle <<'GRADLE'
 
@@ -127,7 +127,8 @@ jobs:
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
           "$APKSIGNER" verify --print-certs Skybee.apk | tee certs.txt
           # відбиток ключа — змінна репозиторію ANDROID_CERT_SHA256 (не секрет; береться з рядка «SHA-256 digest» вище)
-          WANT="${{ vars.ANDROID_CERT_SHA256 }}"
+          # у будь-якому вигляді: 4A:1E:… з keytool чи 4a1e… з apksigner
+          WANT=$(printf '%s' "${{ vars.ANDROID_CERT_SHA256 }}" | tr -d ': ' | tr A-F a-f)
           if [ -n "$WANT" ]; then
             grep -qi "SHA-256 digest: $WANT" certs.txt \
               || { echo "::error::APK підписаний не тим ключем — його не вдасться поставити поверх попередньої версії"; exit 1; }
