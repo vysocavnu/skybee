@@ -14,6 +14,11 @@ export const PALETTE = [["#e5484d", "Червоний"], ["#f76b15", "Помар
   ["#0090ff", "Блакитний"], ["#6e56cf", "Фіолетовий"], ["#d6409f", "Рожевий"], ["#ad7f58", "Коричневий"], ["#8b8d98", "Сірий"]];
 const isColor = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 const isHttps = (u) => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u);
+// Covers and previews load by themselves when a profile is opened, so they may only come from the music services' own
+// CDNs: an address of the profile owner's choosing would tell them the IP and the time of everyone who looked
+const MEDIA_HOSTS = ["mzstatic.com", "itunes.apple.com", "scdn.co", "spotifycdn.com", "ytimg.com", "googleusercontent.com", "dzcdn.net", "sndcdn.com", "tidal.com", "bcbits.com"];
+const media = (u) => (isMedia(u) ? u : "");
+const isMedia = (u) => { if (!isHttps(u)) return false; try { const h = new URL(u).hostname; return MEDIA_HOSTS.some(d => h === d || h.endsWith("." + d)); } catch { return false; } };
 const cut = (s, n) => (typeof s === "string" ? s.trim().slice(0, n) : "");
 // text that reads on the plain colour: dark on yellow and the like, white on the rest
 export const inkFor = (c) => {
@@ -29,7 +34,7 @@ function clean(v) {
   if (isColor(v.color)) out.color = v.color.toLowerCase();
   if (v.music && isHttps(v.music.url) && cut(v.music.title, 120)) {
     out.music = { url: v.music.url, title: cut(v.music.title, 120), artist: cut(v.music.artist, 120) };
-    for (const k of ["cover", "preview"]) if (isHttps(v.music[k])) out.music[k] = v.music[k];
+    for (const k of ["cover", "preview"]) if (isMedia(v.music[k])) out.music[k] = v.music[k];
   }
   const cid = v.toy?.image?.ref?.$link;
   if (typeof cid === "string" && /^[a-z0-9]+$/i.test(cid)) out.toy = { image: v.toy.image };
@@ -39,6 +44,7 @@ function clean(v) {
 export function load(did) {
   if (!cache.has(did)) cache.set(did, (async () => {
     const pds = did === api.session?.did ? api.session.pds : (await api.resolvePds(did)).pds;
+    if (!api.pdsOk(pds)) return null; // resolvePds already refuses such servers; the own session is checked here too
     const r = await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=${NSID}&rkey=self`);
     if (!r.ok) return null; // no record: this person has no Skybee look
     const rec = clean((await r.json()).value);
@@ -111,31 +117,22 @@ export async function decorate(el, p) {
 }
 
 /* ---------- music search ---------- */
-// The iTunes catalogue needs no key and gives a 30-second preview; JSONP is the fallback where fetch is refused
-function jsonp(url) {
-  return new Promise((res, rej) => {
-    const cb = "skybeeJsonp" + Math.random().toString(36).slice(2), s = document.createElement("script");
-    const done = (fn, v) => { delete window[cb]; s.remove(); fn(v); };
-    window[cb] = (d) => done(res, d);
-    s.onerror = () => done(rej, new Error("Немає з'єднання з каталогом музики"));
-    s.src = `${url}&callback=${cb}`;
-    document.head.appendChild(s);
-  });
-}
+// The iTunes catalogue needs no key, allows reading from any site (CORS) and gives a 30-second preview.
+// (There used to be a JSONP fallback: it ran a script from Apple inside Skybee, which a Content-Security-Policy forbids.)
 async function searchTracks(term) {
   const url = `https://itunes.apple.com/search?media=music&entity=song&limit=15&term=${encodeURIComponent(term)}`;
   let d;
-  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); } catch { d = await jsonp(url); }
+  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); } catch { throw new Error("Немає з'єднання з каталогом музики"); }
   return (d.results || []).filter(t => t.trackName && isHttps(t.trackViewUrl)).map(t => ({
     url: t.trackViewUrl, title: cut(t.trackName, 120), artist: cut(t.artistName, 120),
-    cover: (t.artworkUrl100 || "").replace("100x100", "300x300"), preview: t.previewUrl || "" }));
+    cover: media((t.artworkUrl100 || "").replace("100x100", "300x300")), preview: media(t.previewUrl) }));
 }
 // A pasted streaming link → title, artist, cover. song.link knows most services; oEmbed is the fallback.
 async function lookupTrack(url) {
   try {
     const d = await (await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}`)).json();
     const e = d.entitiesByUniqueId?.[d.entityUniqueId];
-    if (e?.title) return { url, title: cut(e.title, 120), artist: cut(e.artistName, 120), cover: e.thumbnailUrl || "" };
+    if (e?.title) return { url, title: cut(e.title, 120), artist: cut(e.artistName, 120), cover: media(e.thumbnailUrl) };
   } catch { /* try the service itself */ }
   const host = new URL(url).hostname.replace(/^www\./, "");
   const oembed = host.endsWith("spotify.com") ? "https://open.spotify.com/oembed?url="
@@ -143,7 +140,7 @@ async function lookupTrack(url) {
   if (!oembed) return null;
   try {
     const d = await (await fetch(oembed + encodeURIComponent(url))).json();
-    return d.title ? { url, title: cut(d.title, 120), artist: cut(d.author_name, 120), cover: d.thumbnail_url || "" } : null;
+    return d.title ? { url, title: cut(d.title, 120), artist: cut(d.author_name, 120), cover: media(d.thumbnail_url) } : null;
   } catch { return null; }
 }
 

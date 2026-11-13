@@ -18,7 +18,8 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   (Actions → Desktop → Run workflow, поле «version» = `vX.Y.Z`; з цієї сесії Claude тегів пушити не може) — викладе `.exe`, `.blockmap`, `latest.yml`, Linux і Flatpak.
   Встановлення на всіх користувачів (perMachine), тож Windows один раз попросить дозвіл адміністратора на оновлення.
   Закриття вікна ховає Skybee в трей (сповіщення й далі приходять; «Вийти» — у меню трею; там же «Запускати разом із Windows» → `--hidden`).
-  `preload.js` — єдиний міст: `skybeeDesktop.captcha(url, state)` (не використовується), `version()`, `update()`, `onLink(cb)` (посилання `skybee://`)
+  `preload.js` — єдиний міст: `version()`, `update()`, `onLink(cb)` (посилання `skybee://`). Дозволи Electron — лише сповіщення (для Skybee), повний екран, копіювання, DRM (`setPermissionRequestHandler`);
+  F12 — лише з вихідного коду або `SKYBEE_DEVTOOLS=1`; electron fuses (без RunAsNode / NODE_OPTIONS / --inspect) у `build.electronFuses`.
   Версія — у `desktop/package.json`. **Linux**: той самий workflow збирає AppImage (оновлюється сам, `latest-linux.yml`) і tar.gz,
   а з tar.gz — **Flatpak** (`flatpak/`: маніфест на `org.electronjs.Electron2.BaseApp` + zypak, `.desktop`, metainfo, іконка; README — як подати у Flathub).
   У Flatpak вимкнене і самооновлення оболонки, і завантаження вебчастини з сайту (правила Flathub) — оновлює лише Flathub. Скріншоти для каталогу — `docs/screenshots/`. Далі за планом: macOS.
@@ -66,7 +67,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   після реєстрації сайт відкриває `skybee://login?handle=…`, і застосунок показує вхід із новим ніком (основний пароль; сесія посиланням не передається).
   `skybee://` реєструють: десктоп (`setAsDefaultProtocolClient`, `protocols` в electron-builder, MimeType у Flatpak; `second-instance`/`open-url` → `skybeeDesktop.onLink`),
   Android (intent-filter) та iOS (CFBundleURLTypes) — дописує CI; у JS — `onLink` з `native.js` → `handleLink` в app.js (якщо вже ввійшли — «Додати акаунт»).
-  bsky.social вимагає капчу, яку проводить лише Bluesky, тож для нього сайт веде на bsky.app і дає кнопку «Повернутися в Skybee»; інші сервери — форма на сайті. Капча в десктопі (`skybeeDesktop.captcha`) лишилася, але не використовується.
+  bsky.social вимагає капчу, яку проводить лише Bluesky, тож для нього сайт веде на bsky.app і дає кнопку «Повернутися в Skybee»; інші сервери — форма на сайті.
   GIF: кнопка «GIF» у редакторі, Tenor API з ключем користувача (`skybee.tenorKey`, Налаштування → Вміст і медіа), пост — зовнішнє посилання на media.tenor.com
 - `js/notify.js` — системні сповіщення, поки застосунок відкритий (опитування раз на хвилину)
 - `desktop/` — оболонка Electron: `main.js` (вікно, схема `app://skybee/` для вебфайлів, зовнішні посилання → системний браузер,
@@ -106,6 +107,16 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
 
 ## Перевірка без мережі
 - Bluesky із хмарної сесії недоступний: екрани перевіряються Playwright-ом із підмінними відповідями XRPC (`context.route` на `https://pds.test/xrpc/*`, сесія з `pds: "https://pds.test"` у `skybee.session`) — так видно помилки консолі й графічні дефекти в усіх стилях.
+
+## Безпека
+- Токени сесій у `localStorage`, тож будь-який вставлений скрипт = захоплений акаунт. Тому: усе чуже — через `esc()`; посилання з записів — лише `http(s)`/`mailto` (`safeUrl` в ui.js);
+  `index.html` має **Content-Security-Policy** (скрипти — лише свої й hls.js із jsdelivr з точною версією та `integrity`; без вбудованих `on…=` обробників і `<script>`; новий зовнішній плеєр — дописати у `frame-src`).
+  Для телефонів `scripts/dist.mjs` CSP прибирає (міст Capacitor на Android — вбудований скрипт).
+- Адреса PDS з DID-документа — лише публічний https-хост (`api.pdsOk`). Перед надсиланням пароля на сервер не Bluesky (`api.bskyHost`) — питання з адресою сервера (раз на сервер, `skybee.trustedPds`);
+  посилання `#/login?new=1&handle=…` / `skybee://login` попереджає, що його могли підкинути.
+- «Оформлення» чужих профілів: обкладинка й уривок треку — лише з CDN музичних сервісів (`MEDIA_HOSTS` у flair.js), щоб власник профілю не бачив IP глядачів.
+- Android: APK — релізна збірка (не debuggable), `allowBackup="false"`. Ключ підпису `mobile/debug.keystore` публічний — треба замінити на власний у GitHub Secrets (робить автор).
+- Actions у workflow закріплені на SHA (коментар — версія).
 
 ## Помилки
 - Усі помилки показуються через `errText(e)` з `js/errors.js`: людською мовою, що сталося й що робити, + технічний код у дужках

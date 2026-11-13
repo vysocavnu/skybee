@@ -26,12 +26,24 @@ const hashQuery = () => new URLSearchParams(location.hash.split("?")[1] || "");
 const SITE = "https://vysocavnu.github.io/skybee/";
 const inApp = () => !!window.skybeeDesktop || isNative;
 const fullHandle = (h) => { h = String(h || "").trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9.@-]/g, ""); return !h || h.includes(".") || h.includes("@") ? h : h + ".bsky.social"; };
-// a login form opened after sign-up: the new handle is filled in, the main password chosen (there is no app password yet)
+// a login form opened after sign-up: the new handle is filled in, the main password chosen (there is no app password yet).
+// Anyone can make such a link, so it says plainly whose handle it is and warns not to type a password by someone else's link
 function prefillLogin(f, handle) {
   if (handle) f.handle.value = handle;
-  f.kind.value = "main"; f.dispatchEvent(new Event("change"));
-  $("[data-hint]", f).innerHTML = "🎉 <b>Акаунт створено!</b> Увійди з паролем, який щойно задав(-ла) під час реєстрації. Пізніше можна перейти на пароль застосунку." ;
+  f.kind.value = "main";
+  f._hint = `Вхід у новий акаунт${handle ? ` <b>@${esc(handle)}</b>` : ""} з паролем, який ти задав(-ла) під час реєстрації. Пізніше можна перейти на пароль застосунку.
+    <br>⚠️ Якщо ти щойно не реєструвався(-лася) — не вводь тут пароль: таке посилання могли надіслати, щоб його вкрасти.`; // stays while the main password is chosen
+  f.dispatchEvent(new Event("change"));
   setTimeout(() => (handle ? f.pass : f.handle).focus(), 50);
+}
+// Before a password goes to a server that is not Bluesky's own (Eurosky, a self-hosted PDS…): once per server
+const TRUSTED = "skybee.trustedPds";
+async function confirmServer(host) {
+  let list = []; try { list = JSON.parse(localStorage.getItem(TRUSTED)) || []; } catch {}
+  if (list.includes(host)) return true;
+  const ok = await confirmBox(`Цей акаунт живе не на серверах Bluesky, а на сервері ${host}. Пароль буде надіслано туди. Продовжуй, лише якщо знаєш цей сервер (наприклад, Eurosky чи свій). Якщо тебе привели сюди за чужим посиланням — це може бути крадіжка пароля.`, "Так, це мій сервер", true);
+  if (ok) try { localStorage.setItem(TRUSTED, JSON.stringify([...list, host].slice(-20))); } catch {}
+  return ok;
 }
 
 /* ---------- login ---------- */
@@ -56,7 +68,7 @@ function bindLogin(f) {
   const btn = $("button", f), err = $(".err", f);
   const sync = () => {
     const main = f.kind.value === "main";
-    $("[data-hint]", f).innerHTML = LOGIN_HINT[f.kind.value];
+    $("[data-hint]", f).innerHTML = main && f._hint || LOGIN_HINT[f.kind.value];
     f.pass.placeholder = main ? "Основний пароль" : "xxxx-xxxx-xxxx-xxxx";
     f.pass.type = f.show.checked ? "text" : "password";
     if (!main) { f.code.hidden = true; f.code.value = ""; }
@@ -66,12 +78,12 @@ function bindLogin(f) {
     e.preventDefault();
     btn.disabled = true; err.textContent = ""; btn.textContent = "Вхід…";
     try {
-      await api.login(f.handle.value, f.pass.value, { main: f.kind.value === "main", code: f.code.value });
+      await api.login(f.handle.value, f.pass.value, { main: f.kind.value === "main", code: f.code.value, confirmServer });
       // a page reload needs the session in storage; where storage is blocked, carry on in memory
       let stored = false; try { stored = !!localStorage.getItem("skybee.session"); } catch {}
       if (stored) restart(); else { document.querySelectorAll(".modal-bg").forEach(m => m.remove()); location.hash = "#/"; boot(); }
     } catch (ex) {
-      err.textContent = errText(ex);
+      err.textContent = ex.code === "Cancelled" ? "" : errText(ex);
       if (ex.code === "AuthFactorTokenRequired") { f.kind.value = "main"; sync(); f.code.hidden = false; f.code.focus(); }
     }
     btn.disabled = false; btn.textContent = "Увійти";

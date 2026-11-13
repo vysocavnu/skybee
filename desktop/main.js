@@ -140,6 +140,9 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let win = null, tray = null, quitting = false;
+// Developer tools only when run from source (or with SKYBEE_DEVTOOLS=1): in the installed app «paste this into the
+// console» is a classic way to steal the session from someone
+const devTools = !app.isPackaged || process.env.SKYBEE_DEVTOOLS === "1";
 const startHidden = process.argv.includes("--hidden"); // started with Windows: straight to the tray
 
 // The window shows again (from the tray, a second launch or a notification click)
@@ -179,29 +182,7 @@ function setupTray() {
   tray.on("right-click", () => tray.setContextMenu(build()));
 }
 
-/* ---------- sign-up captcha ----------
-   bsky.social asks new accounts to pass a captcha at /gate/signup; when solved it redirects to bsky.app with ?state&code.
-   A child window watches for that redirect and hands the code back to the web app. */
 ipcMain.handle("skybee:version", () => app.getVersion());
-ipcMain.handle("skybee:captcha", (_e, url, state) => new Promise((resolve) => {
-  let u; try { u = new URL(url); } catch { return resolve(null); }
-  if (u.protocol !== "https:" || !u.pathname.startsWith("/gate/")) return resolve(null);
-  const w = new BrowserWindow({ parent: win, modal: true, width: 480, height: 720, title: "Перевірка", autoHideMenuBar: true,
-    backgroundColor: "#ffffff", webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
-  let done = false;
-  const finish = (code) => { if (done) return; done = true; resolve(code); if (!w.isDestroyed()) w.close(); };
-  const look = (e, next) => {
-    let n; try { n = new URL(next); } catch { return; }
-    if (n.host === u.host) return; // still the captcha page
-    e?.preventDefault?.();
-    finish(n.searchParams.get("state") === state ? n.searchParams.get("code") : null);
-  };
-  w.webContents.on("will-navigate", look);
-  w.webContents.on("will-redirect", look);
-  w.webContents.setWindowOpenHandler(({ url: x }) => { external(x); return { action: "deny" }; });
-  w.on("closed", () => finish(null));
-  w.loadURL(url);
-}));
 const external = (url) => { if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); };
 
 /* ---------- skybee:// links ----------
@@ -223,7 +204,7 @@ function createWindow() {
     title: "Skybee", icon: path.join(__dirname, "icon.png"), backgroundColor: "#0f1218",
     autoHideMenuBar: true,
     show: !startHidden || !!pendingLink,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true, devTools,
       preload: path.join(__dirname, "preload.js"), backgroundThrottling: false }, // keeps polling for notifications while hidden
   });
   // closing the window only hides it: Skybee stays in the tray and keeps notifying
@@ -251,7 +232,7 @@ function createWindow() {
     if (k.type !== "keyDown") return;
     if (k.key === "F5" || (k.control && k.key.toLowerCase() === "r")) { win.webContents.reload(); e.preventDefault(); }
     if (k.key === "F11") { win.setFullScreen(!win.isFullScreen()); e.preventDefault(); }
-    if (k.key === "F12") { win.webContents.toggleDevTools(); e.preventDefault(); }
+    if (k.key === "F12" && devTools) { win.webContents.toggleDevTools(); e.preventDefault(); }
   });
   win.webContents.on("did-finish-load", () => { if (pendingLink) { win.webContents.send("skybee:link", pendingLink); pendingLink = null; } });
   win.on("closed", () => { win = null; });

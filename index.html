@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1218">
 <meta name="description" content="Skybee — відкритий клієнт для Bluesky">
+<!-- Захист від чужих скриптів: навіть якщо десь у рендері знайдеться дірка, вставлений код не виконається.
+     Скрипти — лише власні й hls.js з jsdelivr (з контрольною сумою). У збірці для телефонів (mobile/www) цей рядок
+     прибирає scripts/dist.mjs: Capacitor на Android вставляє свій міст вбудованим скриптом. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' app: https://cdn.jsdelivr.net; style-src 'self' app: 'unsafe-inline'; img-src 'self' app: https: data: blob:; media-src 'self' app: https: blob:; connect-src 'self' app: https:; font-src 'self' app: data:; worker-src 'self' blob:; manifest-src 'self' app:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://player.twitch.tv https://open.spotify.com https://w.soundcloud.com https://embed.music.apple.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title>Skybee — клієнт Bluesky</title>
 <link rel="icon" href="icons/favicon.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="favicon.ico?v=2" sizes="16x16 32x32">

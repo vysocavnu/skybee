@@ -513,7 +513,9 @@ export function lightbox(urls, i = 0, alts = []) {
       const blob = await (await fetch(url)).blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `skybee-${url.split("/").pop().split("@")[0].slice(-16)}.${(blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`;
+      // the extension follows the picture's type, but only a picture's: a server could call anything «text/html»
+      const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif" }[blob.type] || "jpg";
+      a.download = `skybee-${url.split("/").pop().split("@")[0].replace(/[^\w-]/g, "").slice(-16)}.${ext}`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch { window.open(url, "_blank"); } // the server did not allow reading it here: the browser saves it from a new tab

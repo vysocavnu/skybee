@@ -573,6 +573,8 @@ body:has(.chatbar) .fab { display: none; } /* in a chat the ✏️ button would 
 .sideprof.sb-tint { background: var(--panel); color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
 .sideprof.sb-tint .sp-ava { border-color: var(--panel); }
 .sideprof.sb-tint .ghost { border-color: color-mix(in srgb, var(--text) 30%, transparent); }
+/* Liquid Glass and Material give every .card their own surface with a stronger selector: the profile colour wins over it */
+:root[data-ui] .card.sideprof.sb-tint { background: var(--panel); border: 1px solid color-mix(in srgb, var(--sb) 60%, transparent); }
 .sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(135deg, var(--sb), color-mix(in srgb, var(--sb) 35%, var(--bg))); }
 
 /* ---------- LIVE ---------- */

@@ -62,17 +62,33 @@ export async function resolvePds(input) {
     ? `https://plc.directory/${did}`
     : `https://${did.slice("did:web:".length)}/.well-known/did.json`;
   const doc = await (await fetch(docUrl)).json();
-  const svc = (doc.service || []).find(s => s.id === "#atproto_pds" || s.type === "AtprotoPersonalDataServer");
-  if (!svc) throw new Error("Не знайдено сервер (PDS) акаунта");
-  return { did, pds: svc.serviceEndpoint.replace(/\/$/, "") };
+  const pds = pdsOfDoc(doc);
+  if (!pds) throw new Error("Не знайдено сервер (PDS) акаунта");
+  return { did, pds };
 }
 
+// The server address comes from the account's own DID document, i.e. from whoever owns the account. Only a public
+// https host is accepted: not an IP, localhost or a local network name (a profile could make every visitor's browser
+// knock on their router), and nothing but https (passwords and tokens never go over plain http).
+export function pdsOk(u) {
+  let x; try { x = new URL(u); } catch { return false; }
+  const h = x.hostname.toLowerCase();
+  return x.protocol === "https:" && !x.username && !x.password && h.includes(".") && !/^[\d.]+$/.test(h) && !h.startsWith("[")
+    && !/(^|\.)(localhost|local|internal|lan|home|intranet|corp|localdomain|home\.arpa)$/.test(h);
+}
+// Servers run by Bluesky itself: logging in there needs no extra question
+export const bskyHost = (u) => { try { const h = new URL(u).hostname; return h === "bsky.social" || h.endsWith(".bsky.network"); } catch { return false; } };
+
 const ENTRYWAY = "https://bsky.social";
-const pdsOfDoc = (doc) => (doc?.service || []).find(x => x.id === "#atproto_pds" || x.type === "AtprotoPersonalDataServer")?.serviceEndpoint?.replace(/\/$/, "");
+function pdsOfDoc(doc) {
+  const u = (doc?.service || []).find(x => x.id === "#atproto_pds" || x.type === "AtprotoPersonalDataServer")?.serviceEndpoint;
+  return typeof u === "string" && pdsOk(u) ? u.replace(/\/$/, "") : undefined;
+}
 
 // opts.main: the account's main password (may need an e-mail `code`), otherwise an app password.
 // Phone keyboards add spaces, invisible characters and «smart» dashes — all of that is cleaned up here.
-export async function login(handle, password, { main = false, code = "" } = {}) {
+// confirmServer(host): asked before the password goes to a server that is not Bluesky's own; false cancels
+export async function login(handle, password, { main = false, code = "", confirmServer } = {}) {
   const id = handle.replace(/[\s​-‍⁠﻿]/g, "").replace(/^@/, "");
   let pass = password.trim();
   if (!main) pass = pass.replace(/\s/g, "").replace(/[‐-―−]/g, "-");
@@ -81,6 +97,9 @@ export async function login(handle, password, { main = false, code = "" } = {}) 
   if (!id.includes("@")) { // an e-mail cannot be resolved, it goes straight to bsky.social
     try { const r = await resolvePds(id); identifier = r.did; pds = r.pds; resolved = true; }
     catch { /* lookup blocked or failed (ad blockers, weak network): bsky.social can still sign most accounts in */ }
+  }
+  if (resolved && !bskyHost(pds) && confirmServer && !await confirmServer(new URL(pds).hostname)) {
+    const e = new Error("Вхід скасовано"); e.code = "Cancelled"; throw e;
   }
   const body = { identifier, password: pass };
   if (code.trim()) body.authFactorToken = code.trim();
