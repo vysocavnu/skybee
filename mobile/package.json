@@ -1,7 +1,7 @@
 {
   "name": "skybee-mobile",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Skybee для Android та iOS (Capacitor): та сама вебчастина в нативній оболонці",
   "scripts": {
     "web": "node ../scripts/dist.mjs mobile/www"
