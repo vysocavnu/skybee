@@ -1361,3 +1361,9 @@ body.calm :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), bo
 
 /* home: swiping the feed sideways switches feeds (js/views.js home); the browser keeps only the vertical scroll */
 @media (pointer: coarse) { #feedBody { touch-action: pan-y; } }
+/* a phone sideways: the rail's items closer together in every style, so the whole menu fits the short screen */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
+  :root[data-ui] nav.side a { min-height: 0; height: 36px; margin: 1px 0; padding-block: 0; }
+  :root[data-ui] nav.side .logo { height: 40px; }
+  nav.side { overflow-y: auto; }
+}
