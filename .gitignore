@@ -8,3 +8,22 @@ flatpak/.flatpak-builder/
 # ключі підпису Android: лише в секретах GitHub, ніколи в репозиторії
 mobile/release.keystore
 *.jks
+
+# секрети: ніколи в репозиторії (вони — у GitHub Secrets або в localStorage користувача)
+.env
+.env.*
+!.env.example
+secrets.json
+credentials.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+
+# службове
+*.log
+.DS_Store
+Thumbs.db
