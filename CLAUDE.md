@@ -9,7 +9,7 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   Кожен push у `main` автоматично оновлює сайт.
 - Є **десктопна версія для Windows на Electron** (`desktop/`): лише інсталятор NSIS (переносну версію автор попросив прибрати).
   Саме Electron, а не Tauri: Tauri на Windows потребує WebView2 (Edge), а в автора Edge заблокований — застосунок має нести власний рушій.
-  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; будь-які зміни застосунку (веб чи `desktop/`) або ручний запуск → артефакти і pre-release `desktop-test` із файлами **без ZIP** (`Skybee-Setup.exe`, `Skybee.AppImage`, `Skybee-linux-x64.tar.gz`, `Skybee.flatpak`). Автор хоче готові файли, не архіви: давати посилання на `desktop-test` / `mobile-test`, а не на артефакти.
+  Збирає GitHub Actions (`.github/workflows/desktop.yml`): тег `vX.Y.Z` → реліз; зміни застосунку в `main` (веб чи `desktop/`) або ручний запуск → артефакти і pre-release `desktop-test` із файлами **без ZIP** (`Skybee-Setup.exe`, `Skybee.AppImage`, `Skybee-linux-x64.tar.gz`, `Skybee.flatpak`). Автор хоче готові файли, не архіви: давати посилання на `desktop-test` / `mobile-test`, а не на артефакти.
   Інтерфейс у десктопі **оновлюється сам**: під час запуску оболонка тихо завантажує сайт із GitHub Pages у `userData/web-cache`
   і з наступного запуску показує його, якщо він новіший за збірку. Новий EXE потрібен лише при зміні `desktop/main.js` чи Electron.
   **Сама оболонка (EXE) теж оновлюється сама** (з v0.2.0): `electron-updater` при запуску й раз на 6 год читає `latest.yml` з найновішого
