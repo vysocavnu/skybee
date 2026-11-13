@@ -424,7 +424,7 @@ main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoratio
 main.sb-tint { color: var(--text); border-color: transparent; position: relative; overflow: clip; overflow-clip-margin: 200px; }
 main.sb-tint::before { content: ""; position: absolute; inset: 0 -200px; z-index: -1; pointer-events: none; transition: background .25s;
   /* the profile gradient (--sb → --sb2) runs down the column; the mask fades it out to both sides */
-  background: linear-gradient(170deg, var(--bg), var(--bg2) min(100%, 1400px));
+  background: linear-gradient(120deg, var(--bg), var(--bg2), var(--bg), var(--bg2)); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate;
   -webkit-mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,.18) 70px, rgba(0,0,0,.5) 130px, rgba(0,0,0,.85) 180px, #000 210px, #000 calc(100% - 210px),
     rgba(0,0,0,.85) calc(100% - 180px), rgba(0,0,0,.5) calc(100% - 130px), rgba(0,0,0,.18) calc(100% - 70px), transparent);
   mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,.18) 70px, rgba(0,0,0,.5) 130px, rgba(0,0,0,.85) 180px, #000 210px, #000 calc(100% - 210px),
@@ -458,6 +458,8 @@ main.sb-tint .phead .bigava { border-color: var(--accent); }
 .sb-any input, .sb-dot input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 /* profile colour: gradient pills and «свій: ● → ●» */
 .sb-grads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
+.sb-gr:not(.none), .sb-flow { background-size: 300% 300% !important; animation: sb-flow 8s ease-in-out infinite alternate; }
+.sb-flow { animation-duration: 12s; }
 .sb-gr { height: 40px; border-radius: 999px; border: 2px solid rgba(0,0,0,.35); padding: 0; color: var(--muted); }
 .sb-gr.none { background: var(--bg); border-color: var(--line); }
 .sb-gr.on, .sb-dot.on { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -594,12 +596,12 @@ body:has(.chatbar) .fab { display: none; } /* in a chat the ✏️ button would 
 .mquote { max-width: min(280px, 70vw); }
 
 /* own profile card in the right column takes the same Skybee colour */
-.sideprof.sb-tint { background: linear-gradient(160deg, var(--panel), var(--panel2)); color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
+.sideprof.sb-tint { background: linear-gradient(120deg, var(--panel), var(--panel2), var(--panel), var(--panel2)); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate; color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
 .sideprof.sb-tint .sp-ava { border-color: var(--panel); }
 .sideprof.sb-tint .ghost { border-color: color-mix(in srgb, var(--text) 30%, transparent); }
 /* Liquid Glass and Material give every .card their own surface with a stronger selector: the profile colour wins over it */
-:root[data-ui] .card.sideprof.sb-tint { background: linear-gradient(160deg, var(--panel), var(--panel2)); border: 1px solid color-mix(in srgb, var(--sb) 60%, transparent); }
-.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(135deg, var(--sb), var(--sb2, var(--sb))); }
+:root[data-ui] .card.sideprof.sb-tint { background: linear-gradient(120deg, var(--panel), var(--panel2), var(--panel), var(--panel2)); background-size: 300% 300%; border: 1px solid color-mix(in srgb, var(--sb) 60%, transparent); }
+.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(120deg, var(--sb), var(--sb2, var(--sb)), var(--sb), var(--sb2, var(--sb))); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate; }
 
 /* ---------- LIVE ---------- */
 .live-ava { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
@@ -1345,3 +1347,10 @@ html.sb-theme { --accent: var(--sb); --accent-ink: var(--sb-ink); }
   :root[data-ui="material"] .toast { left: 12px; right: 12px; transform: none; bottom: calc(76px + var(--sab)); text-align: left; border-radius: 8px; }
 }
 @keyframes m-sheet { from { transform: translateY(40%); opacity: .4; } }
+
+/* the profile gradient flows slowly between its two colours (js/flair.js, css above); still with «Зменшити анімацію» or reduced motion */
+@keyframes sb-flow { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+body.calm :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), body.calm main.sb-tint::before { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), main.sb-tint::before { animation: none !important; }
+}

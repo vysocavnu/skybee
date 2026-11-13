@@ -116,7 +116,7 @@ export async function decorate(el, p) {
   const { rec, pds } = got;
   const banner = el.querySelector(".banner");
   const cs = colorsOf(rec);
-  if (cs && banner && !banner.style.backgroundImage) banner.style.backgroundImage = `linear-gradient(135deg, ${cs[0]}, ${cs[1]})`;
+  if (cs && banner && !banner.style.backgroundImage) { banner.style.backgroundImage = `linear-gradient(120deg, ${cs[0]}, ${cs[1]}, ${cs[0]}, ${cs[1]})`; banner.classList.add("sb-flow"); }
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
   if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));
   if (rec.toy && banner) {
@@ -214,7 +214,7 @@ export async function edit(onDone) {
     <label class="field">Статус у бульбашці біля аватарки<input data-f="status" maxlength="${STATUS_MAX}" placeholder="Що у вас на думці?" value="${esc(cur.status || "")}"></label>
     <div class="field">Колір сторінки — градієнт: на світлій темі яскравий, на темній і в сутінках глибокий темний
       <div class="sb-grads"><button type="button" class="sb-gr none" data-g="" title="Без кольору">✕</button>${
-        GRADIENTS.map(([a, b, n]) => `<button type="button" class="sb-gr" data-g="${a} ${b}" title="${n}" aria-label="${n}" style="background:linear-gradient(90deg, ${a}, ${b})"></button>`).join("")}</div>
+        GRADIENTS.map(([a, b, n]) => `<button type="button" class="sb-gr" data-g="${a} ${b}" title="${n}" aria-label="${n}" style="background:linear-gradient(90deg, ${a}, ${b}, ${a}, ${b})"></button>`).join("")}</div>
       <div class="sb-own">свій:
         <label class="sb-dot" title="Перший колір"><input type="color" data-own="0"></label><span class="sb-arrow">→</span>
         <label class="sb-dot" title="Другий колір"><input type="color" data-own="1"></label></div>
