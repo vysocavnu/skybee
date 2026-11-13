@@ -1,6 +1,7 @@
 # Збирає Skybee: Windows (інсталятор NSIS), Linux (AppImage, tar.gz) і Flatpak.
 # - тег vX.Y.Z  → реліз на GitHub з інсталятором і latest.yml (з нього встановлений Skybee оновлюється сам)
-# - ручний запуск або зміни в оболонці → інсталятор в артефактах запуску
+# - ручний запуск або зміни застосунку → інсталятор в артефактах запуску (ZIP) і готові файли без архіву
+#   в тестовому (pre-release) релізі «desktop-test»: Skybee-Setup.exe, Skybee.AppImage, Skybee-linux-x64.tar.gz, Skybee.flatpak
 name: Desktop (Windows)
 # (назву лишено, щоб не губилася історія запусків; тепер тут і Linux, і Flatpak)
 
@@ -78,6 +79,27 @@ jobs:
             desktop/dist/*.exe.blockmap
             desktop/dist/latest.yml
           generate_release_notes: true
+      # Тестовий реліз: ті самі файли без ZIP, зі сталими назвами (без latest.yml — самооновлення бере лише справжні релізи)
+      - name: Файли для тестового релізу
+        if: env.RELEASE_TAG == ''
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force test | Out-Null
+          Copy-Item (Get-ChildItem dist/*.exe | Select-Object -First 1).FullName test/Skybee-Setup.exe
+          Get-ChildItem test
+      - name: Тестовий реліз
+        if: env.RELEASE_TAG == ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-test
+          target_commitish: ${{ github.sha }}
+          name: "Skybee для комп'ютера (тестова збірка)"
+          prerelease: true
+          make_latest: false
+          body: |
+            Тестові збірки — оновлюються з кожною зміною застосунку, файли без архівів.
+            Windows: Skybee-Setup.exe. Linux: Skybee.AppImage (зробіть виконуваним), Skybee-linux-x64.tar.gz або Skybee.flatpak (flatpak install --user Skybee.flatpak).
+          files: desktop/test/Skybee-Setup.exe
 
   linux:
     needs: windows # реліз створює Windows-збірка; решта лише додає до нього файли
@@ -117,6 +139,23 @@ jobs:
             desktop/dist/*.tar.gz
             desktop/dist/*.AppImage
             desktop/dist/latest-linux.yml
+      - name: Файли для тестового релізу
+        if: env.RELEASE_TAG == ''
+        run: |
+          mkdir -p test
+          cp dist/*.AppImage test/Skybee.AppImage
+          cp dist/*.tar.gz test/Skybee-linux-x64.tar.gz
+          ls -la test
+      - name: Тестовий реліз
+        if: env.RELEASE_TAG == ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-test
+          prerelease: true
+          make_latest: false
+          files: |
+            desktop/test/Skybee.AppImage
+            desktop/test/Skybee-linux-x64.tar.gz
 
   # Flatpak з тієї самої Linux-збірки: пакет Skybee.flatpak для встановлення напряму
   # і маніфест для Flathub (з url і sha256 архіву в релізі)
@@ -165,3 +204,11 @@ jobs:
             flatpak/io.github.vysocavnu.skybee.desktop
             flatpak/io.github.vysocavnu.skybee.metainfo.xml
             flatpak/icon-512.png
+      - name: Тестовий реліз
+        if: env.RELEASE_TAG == ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-test
+          prerelease: true
+          make_latest: false
+          files: Skybee.flatpak
