@@ -1145,3 +1145,21 @@ body:has(.login) { background: radial-gradient(ellipse at 50% 35%, var(--bg) 35%
   :root[data-ui] .ghost { border-width: 2px; }
 }
 @media (forced-colors: active) { :root[data-ui] :focus-visible { outline: 2px solid Highlight; } }
+
+/* ---------- status bar and notch (phones): nothing goes under the clock and the camera ----------
+   iPhone (viewport-fit=cover, contentInset never) reports the top inset here; on Android the shell itself puts the page
+   below the status bar (capacitor.config: adjustMarginsForEdgeToEdge), so this is 0 there. The bars reach up behind the
+   status bar with their own background, as in native apps. */
+:root { --sat: env(safe-area-inset-top, 0px); }
+.topbar, .guestbar { padding-top: calc(10px + var(--sat)); min-height: calc(54px + var(--sat)); }
+.guestbar { padding-top: calc(8px + var(--sat)); min-height: 0; }
+body.guest .topbar { top: calc(49px + var(--sat)); padding-top: 10px; min-height: 54px; }
+.newpill { top: calc(64px + var(--sat)); }
+nav.side { padding-top: calc(12px + var(--sat)); }
+.modal-bg { padding-top: calc(6vh + var(--sat)); }
+.msheet-bg { padding-top: var(--sat); }
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
+  .topbar { padding-top: calc(5px + var(--sat)); min-height: calc(46px + var(--sat)); }
+  nav.side { padding-top: calc(6px + var(--sat)); }
+}
+:root[data-ui="material"] .topbar { min-height: calc(64px + var(--sat)); }
