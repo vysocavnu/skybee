@@ -198,13 +198,14 @@ jobs:
         with:
           tag_name: mobile-test
           target_commitish: ${{ github.sha }}
-          name: "Skybee для телефонів (тестова збірка)"
+          name: "Skybee для телефонів (тестова збірка №${{ github.run_number }})" # номер збірки читає «Бета-тестування» в застосунку
           prerelease: true
           make_latest: false
           body: |
             Тестові збірки для Android та iOS — оновлюються з кожною зміною застосунку.
             Android: завантажте Skybee.apk і відкрийте (дозвольте встановлення з цього джерела).
             iPhone: Skybee-unsigned.ipa встановлюється через Sideloadly чи AltStore (вони підпишуть його вашим Apple ID).
+            Щоб застосунок сам повідомляв про нові збірки: Налаштування → Про Skybee → «Бета-тестування».
           files: |
             out/Skybee.apk
             out/Skybee-unsigned.ipa

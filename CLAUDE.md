@@ -84,7 +84,12 @@ Skybee — відкритий клієнт для Bluesky (AT Protocol). Авт�
   «Показувати більше/менше такого» у фідах з `acceptsInteractions` (`sendInteractions` через проксі `<did фіда>#bsky_fg`)
 - «Хто мене заблокував» `#/settings/blocked-by` (Модерація): Bluesky такого не віддає, тож список — з відкритого індексу Constellation (`api.blockedByPage`, constellation.microcosm.blue, без ключа; Clearsky закрився), дата — з rkey (TID, `api.tidDate`), профілі — з Bluesky; видалені акаунти лише рахуються
 - `js/newbie.js` — «🌱 Для новеньких» `#/newcomers`: гід за матеріалами info.bsky.one і uabluerail.org, переказаний під екрани Skybee (українські стрічки — живі картки `getFeedGenerators`, модераційні списки mobik.zip та ін., поради, пошук, чати, фольклор). Пункт у меню з'являється, поки акаунту < 6 міс. (`isNewbie`, `createdAt` профілю); завжди є в Довідці
-- «Перевірити оновлення» (Про Skybee, лише в десктопі, і пункт у треї): `skybeeDesktop.update()` → `checkUpdatesNow` у `desktop/main.js`
+- «Перевірити оновлення» (Про Skybee, і пункт у треї десктопа): у десктопі `skybeeDesktop.update()` → `checkUpdatesNow` у `desktop/main.js`, на телефоні — `checkPhone()` з `js/updates.js`
+- **Бета-тестування** (Про Skybee, перемикач; лише десктоп із самооновленням і телефони): тестові збірки = бета-канал.
+  Десктоп: `skybeeDesktop.beta(on)` → `userData/beta.json`, `applyChannel` у main.js перемикає electron-updater на generic-фід `releases/download/desktop-test/`
+  (CI кладе туди `latest.yml`/`latest-linux.yml` під сталі назви файлів; версія тестових збірок — наступний патч + `-beta.<run_number>`, напр. 0.3.1-beta.57). Вимкнення бети не відкочує версію.
+  Телефони не оновлюються самі: `updates.js` (раз на 12 год при запуску, `autoCheck`) порівнює збірку (`App.getInfo().build` = run_number) з «№N» у назві pre-release `mobile-test` (бета)
+  і версію з тегом `/releases/latest` (усі) через api.github.com, і пропонує завантажити APK/IPA у браузері; бета на телефоні — `skybee.beta` у localStorage
 - `js/app.js` — роутер на hash (`#/profile/<handle>/post/<rkey>` тощо), навігація, глобальні дії через `data-act`
 
 ## Вигляд «Skybee 2.0 — The Social Hive»

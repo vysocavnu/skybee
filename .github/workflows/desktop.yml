@@ -42,6 +42,13 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
+      - name: Номер бета-версії
+        # тестові збірки — бета-канал застосунку: наступний патч + номер запуску (0.3.0 → 0.3.1-beta.57), тож бета завжди
+        # новіша за останній реліз, а наступний реліз (0.3.1) — новіший за бету
+        if: env.RELEASE_TAG == ''
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json','utf8')),[a,b,c]=p.version.split('-')[0].split('.').map(Number);p.version=a+'.'+b+'.'+(c+1)+'-beta.'+process.env.GITHUB_RUN_NUMBER;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');console.log(p.version)"
       - name: Збірка
         run: npm run dist
       - name: Пробний запуск
@@ -79,13 +86,19 @@ jobs:
             desktop/dist/*.exe.blockmap
             desktop/dist/latest.yml
           generate_release_notes: true
-      # Тестовий реліз: ті самі файли без ZIP, зі сталими назвами (без latest.yml — самооновлення бере лише справжні релізи)
+      # Тестовий реліз = бета-канал: ті самі файли без ZIP, зі сталими назвами, і latest.yml під ці назви — його читають
+      # застосунки з увімкненим «Бета-тестуванням». Звичайні беруть лише справжні релізи (desktop-test — pre-release)
       - name: Файли для тестового релізу
         if: env.RELEASE_TAG == ''
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force test | Out-Null
-          Copy-Item (Get-ChildItem dist/*.exe | Select-Object -First 1).FullName test/Skybee-Setup.exe
+          $exe = Get-ChildItem dist/*.exe | Select-Object -First 1
+          Copy-Item $exe.FullName test/Skybee-Setup.exe
+          Copy-Item "$($exe.FullName).blockmap" test/Skybee-Setup.exe.blockmap
+          (Get-Content dist/latest.yml -Raw).Replace($exe.Name, "Skybee-Setup.exe") | Set-Content test/latest.yml -NoNewline
+          Get-Content test/latest.yml
+          if (-not (Select-String -Path test/latest.yml -SimpleMatch "Skybee-Setup.exe" -Quiet)) { "latest.yml не вказує на Skybee-Setup.exe"; exit 1 }
           Get-ChildItem test
       - name: Тестовий реліз
         if: env.RELEASE_TAG == ''
@@ -97,9 +110,13 @@ jobs:
           prerelease: true
           make_latest: false
           body: |
-            Тестові збірки — оновлюються з кожною зміною застосунку, файли без архівів.
+            Тестові (бета) збірки — оновлюються з кожною зміною застосунку, файли без архівів.
             Windows: Skybee-Setup.exe. Linux: Skybee.AppImage (зробіть виконуваним), Skybee-linux-x64.tar.gz або Skybee.flatpak (flatpak install --user Skybee.flatpak).
-          files: desktop/test/Skybee-Setup.exe
+            Щоб отримувати їх автоматично: Налаштування → Про Skybee → «Бета-тестування».
+          files: |
+            desktop/test/Skybee-Setup.exe
+            desktop/test/Skybee-Setup.exe.blockmap
+            desktop/test/latest.yml
 
   linux:
     needs: windows # реліз створює Windows-збірка; решта лише додає до нього файли
@@ -115,6 +132,13 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - run: npm ci
+      - name: Номер бета-версії
+        # тестові збірки — бета-канал застосунку: наступний патч + номер запуску (0.3.0 → 0.3.1-beta.57), тож бета завжди
+        # новіша за останній реліз, а наступний реліз (0.3.1) — новіший за бету
+        if: env.RELEASE_TAG == ''
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json','utf8')),[a,b,c]=p.version.split('-')[0].split('.').map(Number);p.version=a+'.'+b+'.'+(c+1)+'-beta.'+process.env.GITHUB_RUN_NUMBER;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');console.log(p.version)"
       - name: Збірка
         run: npm run dist:linux
       - name: Перевірка
@@ -143,8 +167,13 @@ jobs:
         if: env.RELEASE_TAG == ''
         run: |
           mkdir -p test
-          cp dist/*.AppImage test/Skybee.AppImage
+          img=$(basename dist/*.AppImage)
+          cp "dist/$img" test/Skybee.AppImage
           cp dist/*.tar.gz test/Skybee-linux-x64.tar.gz
+          # бета-канал для AppImage: latest-linux.yml під сталу назву файлу
+          sed "s/${img//./\\.}/Skybee.AppImage/g" dist/latest-linux.yml > test/latest-linux.yml
+          cat test/latest-linux.yml
+          grep -q "Skybee.AppImage" test/latest-linux.yml || { echo "latest-linux.yml не вказує на Skybee.AppImage"; exit 1; }
           ls -la test
       - name: Тестовий реліз
         if: env.RELEASE_TAG == ''
@@ -157,6 +186,7 @@ jobs:
           files: |
             desktop/test/Skybee.AppImage
             desktop/test/Skybee-linux-x64.tar.gz
+            desktop/test/latest-linux.yml
 
   # Flatpak з тієї самої Linux-збірки: пакет Skybee.flatpak для встановлення напряму
   # і маніфест для Flathub (з url і sha256 архіву в релізі)

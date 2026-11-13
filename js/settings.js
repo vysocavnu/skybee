@@ -8,7 +8,8 @@ import { getLang } from "./compose.js";
 import * as notify from "./notify.js";
 import { PALETTE, inkFor } from "./flair.js";
 import * as flair from "./flair.js";
-import { statusBarFor } from "./native.js";
+import { statusBarFor, isNative } from "./native.js";
+import * as upd from "./updates.js";
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -526,32 +527,49 @@ export async function help(el) {
 }
 
 /* ================= ABOUT ================= */
+const cap = () => window.Capacitor;
 export async function about(el) {
   el.innerHTML = header("Про Skybee", true) + `
     <div class="card center"><div class="aboutbee">${bee(110)}</div><h3>Skybee</h3>
       <p class="small muted">Відкритий клієнт для Bluesky. Без реклами, без трекерів, без збирання даних: усе зберігається у вашому акаунті Bluesky або в цьому браузері.</p>
       <a class="ghost sm" href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">Код на GitHub</a>
       <button class="btn sm" data-act="install" ${pwa.install ? "" : "hidden"}>📲 Встановити як застосунок</button></div>
-    ${window.skybeeDesktop?.update ? `<div class="card"><h3>Оновлення</h3>
+    ${window.skybeeDesktop?.update || isNative ? `<div class="card"><h3>Оновлення</h3>
       <p class="small muted" id="appver">Версія застосунку: …</p>
+      <div id="betabox" hidden>${toggle("beta", "Бета-тестування", false, "Нові версії Skybee раніше за всіх — з кожною зміною в коді. Можуть траплятися помилки: пиши про них на GitHub. Якщо вимкнеш, залишишся на беті, доки не вийде новіша звичайна версія.")}</div>
       <button class="btn sm" id="checkupd">Перевірити оновлення</button>
-      <p class="small" id="updres" hidden></p></div>` : ""}
+      <p class="small" id="updres" hidden></p>
+      <button class="btn sm" id="getupd" hidden>⬇ Завантажити</button></div>` : ""}
     <div class="card"><h3>Цей пристрій</h3>
       <button class="ghost sm" id="clearcache">Очистити кеш застосунку</button>
       <p class="small muted">Допомагає, якщо після оновлення щось виглядає дивно. Акаунти й налаштування залишаться.</p>
       <button class="ghost sm danger" id="resetlocal">Скинути налаштування цього пристрою</button>
       <p class="small muted">Тема, розмір тексту, мови й чернетка повернуться до початкових. Акаунти й налаштування в акаунті Bluesky не зміняться.</p></div>`;
-  const upd = $("#checkupd", el);
-  if (upd) {
-    window.skybeeDesktop.version().then((v) => { $("#appver", el).textContent = `Версія застосунку: ${v}`; }).catch(() => {});
-    upd.onclick = async () => {
-      const res = $("#updres", el);
-      upd.disabled = true; upd.textContent = "Перевіряю…"; res.hidden = true;
+  const chk = $("#checkupd", el);
+  if (chk) {
+    const res = $("#updres", el), get = $("#getupd", el), ver = $("#appver", el);
+    if (window.skybeeDesktop) window.skybeeDesktop.version().then((v) => { ver.textContent = `Версія застосунку: ${v}`; }).catch(() => {});
+    else upd.checkPhone().then((r) => { if (r.state !== "error" || r.version) ver.textContent = `Версія застосунку: ${r.state === "available" ? r.here : r.version}`; });
+    upd.betaState().then((b) => {
+      if (!b.available) return;
+      const box = $("#betabox", el), sw = $("#beta", el);
+      box.hidden = false; sw.checked = b.on;
+      sw.onchange = async () => {
+        try { await upd.setBeta(sw.checked); } catch { sw.checked = !sw.checked; toast("Не вдалося змінити — спробуй ще раз"); return; }
+        toast(sw.checked ? "Бета-тестування увімкнено 🐝" : "Бета-тестування вимкнено");
+        chk.click(); // look for the build of the chosen channel at once
+      };
+    });
+    get.onclick = () => get.dataset.url && upd.download(get.dataset.url);
+    chk.onclick = async () => {
+      chk.disabled = true; chk.textContent = "Перевіряю…"; res.hidden = true; get.hidden = true;
       let r;
-      try { r = await window.skybeeDesktop.update(); } catch { r = { state: "error", code: "ipc" }; }
-      upd.disabled = false; upd.textContent = "Перевірити оновлення";
+      if (window.skybeeDesktop) { try { r = await window.skybeeDesktop.update(); } catch { r = { state: "error", code: "ipc" }; } }
+      else r = await upd.checkPhone();
+      chk.disabled = false; chk.textContent = "Перевірити оновлення";
       res.textContent = {
         latest: `✓ У тебе найновіша версія (${r.version}).`,
+        available: `Вийшла нова ${r.beta ? "бета-версія" : "версія"}: ${r.version}. ${cap()?.getPlatform?.() === "ios" ? "Встанови IPA через Sideloadly чи AltStore." : "Встанови її поверх — акаунти й налаштування залишаться."}`,
         downloading: `Знайдено версію ${r.version}. Вона завантажується у фоні (прогрес — на значку в панелі задач); коли буде готова, Skybee запропонує перезапуститися.`,
         ready: `Версія ${r.version} вже завантажена — перезапусти Skybee, щоб її встановити.`,
         flatpak: "Цю версію оновлює Flathub: відкрий «Програми» (GNOME Software чи Discover) або виконай flatpak update.",
@@ -560,6 +578,7 @@ export async function about(el) {
         error: `Не вдалося перевірити оновлення. Перевір підключення до інтернету й спробуй ще раз пізніше. (${r.code || "network"})`,
       }[r.state] || "";
       res.hidden = !res.textContent;
+      if (r.state === "available") { get.dataset.url = r.url; get.hidden = false; }
     };
   }
   $("#clearcache", el).onclick = async () => {

@@ -10,6 +10,7 @@ import * as notify from "./notify.js";
 import * as flair from "./flair.js";
 import * as D from "./deck.js";
 import * as N from "./newbie.js";
+import * as U from "./updates.js";
 import { bee, isLive, $, esc, posts, actors, pwa, toast, menu, confirmBox, modal, lightbox, attachVideo, webUrl, avatar, name, actionsBar, gateLine, hiddenReplies, at, num, ico } from "./ui.js";
 import { openComposer, openGateEditor } from "./compose.js";
 
@@ -999,5 +1000,6 @@ function boot() {
       }
     }).catch(() => {});
   const sp = $("#sideProf"); if (sp) flair.paint(sp, api.session.did); // own Skybee colour on the profile card
+  setTimeout(() => U.autoCheck().catch(() => {}), 5000); // phones: a new version (or beta build) to download?
 }
 boot();
