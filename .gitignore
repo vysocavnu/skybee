@@ -8,3 +8,13 @@ flatpak/.flatpak-builder/
 # ключі підпису Android: лише в секретах GitHub, ніколи в репозиторії
 mobile/release.keystore
 *.jks
+
+scripts/.seen
+__pycache__/
+
+# звіти дослідника Bluesky: чужі пости — не в публічний репозиторій
+reports/
+
+# локальні секрети
+.env*
+*.keystore

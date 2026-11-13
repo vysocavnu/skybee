@@ -1,0 +1,48 @@
+﻿{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/git_guard.py\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Edit(scripts/hooks/**)",
+      "Write(scripts/hooks/**)",
+      "Edit(scripts/tg_confirm.py)",
+      "Write(scripts/tg_confirm.py)",
+      "Edit(scripts/post.py)",
+      "Write(scripts/post.py)",
+      "Edit(scripts/notify.py)",
+      "Write(scripts/notify.py)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Write(.claude/settings.local.json)",
+      "Edit(.git/**)",
+      "Write(.git/**)",
+      "Edit(~/.claude/settings.json)",
+      "Write(~/.claude/settings.json)",
+      "Edit(~/.claude/settings.local.json)",
+      "Write(~/.claude/settings.local.json)",
+      "Edit(~/.gitconfig)",
+      "Write(~/.gitconfig)",
+      "Edit(~/.config/git/**)",
+      "Write(~/.config/git/**)",
+      "Edit(~/.bashrc)",
+      "Write(~/.bashrc)",
+      "Edit(~/.bash_profile)",
+      "Write(~/.bash_profile)",
+      "Edit(~/.profile)",
+      "Write(~/.profile)"
+    ]
+  }
+}
