@@ -190,10 +190,71 @@ def done(code, word, note):
     sys.exit(code)
 
 
+BRIDGE = "http://127.0.0.1:47321"
+
+
+def bridge(path, wait=3):
+    # Міст scripts/tg_bot.py: він єдиний читає оновлення бота, натискання беремо в нього.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # без проксі: лише локальний порт
+    with opener.open(BRIDGE + path, timeout=wait) as r:
+        return json.load(r)
+
+
+def genuine_bridge():
+    # Хто слухає порт 47321? Довіряємо лише python, запущеному з -I саме з scripts/tg_bot.py цього
+    # проєкту, і лише якщо файл не змінено відносно останнього коміту (його перевіряли й захищено).
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ps = ("$c=Get-NetTCPConnection -State Listen -LocalPort 47321 -ErrorAction SilentlyContinue|Select-Object -First 1;"
+          "if($c){$p=Get-CimInstance Win32_Process -Filter \"ProcessId=$($c.OwningProcess)\";"
+          "[Console]::OutputEncoding=[Text.Encoding]::UTF8;Write-Output $p.ExecutablePath;Write-Output $p.CommandLine}")
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True,
+                             timeout=20, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+        lines = out.decode("utf-8", "replace").strip().splitlines()
+    except Exception:
+        return False
+    if len(lines) < 2:
+        return False
+    exe, cmdline = lines[0].strip(), lines[1].strip()
+    if not re.search(r"(^|[\\/])pythonw?\.exe$", exe, re.I):
+        return False
+    want = os.path.join(root, "scripts", "tg_bot.py").lower().replace("/", "\\")
+    m = re.fullmatch(r'"?[^"]*?pythonw?(\.exe)?"?\s+-I\s+"?([^"]+?)"?\s*', cmdline, re.I)
+    if not m:
+        return False
+    got = m.group(2).replace("/", "\\")
+    got = os.path.normpath(got if os.path.isabs(got) else os.path.join(root, got)).lower()
+    if got != want:
+        return False
+    return git("status", "--porcelain", "--", "scripts/tg_bot.py") == "" and \
+        bool(git("ls-files", "--", "scripts/tg_bot.py"))
+
+
 try:
-    # Пропускаємо старі оновлення, щоб не спрацювало давнє натискання.
-    last = call("getUpdates", {"offset": -1, "timeout": 0})
-    offset = last[-1]["update_id"] + 1 if last else 0
+    USE_BRIDGE = bridge("/ping", 2).get("bridge") == "skybee"
+except Exception:
+    USE_BRIDGE = False
+if USE_BRIDGE and not genuine_bridge():
+    # На порту не той міст: не довіряємо йому і не читаємо бота самі (справжній міст міг би конфліктувати).
+    fail("port 47321 is held by something that is not the genuine Skybee bot — refusing")
+
+
+def decide(yes):
+    if yes and PUSH and git("rev-parse", "HEAD") != HEAD:
+        done(4, "changed", "⚠️ Поки чекали, з'явилися нові коміти — нічого не запушено, спитаю ще раз")
+    if yes and GIT and git("write-tree") != TREE:
+        done(4, "changed", "⚠️ Поки чекали, файли змінилися — нічого не зроблено, спитаю ще раз")
+    if yes:
+        done(0, "yes", "✅ Дозволено")
+    done(1, "no", "❌ Скасовано")
+
+
+try:
+    offset = 0
+    if not USE_BRIDGE:
+        # Пропускаємо старі оновлення, щоб не спрацювало давнє натискання.
+        last = call("getUpdates", {"offset": -1, "timeout": 0})
+        offset = last[-1]["update_id"] + 1 if last else 0
     nonce = secrets.token_hex(8)
     msg = call("sendMessage", {
         "chat_id": CHAT,
@@ -207,6 +268,22 @@ except Exception as e:
     fail(e)
 
 errors = 0
+while USE_BRIDGE:
+    left = int(DEADLINE - time.time())
+    if left < 1:
+        done(2, "timeout", "⌛ Час вийшов — нічого не зроблено")
+    try:
+        ans = bridge(f"/wait?nonce={nonce}&mid={msg['message_id']}&timeout={min(25, left)}", min(25, left) + 10).get("answer")
+        errors = 0
+    except Exception as e:
+        errors += 1
+        if errors >= 5:
+            done(3, f"error: bridge {e}", "⚠️ Немає зв'язку з Skybee-ботом — нічого не зроблено")
+        time.sleep(min(3, max(0, DEADLINE - time.time())))
+        continue
+    if ans in ("y", "n"):
+        decide(ans == "y")
+
 while True:
     left = int(DEADLINE - time.time())
     if left < 1:
@@ -243,12 +320,6 @@ while True:
                                          "text": "Дозволено" if yes else "Скасовано"}, net=5)
         except Exception:
             pass
-        if yes and PUSH and git("rev-parse", "HEAD") != HEAD:
-            done(4, "changed", "⚠️ Поки чекали, з'явилися нові коміти — нічого не запушено, спитаю ще раз")
-        if yes and GIT and git("write-tree") != TREE:
-            done(4, "changed", "⚠️ Поки чекали, файли змінилися — нічого не зроблено, спитаю ще раз")
-        if yes:
-            done(0, "yes", "✅ Дозволено")
-        done(1, "no", "❌ Скасовано")
+        decide(yes)
 
 done(2, "timeout", "⌛ Час вийшов — нічого не зроблено")
