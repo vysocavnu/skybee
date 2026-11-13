@@ -117,7 +117,7 @@ if PUSH:
         commits = git("log", "--format=%h %<(80,trunc)%s", "-n", "15", "HEAD", "--not", "--remotes=origin")
         main = "origin/HEAD" if git("rev-parse", "--verify", "-q", "origin/HEAD") else "origin/main"
         fork = git("merge-base", "HEAD", main)
-        files = git("-c", "core.quotepath=on", "diff", "--name-status", fork, "HEAD") if fork else "(невідомо)"
+        files = git("-c", "core.quotepath=on", "diff", "--name-status", fork, "HEAD") if fork else ""
     commits = [plain(l.rstrip()) for l in commits.splitlines()]
     if total.isdigit() and int(total) > len(commits):
         commits.append(f"…і ще {int(total) - len(commits)}")
@@ -127,15 +127,44 @@ if PUSH:
                      r"|\.git(ignore|attributes|modules)|manifest\.webmanifest|404\.html)")
     files = [f for f in files if hot.search(f)] + [f for f in files if not hot.search(f)]
     nfiles = len(files)
+    allfiles = list(files)
     if nfiles > 30:
         files = files[:30] + [f"…і ще {nfiles - 30}"]
     behind = git("rev-list", "--count", "HEAD..@{u}") if up else "0"
-    # Файли — перед комітами: заголовки комітів не витіснять їх за ліміт довжини.
-    TEXT += ("\n\nКуди: " + plain(url)
-             + "\nГілка: " + plain(branch) + (" (нова на GitHub)" if new else "")
-             + f"\nФайли ({nfiles}):\n" + ("\n".join(files) or "(немає)")
-             + f"\nКоміти ({total or '?'}):\n" + ("\n".join(commits) or "(немає нових)")
-             + (f"\n⚠️ На GitHub є {behind} новіших комітів — push, найімовірніше, відхилять" if behind not in ("", "0") else ""))
+
+    # Людською мовою: які частини Skybee зачіпає (за шляхами файлів).
+    AREAS = [
+        (r"\.github/", "⚙️ збірки на GitHub (CI)"),
+        (r"desktop/", "🖥️ десктопна програма"),
+        (r"mobile/", "📱 телефони (Android, iOS)"),
+        (r"flatpak/", "🐧 Linux (Flatpak)"),
+        (r"\.claude/|scripts/(hooks/|tg_confirm|post|notify|check_mail|bsky_search)|CLAUDE\.md", "🤖 агенти Claude і їхні правила"),
+        (r"scripts/", "🧰 службові скрипти"),
+        (r"css/", "🎨 вигляд сайту"),
+        (r"js/|index\.html|sw\.js|manifest|icons/|404\.html|offline\.html|errors/", "🌐 сайт і застосунок Skybee"),
+        (r"docs/|README|\.md$", "📄 документація"),
+    ]
+    counts = {}
+    for f in allfiles:
+        path = f.split("\t")[-1].strip('"')
+        label = next((lbl for pat, lbl in AREAS if re.search(pat, path)), "📦 інше")
+        counts[label] = counts.get(label, 0) + 1
+    where = "\n".join(f"• {lbl} — {n} файл(ів)" for lbl, n in counts.items()) or "• (немає змін у файлах)"
+    kinds = {"A": "новий", "M": "змінено", "D": "видалено", "R": "перейменовано"}
+    files_h = [(kinds.get(f[:1], f[:1]) + ": " + f.split("\t")[-1]) if "\t" in f else f for f in files]
+    target = ("гілка " + plain(branch) + (" (нова на GitHub)" if new else "")
+              + ("\nУ main (сайт) це потрапить лише після того, як ти зіллєш Pull Request." if branch != "main"
+                 else "\n⚠️ Просто в main — сайт оновиться одразу."))
+
+    # Важливе — нагорі: попередження, «Де» і файли не мають загубитися через ліміт довжини.
+    # Список комітів — останнім і з власним обрізанням.
+    what = "\n".join(c if c.startswith("…") else "• " + c.split(" ", 1)[-1] for c in commits)[:1200]
+    TEXT += ("\nЩо робить: заливає зміни на GitHub"
+             + "\nКуди: " + plain(url.removeprefix("https://").removesuffix(".git")) + ", " + target
+             + (f"\n\n⚠️ На GitHub є {behind} новіших комітів — push, найімовірніше, відхилять" if behind not in ("", "0") else "")
+             + "\n\nДе:\n" + where
+             + f"\n\nФайли ({nfiles if new is False or allfiles else 'невідомо'}):\n" + ("\n".join(files_h) or "(немає)")
+             + f"\n\nЩо змінюється ({total or '?'} коміт(ів)):\n" + (what or "(немає нових)"))
 
 msg = None
 
@@ -168,7 +197,7 @@ try:
     nonce = secrets.token_hex(8)
     msg = call("sendMessage", {
         "chat_id": CHAT,
-        "text": "🐝 Skybee просить згоди\n\n" + TEXT[:3800],
+        "text": ("🚀 Заливка на GitHub — потрібна твоя згода\n\n" if PUSH else "🐝 Skybee просить згоди\n\n") + TEXT[:3800],
         "reply_markup": {"inline_keyboard": [[
             {"text": "✅ Так", "callback_data": f"y:{nonce}"},
             {"text": "❌ Ні", "callback_data": f"n:{nonce}"},

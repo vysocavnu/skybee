@@ -14,7 +14,7 @@
 #  * Будь-яка помилка самого хука — блок (fail-closed).
 # Це фільтр від випадкового й простого обходу, а не від усього (скрипт, записаний у файл,
 # хук не бачить). Справжню гарантію дає правило на GitHub: заборона прямого push у main.
-import fnmatch, json, os, re, subprocess, sys
+import fnmatch, json, os, re, shlex, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REPO = "github.com/vysocavnu/skybee"
@@ -130,6 +130,8 @@ def main():
     cmd = str((data.get("tool_input") or {}).get("command") or "")
     cwd = data.get("cwd") if os.path.isdir(str(data.get("cwd") or "")) else ROOT
     cmd = re.sub(r"\\\r?\n|`\r?\n", " ", cmd)  # перенесення рядка (bash \, PowerShell `) — це одна команда
+    # Хук RTK переписує команди на `rtk <команда>` (лише стискає вивід) — оцінюємо саму команду.
+    cmd = re.sub(r"(^|[;&|\n(]\s*)rtk(?:\.exe)?\s+(?:bypass\s+)?", r"\1", cmd)
 
     text = strip_heredocs(cmd)
     # У PowerShell \" не екранує лапку — там повідомлення не вирізаємо.
@@ -179,11 +181,32 @@ def main():
     if re.search(r"send-pack|http-push|receive-pack|\[alias\]", low + low2) \
             or names & {"credential", "apply", "am", "send-pack", "http-push", "receive-pack", "fast-export", "bundle",
                         "clean", "filter-branch", "replace", "update-ref", "symbolic-ref"} \
-            or (isgit and re.search(r"hookspath|credential\.|subtree\s+push|alias\.|--config-env|fsmonitor|sshcommand", low)):
+            or (isgit and re.search(r"hookspath|credential\.|subtree\s+push|alias\.|--config-env|fsmonitor|sshcommand"
+                                    r"|protocol\.|ext::|--upload-pack|--receive-pack|\s--config[\s=]|core\.pager|core\.editor"
+                                    r"|diff\.external|uploadpack|--template|include\.|includeif\.|filter\.|core\.hooks", low)):
         deny("Аліаси, git-хуки, облікові дані, apply/am/clean і низькорівневі команди заборонені для агентів.")
-    for m in re.finditer(r"(?<![\w.-])git(?:\.exe)?\s(?:[^;&|\n]*?\s)?-c\s*(\S+)", flat):  # -c ≠ -C
-        if not SAFE_C.fullmatch(m.group(1).lower()):
-            deny(f"`git -c {m.group(1)}` заборонено агентам (дозволені лише безпечні ключі на кшталт core.quotepath).")
+    # Глобальні `git -c ключ=значення` (до підкоманди; `git switch -c гілка` — це інше). -c ≠ -C.
+    # Розбір з урахуванням лапок (`-C "a b"`); невідомий прапорець до підкоманди — блок.
+    ARG_OPTS = ("-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env",
+                "--attr-source", "--super-prefix", "--list-cmds")
+    for m in re.finditer(r"(?<![\w.-])git(?:\.exe)?(?![\w-])", text):
+        seg = re.split(SEP, text[m.end():])[0]
+        try:
+            toks = shlex.split(seg, posix=data.get("tool_name") != "PowerShell")
+        except ValueError:
+            toks = seg.split()
+        i = 0
+        while i < len(toks) and toks[i].startswith("-"):
+            t = toks[i]
+            if t.startswith("-c") or t.startswith("--config-env"):
+                val = t[2:] if t.startswith("-c") and len(t) > 2 else (toks[i + 1] if i + 1 < len(toks) else "")
+                if not SAFE_C.fullmatch(val.lower()):
+                    deny(f"`git -c {val}` заборонено агентам (дозволені лише безпечні ключі на кшталт core.quotepath).")
+            elif not (t in ARG_OPTS or t.startswith("--") and "=" in t
+                      or t in ("--no-pager", "-p", "--paginate", "--no-replace-objects", "--bare", "--literal-pathspecs",
+                               "--no-optional-locks", "--version", "--help", "-v", "-h")):
+                deny(f"Невідомий глобальний прапорець git `{t}` — агентам заборонено.")
+            i += 2 if t in ARG_OPTS else 1
     for s, args in subs:
         pos_args = [a for a in args if not a.startswith("-")]
         if s == "config" and (any(a in ("--add", "--unset", "--unset-all", "--replace-all", "--rename-section",
@@ -264,8 +287,11 @@ def main():
     if not up and not m.group(1):
         deny(f"У гілки {branch} ще немає upstream — запусти `git push -u origin {branch}`.")
 
+    who = str(data.get("agent_type") or "").strip()
+    who = re.sub(r"[^\w .:-]", "", who)[:40]
+    who = f"агент {who}" if who else "Claude (головна сесія)"
     r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "tg_confirm.py"), "--push", "540"],
-                       cwd=cwd, input="git push на GitHub".encode("utf-8"), capture_output=True, timeout=590)
+                       cwd=cwd, input=f"Хто просить: {who}".encode("utf-8"), capture_output=True, timeout=590)
     if r.returncode == 0:
         # Поки чекали «Так», налаштування могли змінити — перевіряємо ще раз.
         problem = push_config_problem(git, branch)

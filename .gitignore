@@ -12,6 +12,9 @@ mobile/release.keystore
 scripts/.seen
 __pycache__/
 
+# звіти дослідника Bluesky: чужі пости — не в публічний репозиторій
+reports/
+
 # локальні секрети
 .env*
 *.keystore
