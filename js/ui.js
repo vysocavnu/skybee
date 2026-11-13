@@ -3,6 +3,8 @@ import { errText } from "./errors.js";
 import { session, mutedWords, adultEnabled, labelPref, labelDef, labelName, labelerPref, labelerDids } from "./api.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
+// Only web and mail links become clickable: a record can carry any string as a link (javascript:, data:, file:…)
+export const safeUrl = (u) => (typeof u === "string" && /^(https?:\/\/|mailto:)/i.test(u.trim()) ? u.trim() : "");
 export const esc = (s = "") => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const enc = encodeURIComponent;
 
@@ -112,7 +114,7 @@ export function richText(text = "", facets) {
     out += esc(td.decode(bytes.slice(pos, s)));
     const seg = esc(td.decode(bytes.slice(s, e)));
     const ft = f.features?.[0] || {};
-    if (ft.$type === "app.bsky.richtext.facet#link") out += `<a href="${esc(ft.uri)}" target="_blank" rel="noopener">${seg}</a>`;
+    if (ft.$type === "app.bsky.richtext.facet#link") out += safeUrl(ft.uri) ? `<a href="${esc(safeUrl(ft.uri))}" target="_blank" rel="noopener">${seg}</a>` : seg;
     else if (ft.$type === "app.bsky.richtext.facet#mention") out += `<a href="#/profile/${enc(ft.did)}">${seg}</a>`;
     else if (ft.$type === "app.bsky.richtext.facet#tag") out += `<a href="#/tag/${enc(ft.tag)}">${seg}</a>`;
     else out += seg;
@@ -257,6 +259,7 @@ export function renderEmbed(embed, label) {
     const x = embed.external;
     if (/^https:\/\/media\.tenor\.com\//.test(x.uri))
       return `<div class="imgs n1"><img src="${esc(x.uri)}" alt="${esc(x.title)}" loading="lazy"></div>`;
+    if (!safeUrl(x.uri)) return ""; // not a web link: nothing to open
     let host = ""; try { host = new URL(x.uri).hostname.replace(/^www\./, ""); } catch {}
     const pl = playerOf(x.uri);
     if (pl?.video) return `<div class="playwrap pvid" style="aspect-ratio:${pl.ratio}">
@@ -510,7 +513,9 @@ export function lightbox(urls, i = 0, alts = []) {
       const blob = await (await fetch(url)).blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `skybee-${url.split("/").pop().split("@")[0].slice(-16)}.${(blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`;
+      // the extension follows the picture's type, but only a picture's: a server could call anything «text/html»
+      const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif" }[blob.type] || "jpg";
+      a.download = `skybee-${url.split("/").pop().split("@")[0].replace(/[^\w-]/g, "").slice(-16)}.${ext}`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch { window.open(url, "_blank"); } // the server did not allow reading it here: the browser saves it from a new tab
@@ -523,7 +528,9 @@ function loadHls() {
   if (window.Hls) return Promise.resolve();
   return hlsLoading ||= new Promise((res, rej) => {
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js";
+    // an exact version with its checksum: a hijacked CDN or npm release cannot run its code here (it would see the sessions)
+    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js";
+    s.integrity = "sha384-p9vgU/7IYJWd3I4STrtqxqR/2cAQlhIX7D/HrTnIMEjjcUox165b7se7sxmm3zDg"; s.crossOrigin = "anonymous";
     s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });
 }

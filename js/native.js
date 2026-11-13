@@ -4,6 +4,10 @@ const cap = window.Capacitor;
 export const isNative = !!cap?.isNativePlatform?.();
 
 if (isNative) {
+  // The Content-Security-Policy of index.html, carried here as meta name="skybee-csp" (scripts/dist.mjs): switched on now,
+  // after Capacitor's own inline bridge has run. From here on no inline script or on…= handler can run in the page.
+  const csp = document.querySelector('meta[name="skybee-csp"]');
+  if (csp) { const m = document.createElement("meta"); m.httpEquiv = "Content-Security-Policy"; m.content = csp.content; document.head.prepend(m); }
   document.documentElement.classList.add("native", "native-" + cap.getPlatform());
   // Android: the page runs edge to edge (behind the status bar and the bottom bar) and the WebView may report no safe area,
   // so the real insets come from the SafeArea plugin into --sat/--sab/--sal/--sar (css). An older Android that still keeps

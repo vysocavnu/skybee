@@ -9,17 +9,27 @@ export const NSID = "io.github.vysocavnu.skybee.profile";
 const STATUS_MAX = 60;
 const cache = new Map(); // did → Promise<{ rec, pds } | null>
 
-// Base colours; css/style.css mixes them into the theme, so the same pick is deep on dark themes and pale on the light one
-export const PALETTE = [["#e5484d", "Червоний"], ["#f76b15", "Помаранчевий"], ["#f5b301", "Жовтий"], ["#30a46c", "Зелений"], ["#12a594", "Бірюзовий"],
-  ["#0090ff", "Блакитний"], ["#6e56cf", "Фіолетовий"], ["#d6409f", "Рожевий"], ["#ad7f58", "Коричневий"], ["#8b8d98", "Сірий"]];
+// Profile colour: a gradient of two colours (record fields `color` → `color2`). css/style.css mixes them into the theme,
+// so the same pick is deep on dark themes and bright on the light one. A record with only `color` is a plain colour.
+export const GRADIENTS = [["#ff8a00", "#ff3b5c", "Захід"], ["#ffd84a", "#ff6a1a", "Мед"], ["#3ee67a", "#3ef0d8", "М'ята"], ["#a8e063", "#56ab2f", "Лайм"],
+  ["#c471f5", "#5b6cf9", "Аметист"], ["#f7d96b", "#c9930a", "Золото"], ["#12e0d0", "#e0127a", "Неон"], ["#ef5b6b", "#3ed47a", "Кавун"],
+  ["#1e7bff", "#2be0e0", "Океан"], ["#ff7eb3", "#ff3d6e", "Фламінго"], ["#6a3093", "#2b5cd6", "Ніч"], ["#ad7f58", "#e8c39e", "Кава"],
+  ["#e0c3fc", "#8ec5fc", "Лаванда"], ["#eb3349", "#8e0e00", "Вишня"], ["#8e9eab", "#3b4655", "Сталь"]];
 const isColor = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
 const isHttps = (u) => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u);
+// Covers and previews load by themselves when a profile is opened, so they may only come from the music services' own
+// CDNs: an address of the profile owner's choosing would tell them the IP and the time of everyone who looked
+const MEDIA_HOSTS = ["mzstatic.com", "itunes.apple.com", "scdn.co", "spotifycdn.com", "ytimg.com", "googleusercontent.com", "dzcdn.net", "sndcdn.com", "tidal.com", "bcbits.com"];
+const media = (u) => (isMedia(u) ? u : "");
+const isMedia = (u) => { if (!isHttps(u)) return false; try { const h = new URL(u).hostname; return MEDIA_HOSTS.some(d => h === d || h.endsWith("." + d)); } catch { return false; } };
 const cut = (s, n) => (typeof s === "string" ? s.trim().slice(0, n) : "");
 // text that reads on the plain colour: dark on yellow and the like, white on the rest
-export const inkFor = (c) => {
-  const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
-  return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? "#14110a" : "#ffffff";
-};
+const lum = (c) => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); return (r * 299 + g * 587 + b * 114) / 1000; };
+// for a gradient: what reads on both ends of it
+export const inkFor = (c, c2 = c) => ((lum(c) + lum(c2)) / 2 > 160 ? "#14110a" : "#ffffff");
+// the colours of a record: [from, to], or null
+export const colorsOf = (rec) => (rec?.color ? [rec.color, rec.color2 || rec.color] : null);
+export const gradientName = (c1, c2) => GRADIENTS.find(([a, b]) => a === c1 && b === c2)?.[2] || "";
 
 // Records come from other people's repos: keep only well-formed fields
 function clean(v) {
@@ -27,18 +37,23 @@ function clean(v) {
   const out = {};
   if (cut(v.status, STATUS_MAX)) out.status = cut(v.status, STATUS_MAX);
   if (isColor(v.color)) out.color = v.color.toLowerCase();
+  if (out.color && isColor(v.color2)) out.color2 = v.color2.toLowerCase();
   if (v.music && isHttps(v.music.url) && cut(v.music.title, 120)) {
     out.music = { url: v.music.url, title: cut(v.music.title, 120), artist: cut(v.music.artist, 120) };
-    for (const k of ["cover", "preview"]) if (isHttps(v.music[k])) out.music[k] = v.music[k];
+    for (const k of ["cover", "preview"]) if (isMedia(v.music[k])) out.music[k] = v.music[k];
   }
   const cid = v.toy?.image?.ref?.$link;
   if (typeof cid === "string" && /^[a-z0-9]+$/i.test(cid)) out.toy = { image: v.toy.image };
   return Object.keys(out).length ? out : null;
 }
 
+const flairAll = () => { try { return localStorage.getItem("skybee.flairAll") === "1"; } catch { return false; } };
 export function load(did) {
   if (!cache.has(did)) cache.set(did, (async () => {
     const pds = did === api.session?.did ? api.session.pds : (await api.resolvePds(did)).pds;
+    if (!api.pdsOk(pds)) return null; // resolvePds already refuses such servers; the own session is checked here too
+    // someone else's own server would see the IP and the time of everyone opening their profile: only on request
+    if (did !== api.session?.did && !api.bskyHost(pds) && !flairAll()) return null;
     const r = await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=${NSID}&rkey=self`);
     if (!r.ok) return null; // no record: this person has no Skybee look
     const rec = clean((await r.json()).value);
@@ -75,22 +90,21 @@ export function tint(el, did) {
   el._tint = did;
   load(did).then((got) => {
     if (el._tint !== did) return; // the user has already moved on
-    const c = got?.rec.color;
+    const c = colorsOf(got?.rec);
     if (!c) return untint(el);
-    el.style.setProperty("--sb", c); el.style.setProperty("--sb-ink", inkFor(c)); el.classList.add("sb-tint");
+    setColors(el, c);
   });
 }
-// A card (own profile in the right column) in the person's colour; no colour → back to the usual look
+// A card (own profile in the right column) in the person's colours; no colour → back to the usual look
 export function paint(el, did) {
-  load(did).then((got) => {
-    const c = got?.rec.color;
-    if (!c) { el.classList.remove("sb-tint"); el.style.removeProperty("--sb"); el.style.removeProperty("--sb-ink"); return; }
-    el.style.setProperty("--sb", c); el.style.setProperty("--sb-ink", inkFor(c)); el.classList.add("sb-tint");
-  });
+  load(did).then((got) => { const c = colorsOf(got?.rec); c ? setColors(el, c) : untint(el); });
 }
+const setColors = (el, [c1, c2]) => {
+  el.style.setProperty("--sb", c1); el.style.setProperty("--sb2", c2); el.style.setProperty("--sb-ink", inkFor(c1, c2)); el.classList.add("sb-tint");
+};
 export function untint(el) {
   el._tint = null;
-  el.classList.remove("sb-tint"); el.style.removeProperty("--sb"); el.style.removeProperty("--sb-ink");
+  el.classList.remove("sb-tint"); for (const k of ["--sb", "--sb2", "--sb-ink"]) el.style.removeProperty(k);
 }
 
 // Called right after the profile header is rendered; fills in the extras when they arrive
@@ -101,7 +115,8 @@ export async function decorate(el, p) {
   if (!got || !head?.isConnected) return; // nothing to show, or the user has already left the page
   const { rec, pds } = got;
   const banner = el.querySelector(".banner");
-  if (rec.color && banner && !banner.style.backgroundImage) banner.style.backgroundImage = `linear-gradient(135deg, ${rec.color}, color-mix(in srgb, ${rec.color} 35%, var(--bg)))`;
+  const cs = colorsOf(rec);
+  if (cs && banner && !banner.style.backgroundImage) { banner.style.backgroundImage = `linear-gradient(120deg, ${cs[0]}, ${cs[1]}, ${cs[0]}, ${cs[1]})`; banner.classList.add("sb-flow"); }
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
   if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));
   if (rec.toy && banner) {
@@ -111,31 +126,22 @@ export async function decorate(el, p) {
 }
 
 /* ---------- music search ---------- */
-// The iTunes catalogue needs no key and gives a 30-second preview; JSONP is the fallback where fetch is refused
-function jsonp(url) {
-  return new Promise((res, rej) => {
-    const cb = "skybeeJsonp" + Math.random().toString(36).slice(2), s = document.createElement("script");
-    const done = (fn, v) => { delete window[cb]; s.remove(); fn(v); };
-    window[cb] = (d) => done(res, d);
-    s.onerror = () => done(rej, new Error("Немає з'єднання з каталогом музики"));
-    s.src = `${url}&callback=${cb}`;
-    document.head.appendChild(s);
-  });
-}
+// The iTunes catalogue needs no key, allows reading from any site (CORS) and gives a 30-second preview.
+// (There used to be a JSONP fallback: it ran a script from Apple inside Skybee, which a Content-Security-Policy forbids.)
 async function searchTracks(term) {
   const url = `https://itunes.apple.com/search?media=music&entity=song&limit=15&term=${encodeURIComponent(term)}`;
   let d;
-  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); } catch { d = await jsonp(url); }
+  try { const r = await fetch(url); if (!r.ok) throw 0; d = await r.json(); } catch { throw new Error("Немає з'єднання з каталогом музики"); }
   return (d.results || []).filter(t => t.trackName && isHttps(t.trackViewUrl)).map(t => ({
     url: t.trackViewUrl, title: cut(t.trackName, 120), artist: cut(t.artistName, 120),
-    cover: (t.artworkUrl100 || "").replace("100x100", "300x300"), preview: t.previewUrl || "" }));
+    cover: media((t.artworkUrl100 || "").replace("100x100", "300x300")), preview: media(t.previewUrl) }));
 }
 // A pasted streaming link → title, artist, cover. song.link knows most services; oEmbed is the fallback.
 async function lookupTrack(url) {
   try {
     const d = await (await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}`)).json();
     const e = d.entitiesByUniqueId?.[d.entityUniqueId];
-    if (e?.title) return { url, title: cut(e.title, 120), artist: cut(e.artistName, 120), cover: e.thumbnailUrl || "" };
+    if (e?.title) return { url, title: cut(e.title, 120), artist: cut(e.artistName, 120), cover: media(e.thumbnailUrl) };
   } catch { /* try the service itself */ }
   const host = new URL(url).hostname.replace(/^www\./, "");
   const oembed = host.endsWith("spotify.com") ? "https://open.spotify.com/oembed?url="
@@ -143,7 +149,7 @@ async function lookupTrack(url) {
   if (!oembed) return null;
   try {
     const d = await (await fetch(oembed + encodeURIComponent(url))).json();
-    return d.title ? { url, title: cut(d.title, 120), artist: cut(d.author_name, 120), cover: d.thumbnail_url || "" } : null;
+    return d.title ? { url, title: cut(d.title, 120), artist: cut(d.author_name, 120), cover: media(d.thumbnail_url) } : null;
   } catch { return null; }
 }
 
@@ -200,14 +206,19 @@ export async function edit(onDone) {
   cache.delete(did);
   const got = await load(did);
   const cur = got?.rec || {};
-  let music = cur.music || null, color = cur.color || "";
+  let music = cur.music || null, [c1, c2] = colorsOf(cur) || ["", ""];
+  let own = [c1 || "#c471f5", c2 || "#5b6cf9"]; // «свій» gradient: starts from the current one
   const m = modal(`
     <h3>✨ Оформлення профілю</h3>
     <p class="muted small">Це бачать лише ті, хто користується Skybee. В інших застосунках Bluesky профіль виглядає як завжди.</p>
     <label class="field">Статус у бульбашці біля аватарки<input data-f="status" maxlength="${STATUS_MAX}" placeholder="Що у вас на думці?" value="${esc(cur.status || "")}"></label>
-    <div class="field">Колір сторінки — на світлій темі яскравий, на темній і в сутінках глибокий темний
-      <div class="sb-swatches"><button type="button" class="sb-sw none" data-c="" title="Без кольору">✕</button>${
-        PALETTE.map(([c, n]) => `<button type="button" class="sb-sw" data-c="${c}" title="${n}" style="background:${c}"></button>`).join("")}</div></div>
+    <div class="field">Колір сторінки — градієнт: на світлій темі яскравий, на темній і в сутінках глибокий темний
+      <div class="sb-grads"><button type="button" class="sb-gr none" data-g="" title="Без кольору">✕</button>${
+        GRADIENTS.map(([a, b, n]) => `<button type="button" class="sb-gr" data-g="${a} ${b}" title="${n}" aria-label="${n}" style="background:linear-gradient(90deg, ${a}, ${b}, ${a}, ${b})"></button>`).join("")}</div>
+      <div class="sb-own">свій:
+        <label class="sb-dot" title="Перший колір"><input type="color" data-own="0"></label><span class="sb-arrow">→</span>
+        <label class="sb-dot" title="Другий колір"><input type="color" data-own="1"></label></div>
+      <p class="muted small sb-gname"></p></div>
     <div class="field">Музика під біо<div data-f="music"></div></div>
     <label class="field">Іграшка — фото, яке сидітиме на банері (найкраще PNG з прозорим тлом)<input type="file" accept="image/*" data-f="toy"></label>
     ${cur.toy ? `<label class="row small"><input type="checkbox" data-f="notoy" style="width:auto"> прибрати іграшку</label>` : ""}
@@ -215,7 +226,17 @@ export async function edit(onDone) {
     <div class="row end"><button class="ghost" data-x="0">Скасувати</button><button class="btn" data-x="1">Зберегти</button></div>`);
   const f = (k) => m.querySelector(`[data-f=${k}]`);
   const err = m.querySelector(".err");
-  const drawColor = () => m.querySelectorAll(".sb-sw").forEach(b => b.classList.toggle("on", b.dataset.c === color));
+  const drawColor = () => {
+    const key = c1 ? `${c1} ${c2}` : "";
+    m.querySelectorAll(".sb-gr").forEach(b => b.classList.toggle("on", b.dataset.g === key));
+    const name = c1 && gradientName(c1, c2);
+    const isOwn = !!c1 && !name;
+    m.querySelectorAll("[data-own]").forEach((i, n) => { i.value = own[n]; i.parentElement.style.background = own[n]; i.parentElement.classList.toggle("on", isOwn); });
+    m.querySelector(".sb-gname").textContent = !c1 ? "Без кольору — сторінка як завжди" : name ? `Градієнт «${name}»` : "Свій градієнт";
+  };
+  m.querySelectorAll("[data-own]").forEach((i) => i.addEventListener("input", () => {
+    own[+i.dataset.own] = i.value.toLowerCase(); [c1, c2] = own; drawColor();
+  }));
   const drawMusic = () => {
     f("music").innerHTML = music
       ? `<div class="row">${trackCard(music, "grow")}<button type="button" class="ghost sm icon" data-x="nomusic" title="Прибрати">✕</button></div>
@@ -224,8 +245,9 @@ export async function edit(onDone) {
   };
   drawColor(); drawMusic();
   m.addEventListener("click", async (e) => {
-    const sw = e.target.closest(".sb-sw");
-    if (sw) { color = sw.dataset.c; return drawColor(); }
+    const gr = e.target.closest(".sb-gr");
+    if (gr) { [c1 = "", c2 = ""] = gr.dataset.g ? gr.dataset.g.split(" ") : []; if (c1) own = [c1, c2]; return drawColor(); }
+    if (e.target.closest(".sb-dot")) { if (!c1 || gradientName(c1, c2)) { [c1, c2] = own; drawColor(); } return; } // the picker opens by itself
     const x = e.target.closest("[data-x]"); if (!x) return;
     err.textContent = "";
     if (x.dataset.x === "0") return m.close();
@@ -236,7 +258,7 @@ export async function edit(onDone) {
       const record = { $type: NSID, updatedAt: new Date().toISOString() };
       const status = cut(f("status").value, STATUS_MAX);
       if (status) record.status = status;
-      if (isColor(color)) record.color = color;
+      if (isColor(c1)) { record.color = c1; if (isColor(c2) && c2 !== c1) record.color2 = c2; }
       if (music) {
         record.music = { url: music.url, title: music.title, artist: music.artist || "" };
         for (const k of ["cover", "preview"]) if (isHttps(music[k])) record.music[k] = music[k];

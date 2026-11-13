@@ -410,20 +410,25 @@ body.nolinkthumbs .ext img { display: none; }
    --sb-ink (set in js/flair.js) is the text colour that reads on it.
    (the app colour, html.sb-theme, does not tint the page: it replaces the gold accent — see below) */
 main.sb-tint, .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
+  --bg2: color-mix(in srgb, var(--sb2, var(--sb)) 56%, #000); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 68%, #000);
   --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
   --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
-[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d); }
+[data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d);
+  --bg2: color-mix(in srgb, var(--sb2, var(--sb)) 48%, #10161d); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 58%, #10161d); }
 [data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
+  --bg2: var(--sb2, var(--sb)); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 90%, #000);
   --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
   --accent: var(--sb-ink); --accent-ink: var(--sb); }
 main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 /* the colour fades out of the column into the side menus: one wide layer behind it, solid over the column and easing out on both sides */
 main.sb-tint { color: var(--text); border-color: transparent; position: relative; overflow: clip; overflow-clip-margin: 200px; }
 main.sb-tint::before { content: ""; position: absolute; inset: 0 -200px; z-index: -1; pointer-events: none; transition: background .25s;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg) 18%, transparent) 70px, color-mix(in srgb, var(--bg) 50%, transparent) 130px,
-    color-mix(in srgb, var(--bg) 85%, transparent) 180px, var(--bg) 210px, var(--bg) calc(100% - 210px),
-    color-mix(in srgb, var(--bg) 85%, transparent) calc(100% - 180px), color-mix(in srgb, var(--bg) 50%, transparent) calc(100% - 130px),
-    color-mix(in srgb, var(--bg) 18%, transparent) calc(100% - 70px), transparent); }
+  /* the profile gradient (--sb → --sb2) runs down the column; the mask fades it out to both sides */
+  background: linear-gradient(120deg, var(--bg), var(--bg2), var(--bg), var(--bg2)); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate;
+  -webkit-mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,.18) 70px, rgba(0,0,0,.5) 130px, rgba(0,0,0,.85) 180px, #000 210px, #000 calc(100% - 210px),
+    rgba(0,0,0,.85) calc(100% - 180px), rgba(0,0,0,.5) calc(100% - 130px), rgba(0,0,0,.18) calc(100% - 70px), transparent);
+  mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,.18) 70px, rgba(0,0,0,.5) 130px, rgba(0,0,0,.85) 180px, #000 210px, #000 calc(100% - 210px),
+    rgba(0,0,0,.85) calc(100% - 180px), rgba(0,0,0,.5) calc(100% - 130px), rgba(0,0,0,.18) calc(100% - 70px), transparent); }
 main.sb-tint .phead .bigava { border-color: var(--accent); }
 .phead .bigava { position: relative; }
 .sb-bubble { position: absolute; left: 86px; bottom: 54px; width: max-content; max-width: min(240px, 56vw); padding: 7px 12px; border-radius: 16px; pointer-events: none;
@@ -441,6 +446,27 @@ main.sb-tint .phead .bigava { border-color: var(--accent); }
 .sb-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .sb-sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); padding: 0; color: var(--muted); }
 .sb-sw.none { background: var(--bg); } .sb-sw.on { outline: 3px solid var(--text); outline-offset: 2px; }
+/* app colour: big round swatches, the chosen one ringed; «+» opens the system colour picker */
+.sb-swatches.app { gap: 12px; margin: 10px 0 4px; }
+.sb-swatches.app .sb-sw { width: 44px; height: 44px; border: 2px solid rgba(0,0,0,.35); }
+.sb-swatches.app .sb-sw.on { outline: 3px solid var(--accent); outline-offset: 3px; }
+.sb-any { position: relative; display: grid; place-items: center; cursor: pointer; overflow: hidden;
+  background: conic-gradient(#ff4d4d, #ffee3a, #4cf04c, #4ff0f0, #4a8cff, #ff3df5, #ff4d4d); }
+.sb-any[style*="--own"] { background: radial-gradient(circle, var(--own) 0 40%, transparent 42%), conic-gradient(#ff4d4d, #ffee3a, #4cf04c, #4ff0f0, #4a8cff, #ff3df5, #ff4d4d); }
+.sb-any b { font-size: 20px; line-height: 1; color: #111; text-shadow: 0 0 3px #fff; pointer-events: none; }
+.sb-any[style*="--own"] b { display: none; }
+.sb-any input, .sb-dot input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+/* profile colour: gradient pills and «свій: ● → ●» */
+.sb-grads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
+.sb-gr:not(.none), .sb-flow { background-size: 300% 300% !important; animation: sb-flow 8s ease-in-out infinite alternate; }
+.sb-flow { animation-duration: 12s; }
+.sb-gr { height: 40px; border-radius: 999px; border: 2px solid rgba(0,0,0,.35); padding: 0; color: var(--muted); }
+.sb-gr.none { background: var(--bg); border-color: var(--line); }
+.sb-gr.on, .sb-dot.on { outline: 3px solid var(--accent); outline-offset: 3px; }
+.sb-own { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); }
+.sb-dot { position: relative; width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(0,0,0,.35); cursor: pointer; }
+.sb-arrow { font-size: 20px; }
+.sb-gname { margin: 8px 0 0; }
 .sb-music img, .sb-note { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; display: grid; place-items: center; background: var(--hover); font-size: 20px; }
 .sb-music .grow { min-width: 0; display: flex; flex-direction: column; }
 .sb-play { flex: none; width: 34px; height: 34px; border: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-size: 13px; }
@@ -570,10 +596,12 @@ body:has(.chatbar) .fab { display: none; } /* in a chat the ✏️ button would 
 .mquote { max-width: min(280px, 70vw); }
 
 /* own profile card in the right column takes the same Skybee colour */
-.sideprof.sb-tint { background: var(--panel); color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
+.sideprof.sb-tint { background: linear-gradient(120deg, var(--panel), var(--panel2), var(--panel), var(--panel2)); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate; color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
 .sideprof.sb-tint .sp-ava { border-color: var(--panel); }
 .sideprof.sb-tint .ghost { border-color: color-mix(in srgb, var(--text) 30%, transparent); }
-.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(135deg, var(--sb), color-mix(in srgb, var(--sb) 35%, var(--bg))); }
+/* Liquid Glass and Material give every .card their own surface with a stronger selector: the profile colour wins over it */
+:root[data-ui] .card.sideprof.sb-tint { background: linear-gradient(120deg, var(--panel), var(--panel2), var(--panel), var(--panel2)); background-size: 300% 300%; border: 1px solid color-mix(in srgb, var(--sb) 60%, transparent); }
+.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(120deg, var(--sb), var(--sb2, var(--sb)), var(--sb), var(--sb2, var(--sb))); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate; }
 
 /* ---------- LIVE ---------- */
 .live-ava { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
@@ -1254,7 +1282,7 @@ html.sb-theme { --accent: var(--sb); --accent-ink: var(--sb-ink); }
 .shead { position: relative; isolation: isolate; padding-top: 28px; padding-bottom: 22px; }
 .shead::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: calc(-64px - var(--sat)); bottom: 0; pointer-events: none;
   background: radial-gradient(ellipse 90% 70% at 50% 30%, color-mix(in srgb, var(--pc, var(--accent)) 38%, transparent), transparent 72%),
-    linear-gradient(to bottom, color-mix(in srgb, var(--pc, var(--accent)) 22%, var(--bg)) 0%, var(--bg) 100%); }
+    linear-gradient(to bottom, color-mix(in srgb, var(--pc2, var(--pc, var(--accent))) 26%, var(--bg)) 0%, var(--bg) 100%); }
 .shead:not([style*="--pc"])::before { opacity: .45; }
 .shead .avatar { box-shadow: 0 6px 24px color-mix(in srgb, var(--pc, #000) 35%, rgba(0,0,0,.25)); }
 .shead b { font-size: 24px; }
@@ -1319,3 +1347,10 @@ html.sb-theme { --accent: var(--sb); --accent-ink: var(--sb-ink); }
   :root[data-ui="material"] .toast { left: 12px; right: 12px; transform: none; bottom: calc(76px + var(--sab)); text-align: left; border-radius: 8px; }
 }
 @keyframes m-sheet { from { transform: translateY(40%); opacity: .4; } }
+
+/* the profile gradient flows slowly between its two colours (js/flair.js, css above); still with «Зменшити анімацію» or reduced motion */
+@keyframes sb-flow { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+body.calm :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), body.calm main.sb-tint::before { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :is(main.sb-tint, .sideprof.sb-tint, .sp-banner, .sb-gr, .sb-flow), main.sb-tint::before { animation: none !important; }
+}
