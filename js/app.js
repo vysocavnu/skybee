@@ -386,10 +386,28 @@ function placeLens(a) {
   if (!lens) { lens = document.createElement("span"); lens.className = "navlens"; lens.setAttribute("aria-hidden", "true"); bar.prepend(lens); }
   if (!a || !a.offsetWidth) { lens.style.opacity = "0"; return; }
   lens.style.opacity = "1";
-  lens.style.width = a.offsetWidth + "px";
-  lens.style.transform = `translateX(${a.offsetLeft}px)`;
+  const inset = 3; // a little air from the capsule edge, so the bubble never touches it or the search circle
+  lens.style.width = a.offsetWidth - inset * 2 + "px";
+  lens.style.transform = `translateX(${a.offsetLeft + inset}px)`;
 }
 addEventListener("resize", () => placeLens($("nav.bottom a.on")));
+// The tabs change size after the bubble was placed — fonts arrive, a badge appears, the bar collapses or expands —
+// so it is placed again whenever the bar or a tab changes size, after the fonts load and after every bar animation
+{
+  const again = () => placeLens($("nav.bottom a.on"));
+  let ro = null, watched = null;
+  const watch = () => {
+    const bar = $("nav.bottom");
+    if (!bar || bar === watched || !window.ResizeObserver) return;
+    watched = bar; ro?.disconnect();
+    ro = new ResizeObserver(() => requestAnimationFrame(again));
+    ro.observe(bar); bar.querySelectorAll("a").forEach(a => ro.observe(a));
+    bar.addEventListener("transitionend", (e) => { if (e.target === bar || e.propertyName === "padding-right") again(); });
+  };
+  addEventListener("hashchange", () => setTimeout(watch));
+  setTimeout(watch, 0); setTimeout(watch, 1500);
+  document.fonts?.ready.then(again).catch(() => {});
+}
 // Liquid Glass on a phone: scrolling down shrinks the tab capsule to the current tab, scrolling up (or reaching the top) brings it back
 {
   let lastY = scrollY, acc = 0;
@@ -403,7 +421,7 @@ addEventListener("resize", () => placeLens($("nav.bottom a.on")));
     if (!min && acc > 40 && y > 160) r.classList.add("tab-min");
     else if (min && (acc < -24 || y < 60)) r.classList.remove("tab-min");
     else return;
-    setTimeout(() => placeLens($("nav.bottom a.on")), 360);
+    setTimeout(() => placeLens($("nav.bottom a.on")), 380); // also on transitionend / resize of the tabs
   }, { passive: true });
 }
 {
