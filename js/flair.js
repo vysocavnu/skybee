@@ -99,7 +99,20 @@ export function tint(el, did) {
 export function paint(el, did) {
   load(did).then((got) => { const c = colorsOf(got?.rec); c ? setColors(el, c) : untint(el); });
 }
+// One colour only (a record from before gradients): its partner is the same colour turned a little round the colour
+// wheel and lightened, so the page still flows between two shades of it
+function partner(c) {
+  let [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16) / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0, l = (mx + mn) / 2; const sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 24 + 360) % 360; l = Math.min(.82, l + .08);
+  const k = (n) => (n + h / 30) % 12, a = sat * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))).toString(16).padStart(2, "0");
+  return "#" + f(0) + f(8) + f(4);
+}
 const setColors = (el, [c1, c2]) => {
+  if (c2 === c1) c2 = partner(c1);
   el.style.setProperty("--sb", c1); el.style.setProperty("--sb2", c2); el.style.setProperty("--sb-ink", inkFor(c1, c2)); el.classList.add("sb-tint");
 };
 export function untint(el) {
@@ -116,6 +129,7 @@ export async function decorate(el, p) {
   const { rec, pds } = got;
   const banner = el.querySelector(".banner");
   const cs = colorsOf(rec);
+  if (cs && cs[1] === cs[0]) cs[1] = partner(cs[0]);
   if (cs && banner && !banner.style.backgroundImage) { banner.style.backgroundImage = `linear-gradient(120deg, ${cs[0]}, ${cs[1]}, ${cs[0]}, ${cs[1]})`; banner.classList.add("sb-flow"); }
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
   if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));

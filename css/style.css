@@ -1518,3 +1518,38 @@ body.calm .plist > * { animation: none !important; }
   :is(main, .modal-bg, .modal, .msheet-bg, .msheet, .popmenu, .toast, .actions .pop, .actions .pop svg, nav.bottom .ico, nav.side .ico, nav.bottom .ni),
   .plist > * { animation: none !important; }
 }
+
+/* =====================================================================
+   Phone feedback: action icons, top bar icons in Material, labels in the Glass tab bar, the Glass bubble in every row
+   ===================================================================== */
+/* under a post: icons at full size that never shrink, counts never cut («1,2К» keeps them short) */
+.actions svg { flex: none; width: 20px; height: 20px; }
+.actions button { font-size: 14px; flex: 0 0 auto; }
+.actions button span { overflow: visible; text-overflow: clip; }
+@media (max-width: 400px) { .actions button { padding-left: 5px; padding-right: 5px; } }
+:root[data-ui="material"] .actions svg { width: 22px; height: 22px; }
+
+/* Material: top bar icons 24dp inside 48dp round targets, as in Google's apps */
+:root[data-ui="material"] .topbar .ghost.icon { width: 48px; height: 48px; min-width: 48px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; font-size: 24px; line-height: 1; }
+:root[data-ui="material"] .topbar .ghost.icon svg, :root[data-ui="material"] .topbar .ghost.icon .ico { width: 24px !important; height: 24px !important; }
+
+/* Liquid Glass on a phone: the tab bar shows icons only (the labels ran into each other), a little bigger */
+@media (max-width: 640px) {
+  :root[data-ui="glass"] nav.bottom .bl { display: none !important; }
+  :root[data-ui="glass"] nav.bottom .ico { width: 27px !important; height: 27px !important; }
+}
+
+/* Liquid Glass: the bubble under the chosen item of every segmented control and tab row (js: «the bubble in every row» in app.js) */
+.rowlens { display: none; }
+:root[data-ui="glass"] :is(.seg, .tabs) { position: relative; }
+:root[data-ui="glass"] :is(.seg, .tabs) > :not(.rowlens) { position: relative; z-index: 1; }
+:root[data-ui="glass"] .rowlens { display: block; position: absolute; left: 0; z-index: 0; padding: 0; margin: 0; flex: none; pointer-events: none; border-radius: 999px;
+  background: color-mix(in srgb, #fff 16%, var(--glass)); box-shadow: inset 0 1px 0 var(--g-hi), 0 2px 8px rgba(0,0,0,.18);
+  transform: translateX(var(--lx, 0px)); transition: transform .38s cubic-bezier(.3,1.35,.5,1), width .38s cubic-bezier(.3,1.35,.5,1), top .2s, height .2s, background .2s; }
+:root[data-ui="glass"][data-theme="light"] .rowlens { background: rgba(0,0,0,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 2px 8px rgba(0,0,0,.08); }
+:root[data-ui="glass"] :is(.seg, .tabs).dragging .rowlens { transform: translateX(var(--lx, 0px)) scale(1.08); background: rgba(255,255,255,.22); transition-duration: .22s; }
+:root[data-ui="glass"] :is(.seg, .tabs) .peek { color: var(--accent-mark, var(--accent)); }
+:root[data-ui="glass"] .seg button.on, :root[data-ui="glass"] .seg label:has(:checked) { background: none !important; box-shadow: none !important; }
+:root[data-ui="glass"] .tabs > .on::after { display: none; }
+:root[data-ui="glass"] :is(.seg, .tabs).rowfit { touch-action: pan-y; } /* sideways belongs to the bubble there */
+body.calm .rowlens { transition: none !important; }

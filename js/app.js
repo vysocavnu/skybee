@@ -515,12 +515,70 @@ addEventListener("resize", () => placeLens($("nav.bottom a.on")));
     else placeLens($("nav.bottom a.on"));
   };
   addEventListener("pointerup", finish, { passive: true });
-  addEventListener("pointercancel", () => { stop(); placeLens($("nav.bottom a.on")); }, { passive: true });
+  // iPhone often cancels a touch that slides along the bottom edge (its own home gesture): a drag that got somewhere still counts
+  addEventListener("pointercancel", () => { if (drag?.moved) finish(); else { stop(); placeLens($("nav.bottom a.on")); } }, { passive: true });
   // iPhone does not always send pointerup/pointercancel to the bar (a system gesture, the screen changing under the finger):
   // the end of the touch, a screen change or leaving the app also end the drag, so the bubble never stays swollen
   addEventListener("touchend", () => setTimeout(finish, 40), { passive: true }); // pointerup normally comes first and has done it
   for (const ev of ["touchcancel", "hashchange", "blur"]) addEventListener(ev, () => { if (drag) { stop(); placeLens($("nav.bottom a.on")); } }, { passive: true });
   document.addEventListener("visibilitychange", () => { if (document.hidden && drag) stop(); });
+}
+
+/* ---------- Liquid Glass: the bubble in every segmented control and tab row ----------
+   As on the bottom bar: a glass bubble sits under the chosen item and slides to a new one; a finger moved along the row
+   carries the bubble, and letting go chooses the item under it (a real click on it, so each screen's own handler runs).
+   Rows that scroll sideways (many feed tabs) keep their scrolling: there the bubble only follows taps. */
+{
+  const ROW = ".seg, .tabs";
+  const items = (row) => [...row.children].filter(c => !c.classList.contains("rowlens"));
+  const current = (row) => items(row).find(c => c.classList.contains("on") || c.querySelector?.(":checked"));
+  const glass = () => document.documentElement.dataset.ui === "glass";
+  // where each row's bubble was last: a screen that redraws itself on a choice (settings) still sees the bubble slide
+  const last = new Map(), keyOf = (row) => items(row).map(c => c.textContent.trim()).join("|").slice(0, 120);
+  function place(row, target) {
+    let lens = row.querySelector(":scope > .rowlens");
+    const a = glass() && (target || current(row));
+    if (!a || !a.offsetWidth) { lens?.remove(); return; }
+    const tab = row.classList.contains("tabs"), inset = tab ? 6 : 0;
+    const box = { x: a.offsetLeft, w: a.offsetWidth, y: a.offsetTop + inset, h: a.offsetHeight - inset * 2 };
+    const put = (l, b) => { l.style.setProperty("--lx", b.x + "px"); l.style.width = b.w + "px"; l.style.top = b.y + "px"; l.style.height = b.h + "px"; };
+    if (!lens) { // new (or the row was redrawn): appear where the bubble last was, then slide on
+      lens = document.createElement("span"); lens.className = "rowlens"; lens.setAttribute("aria-hidden", "true");
+      lens.style.transition = "none"; put(lens, last.get(keyOf(row)) || box); row.prepend(lens);
+      void lens.offsetWidth; lens.style.transition = "";
+    }
+    put(lens, box); if (!target) last.set(keyOf(row), box);
+    row.classList.toggle("rowfit", row.scrollWidth <= row.clientWidth + 1);
+  }
+  let queued = false;
+  const all = () => { queued = false; document.querySelectorAll(ROW).forEach(r => place(r)); };
+  const soon = () => { if (!queued) { queued = true; requestAnimationFrame(all); } };
+  new MutationObserver(soon).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+  addEventListener("change", soon); addEventListener("resize", soon); document.fonts?.ready.then(soon).catch(() => {});
+
+  let drag = null;
+  const under = (row, x) => items(row).find(c => { const r = c.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+  const end = (go) => {
+    if (!drag) return;
+    const { row, cur, from, moved } = drag; drag = null;
+    row.classList.remove("dragging"); row.querySelectorAll(".peek").forEach(c => c.classList.remove("peek"));
+    if (go && moved && cur && cur !== from) cur.click(); // the item's own handler switches the screen or the setting
+    place(row);
+  };
+  addEventListener("pointerdown", (e) => {
+    const row = e.target.closest?.(ROW);
+    if (!row || !glass() || e.pointerType === "mouse" || !row.classList.contains("rowfit")) return;
+    drag = { row, x0: e.clientX, from: current(row), cur: current(row), moved: false };
+  }, { passive: true });
+  addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientX - drag.x0) < 10) return;
+    drag.moved = true; drag.row.classList.add("dragging");
+    const c = under(drag.row, e.clientX);
+    if (c && c !== drag.cur) { drag.cur?.classList.remove("peek"); drag.cur = c; c.classList.add("peek"); place(drag.row, c); navigator.vibrate?.(6); }
+  }, { passive: true });
+  addEventListener("pointerup", () => end(true), { passive: true });
+  addEventListener("pointercancel", () => end(true), { passive: true });
 }
 
 /* ---------- Material ripple: a circle spreads from the finger on buttons and menu items (Settings → Appearance) ---------- */
@@ -540,14 +598,17 @@ addEventListener("pointerdown", (e) => {
 /* ---------- pull to refresh (touch screens) ---------- */
 // At the very top of a screen, pulling down and letting go reloads it
 {
-  let y0 = null, dy = 0, ind = null;
+  let y0 = null, x0 = 0, dy = 0, ind = null;
   addEventListener("touchstart", (e) => {
+    x0 = e.touches[0].clientX;
     y0 = scrollY <= 0 && e.touches[0].clientX > 32 && !document.querySelector(".modal-bg:not(.leaving), .msheet-bg:not(.leaving)") && !document.body.classList.contains("deckmode") && e.target.closest?.("main") ? e.touches[0].clientY : null;
     dy = 0;
   }, { passive: true });
   addEventListener("touchmove", (e) => {
     if (y0 == null) return;
     dy = e.touches[0].clientY - y0;
+    // a sideways swipe (switching feeds, a carousel) is never a pull: once the finger goes more sideways than down, it is off
+    if (Math.abs(e.touches[0].clientX - x0) > Math.max(16, dy)) { y0 = null; dy = 0; ind?.remove(); ind = null; return; }
     if (dy <= 0 || scrollY > 0) { ind?.remove(); ind = null; return; }
     if (!ind) { ind = document.createElement("div"); ind.className = "ptr"; ind.textContent = "↻"; document.body.appendChild(ind); }
     const p = Math.min(dy / 80, 1);
