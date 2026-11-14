@@ -53,7 +53,10 @@ function cards(html) {
 function summary(html) {
   const art = html.match(/itemprop="articleBody"[^>]*>([\s\S]*?)(?:<h4[^>]*>\s*Розділ коментарів|<footer|$)/)?.[1] || "";
   const at = art.search(/<h2[^>]*>[^<]*(?:війн|войн)/i);
-  const part = at >= 0 ? art.slice(at) : art;
+  let part = at >= 0 ? art.slice(at) : art;
+  // the article ends where the comment form and «related» artists begin: their headings are not points of the position
+  const end = part.search(/<h[2-4][^>]*>\s*(?:Залиште коментар|Коментар|Читайте також|Схожі|Інші)/i);
+  if (end > 0) part = part.slice(0, end);
   const points = [...part.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)].map(m => text(m[1])).filter(Boolean).slice(0, 6);
   let t = "";
   for (const m of part.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)) {
