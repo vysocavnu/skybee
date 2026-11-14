@@ -1,4 +1,4 @@
-# Публікує пост у Bluesky — лише після «Так» у Telegram (scripts/tg_confirm.py).
+# Публікує пост у Bluesky — лише після твоєї ✅ у Discord (scripts/dc_confirm.py).
 # Текст — зі stdin, щоб у ньому не виконувались $(...) і `...`:
 #   python scripts/post.py <<'EOF'
 #   текст поста
@@ -15,12 +15,12 @@ if len(text) > 300:
     sys.exit(3)
 
 here = os.path.dirname(os.path.abspath(__file__))
-r = subprocess.run([sys.executable, os.path.join(here, "tg_confirm.py"), "540"],
+r = subprocess.run([sys.executable, os.path.join(here, "dc_confirm.py"), "540"],
                    input=("Опублікувати в Bluesky від @" + os.environ.get("BSKY_HANDLE", "?")
                           + ":\n\n" + text).encode("utf-8"), capture_output=True)
 if r.returncode != 0:
-    why = {1: "скасовано в Telegram", 2: "немає відповіді в Telegram"}.get(
-        r.returncode, "помилка запиту в Telegram: " + r.stdout.decode("utf-8", "replace").strip())
+    why = {1: "скасовано в Discord", 2: "немає відповіді в Discord"}.get(
+        r.returncode, "помилка запиту в Discord: " + r.stdout.decode("utf-8", "replace").strip())
     print("not posted:", why)
     sys.exit(r.returncode or 3)
 
