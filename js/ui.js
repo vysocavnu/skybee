@@ -1,4 +1,5 @@
 // Skybee — rendering helpers
+import { locale as LOC } from "./i18n.js";
 import { errText } from "./errors.js";
 import { session, mutedWords, adultEnabled, labelPref, labelDef, labelName, labelerPref, labelerDids } from "./api.js";
 
@@ -73,9 +74,9 @@ export function ago(iso) {
   if (s < 3600) return `${Math.floor(s / 60)} хв`;
   if (s < 86400) return `${Math.floor(s / 3600)} год`;
   if (s < 86400 * 7) return `${Math.floor(s / 86400)} д`;
-  return new Date(iso).toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: s > 86400 * 300 ? "numeric" : undefined });
+  return new Date(iso).toLocaleDateString(LOC, { day: "numeric", month: "short", year: s > 86400 * 300 ? "numeric" : undefined });
 }
-export const fullDate = (iso) => new Date(iso).toLocaleString("uk-UA", { dateStyle: "long", timeStyle: "short" });
+export const fullDate = (iso) => new Date(iso).toLocaleString(LOC, { dateStyle: "long", timeStyle: "short" });
 export function num(n = 0) {
   if (n < 1000) return String(n);
   if (n < 1e6) return (n / 1000).toFixed(n < 1e4 ? 1 : 0).replace(/\.0$/, "") + " тис.";
@@ -84,7 +85,7 @@ export function num(n = 0) {
 // «@lejk309» instead of «@lejk309.bsky.social»; other domains stay whole. Escaped, ready for HTML
 export const shortHandle = (h = "") => h.replace(/\.bsky\.social$/i, "");
 export const at = (h) => "@" + esc(shortHandle(h));
-export const name = (a) => esc(a?.displayName || a?.handle || "");
+export const name = (a) => `<bdi class="noi18n">${esc(a?.displayName || a?.handle || "")}</bdi>`; // people's names are never translated (i18n.js)
 // the name with a verification mark, for places where HTML is allowed
 export const vname = (a) => name(a) + (a?.verification?.trustedVerifierStatus === "valid" ? ` <span class="verified" title="Довірений верифікатор">✪</span>`
   : a?.verification?.verifiedStatus === "valid" ? ` <span class="verified" title="Верифіковано">✔</span>` : "");

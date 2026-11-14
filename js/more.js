@@ -1,4 +1,5 @@
 // Skybee — more screens: lists, starter packs, content filters, account, app passwords
+import { locale as LOC, t as T } from "./i18n.js";
 import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
@@ -264,7 +265,7 @@ export async function appPasswords(el) {
     try {
       const list = await api.listAppPasswords();
       box.innerHTML = list.map(p => `<div class="actor static"><div class="who"><b>${esc(p.name)}</b>
-        <span class="muted small">створено ${new Date(p.createdAt).toLocaleDateString("uk-UA")}${p.privileged ? " · з доступом до чатів" : ""}</span></div>
+        <span class="muted small">${T("створено {0}", new Date(p.createdAt).toLocaleDateString(LOC))}${p.privileged ? " · з доступом до чатів" : ""}</span></div>
         <button class="ghost sm danger" data-revoke="${esc(p.name)}">Відкликати</button></div>`).join("") || empty("Паролів застосунків ще немає");
     } catch (ex) {
       box.innerHTML = `<div class="card"><p class="err">${esc(errText(ex))}</p><p class="small muted">Керувати паролями можна лише після входу з <b>основним паролем</b>. З паролем застосунку ця сторінка недоступна.</p></div>`;

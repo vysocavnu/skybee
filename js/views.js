@@ -1,4 +1,5 @@
 // Skybee — screens
+import { locale as LOC, t as T } from "./i18n.js";
 import { errText } from "./errors.js";
 import * as api from "./api.js";
 import { session } from "./api.js";
@@ -292,7 +293,7 @@ async function reader(el, uri) {
   const a = top.author, open = location.hash.split("?")[0];
   el.innerHTML = header("Читання", true, `<a class="ghost sm" href="${open}" title="Звичайний вигляд з відповідями">💬 Гілка</a>`) + `
     <article class="reader">
-      <div class="row"><a href="${profileHref(a)}">${avatar(a, 44)}</a><div class="who"><a href="${profileHref(a)}"><b>${vname(a)}</b></a><span class="muted small">${at(a.handle)} · ${new Date(top.record?.createdAt || top.indexedAt).toLocaleDateString("uk-UA", { dateStyle: "long" })} · ${chain.length} ${chain.length === 1 ? "пост" : chain.length < 5 ? "пости" : "постів"}</span></div></div>
+      <div class="row"><a href="${profileHref(a)}">${avatar(a, 44)}</a><div class="who"><a href="${profileHref(a)}"><b>${vname(a)}</b></a><span class="muted small">${at(a.handle)} · ${new Date(top.record?.createdAt || top.indexedAt).toLocaleDateString(LOC, { dateStyle: "long" })} · ${chain.length} ${chain.length === 1 ? "пост" : chain.length < 5 ? "пости" : "постів"}</span></div></div>
       ${chain.map((p, i) => `<section data-uri="${esc(p.uri)}"><div class="text">${richText(p.record?.text, p.record?.facets)}</div>${renderEmbed(p.embed, warnLabel(p))}
         <a class="muted small rnum" href="${postHref(p)}">${i + 1}/${chain.length}</a></section>`).join("")}
     </article>`;
@@ -345,7 +346,7 @@ export async function profile(el, { actor, tab = "posts" }) {
       ${p.description ? `<div class="bio">${linkify(p.description)}</div>` : ""}
       ${liveCard(p)}
       ${site ? `<div class="small">🔗 <a href="${esc(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></div>` : ""}
-      ${p.createdAt ? `<div class="muted small">📅 У Bluesky з ${new Date(p.createdAt).toLocaleDateString("uk-UA", { month: "long", year: "numeric" })}</div>` : ""}
+      ${p.createdAt ? `<div class="muted small">📅 У Bluesky з ${new Date(p.createdAt).toLocaleDateString(LOC, { month: "long", year: "numeric" })}</div>` : ""}
       ${v.knownFollowers?.count ? `<a class="muted small" href="${profileHref(p)}/known" style="display:block">Серед читачів: ${v.knownFollowers.followers.slice(0, 2).map(f => name(f)).join(", ")}${v.knownFollowers.count > 2 ? ` і ще ${v.knownFollowers.count - 2}` : ""}</a>` : ""}`}
     </div>
     ${blocked ? empty(v.blocking ? "Ви заблокували цей акаунт" : "Цей акаунт заблокував вас") :
@@ -501,7 +502,7 @@ const TEXTY = ["reply", "mention", "quote", "subscribed-post"];
 const dayOf = (iso) => {
   const d = new Date(iso), t = new Date(); t.setHours(0, 0, 0, 0);
   const days = Math.round((t - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
-  return days <= 0 ? "Сьогодні" : days === 1 ? "Вчора" : d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", ...(d.getFullYear() !== t.getFullYear() ? { year: "numeric" } : {}) });
+  return days <= 0 ? "Сьогодні" : days === 1 ? "Вчора" : d.toLocaleDateString(LOC, { day: "numeric", month: "long", ...(d.getFullYear() !== t.getFullYear() ? { year: "numeric" } : {}) });
 };
 const postLink = (p) => "#/profile/" + enc(p.author.did) + "/post/" + p.uri.split("/").pop();
 const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
@@ -635,7 +636,7 @@ async function explore(box) {
     const packs = d.starterPacks || [];
     if (packs.length) box.querySelector("[data-packs]").innerHTML = `<h3 class="pad">Стартові набори</h3>${packs.map(sp =>
       `<a class="actor" href="#/starter-pack/${enc(sp.creator.did)}/${sp.uri.split("/").pop()}"><span class="bigemoji">🎒</span><div class="who"><b>${esc(sp.record?.name || "Стартовий набір")}</b>
-        <span class="muted small">від ${at(sp.creator.handle)}${sp.listItemCount ? ` · людей: ${sp.listItemCount}` : ""}</span></div></a>`).join("")}`;
+        <span class="muted small">${T("від {0}", at(sp.creator.handle))}${sp.listItemCount ? ` · людей: ${sp.listItemCount}` : ""}</span></div></a>`).join("")}`;
   }).catch(() => {});
 }
 
@@ -775,7 +776,7 @@ export async function messages(el, { requests = false } = {}) {
           const last = c.lastMessage;
           const txt = last?.$type === "chat.bsky.convo.defs#deletedMessageView" ? "Повідомлення видалено" : (last?.text || (last?.embed ? "📎 Пост" : ""));
           return `<div class="actor${c.unreadCount ? " unread" : ""}" data-href="#/messages/${c.id}">${avatar(other, 48)}
-            <div class="who"><b>${name(other)}</b>${c.muted ? " 🔕" : ""}<span class="muted clip">${last?.sender?.did === session.did ? "Ви: " : ""}${esc(txt)}</span></div>
+            <div class="who"><b>${name(other)}</b>${c.muted ? " 🔕" : ""}<span class="muted clip">${last?.sender?.did === session.did ? "Ви: " : ""}<span class="noi18n">${esc(txt)}</span></span></div>
             <div class="col end"><span class="muted small">${last ? ago(last.sentAt) : ""}</span>${c.unreadCount ? `<span class="badge">${c.unreadCount}</span>` : ""}</div></div>`;
         }),
         cursor: d.cursor,
@@ -820,7 +821,7 @@ export async function convo(el, { id }) {
     const del = m.$type === "chat.bsky.convo.defs#deletedMessageView";
     const counts = new Map();
     for (const r of m.reactions || []) counts.set(r.value, { n: (counts.get(r.value)?.n || 0) + 1, mine: counts.get(r.value)?.mine || r.sender?.did === session.did });
-    return `<div class="msg${mine ? " mine" : ""}" data-mid="${m.id}" title="${esc(new Date(m.sentAt).toLocaleString("uk-UA"))}">
+    return `<div class="msg${mine ? " mine" : ""}" data-mid="${m.id}" title="${esc(new Date(m.sentAt).toLocaleString(LOC))}">
       <div class="mcol">${del ? "" : replyHead(m, mine)}<div class="bubble${del ? " muted" : ""}">${del ? "Повідомлення видалено" : quoteOf(m) ? richText(quoteOf(m).rest) : richText(m.text, m.facets)}</div>
       ${m.embed && !del ? `<div class="membed">${renderEmbed(m.embed)}</div>` : ""}
       ${counts.size ? `<div class="reacts">${[...counts].map(([v, x]) => `<button class="react${x.mine ? " on" : ""}" data-react="${esc(v)}">${esc(v)}${x.n > 1 ? " " + x.n : ""}</button>`).join("")}</div>` : ""}</div></div>`;
@@ -865,7 +866,7 @@ export async function convo(el, { id }) {
   replyBar.addEventListener("click", (e) => { if (e.target.closest("[data-noreply]")) setReply(null); });
   const sheet = (m, row) => {
     const sent = new Date(m.sentAt), today = sent.toDateString() === new Date().toDateString();
-    const when = today ? sent.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) : sent.toLocaleString("uk-UA", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+    const when = today ? sent.toLocaleTimeString(LOC, { hour: "2-digit", minute: "2-digit" }) : sent.toLocaleString(LOC, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
     const wrap = document.createElement("div");
     wrap.className = "msheet-bg";
     wrap.innerHTML = `<div class="msheet${row.classList.contains("mine") ? " mine" : ""}">
@@ -985,7 +986,7 @@ export async function mutedWords(el) {
       const info = [
         w.targets?.includes("content") ? "у тексті й тегах" : "лише в тегах",
         w.actorTarget === "exclude-following" ? "крім тих, за ким я стежу" : "",
-        !w.expiresAt ? "назавжди" : w.expiresAt < nowIso ? "термін минув" : `до ${new Date(w.expiresAt).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}`,
+        !w.expiresAt ? "назавжди" : w.expiresAt < nowIso ? "термін минув" : T("до {0}", new Date(w.expiresAt).toLocaleString(LOC, { dateStyle: "medium", timeStyle: "short" })),
       ].filter(Boolean).join(" · ");
       return `<div class="actor static"><div class="who"><b>${esc(w.value)}</b><span class="muted small">${info}</span></div>
         <button class="ghost sm" data-word="${i}" title="Більше не приховувати">✕</button></div>`;
@@ -1022,7 +1023,7 @@ export async function blockedBy(el) {
       <a href="https://constellation.microcosm.blue" target="_blank" rel="noopener">Constellation</a> — він може запізнюватися на кілька хвилин.
       Ці люди не бачать ваших постів, а ви — їхніх.</p><p class="pad small" data-total hidden></p>`;
   let gone = 0, first = true;
-  const date = (d) => d ? d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" }) : "";
+  const date = (d) => d ? d.toLocaleDateString(LOC, { day: "numeric", month: "long", year: "numeric" }) : "";
   return paged(el, async (cursor) => {
     let res;
     try { res = await api.blockedByPage(session.did, cursor); }
