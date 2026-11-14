@@ -411,20 +411,26 @@ body.nolinkthumbs .ext img { display: none; }
    (the app colour, html.sb-theme, does not tint the page: it replaces the gold accent — see below) */
 main.sb-tint, .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 56%, #000); --panel: color-mix(in srgb, var(--sb) 68%, #000); --hover: color-mix(in srgb, var(--sb) 78%, #000);
   --bg2: color-mix(in srgb, var(--sb2, var(--sb)) 56%, #000); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 68%, #000);
+  --bg3: color-mix(in srgb, var(--sb3, var(--sb)) 56%, #000); --panel3: color-mix(in srgb, var(--sb3, var(--sb)) 68%, #000);
   --line: color-mix(in srgb, var(--sb) 92%, #000); --text: #fff; --muted: color-mix(in srgb, var(--sb) 30%, #fff); --link: color-mix(in srgb, var(--sb) 22%, #fff);
   --accent: color-mix(in srgb, var(--sb) 12%, #fff); --accent-ink: color-mix(in srgb, var(--sb) 55%, #000); }
 [data-theme="dim"] main.sb-tint, [data-theme="dim"] .sideprof.sb-tint { --bg: color-mix(in srgb, var(--sb) 48%, #10161d); --panel: color-mix(in srgb, var(--sb) 58%, #10161d); --hover: color-mix(in srgb, var(--sb) 68%, #10161d);
-  --bg2: color-mix(in srgb, var(--sb2, var(--sb)) 48%, #10161d); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 58%, #10161d); }
+  --bg2: color-mix(in srgb, var(--sb2, var(--sb)) 48%, #10161d); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 58%, #10161d);
+  --bg3: color-mix(in srgb, var(--sb3, var(--sb)) 48%, #10161d); --panel3: color-mix(in srgb, var(--sb3, var(--sb)) 58%, #10161d); }
 [data-theme="light"] main.sb-tint, [data-theme="light"] .sideprof.sb-tint { --bg: var(--sb); --panel: color-mix(in srgb, var(--sb) 90%, #000); --hover: color-mix(in srgb, var(--sb) 82%, #000);
   --bg2: var(--sb2, var(--sb)); --panel2: color-mix(in srgb, var(--sb2, var(--sb)) 90%, #000);
+  --bg3: var(--sb3, var(--sb)); --panel3: color-mix(in srgb, var(--sb3, var(--sb)) 90%, #000);
   --line: color-mix(in srgb, var(--sb) 72%, #000); --text: var(--sb-ink); --muted: color-mix(in srgb, var(--sb-ink) 78%, var(--sb)); --link: var(--sb-ink);
   --accent: var(--sb-ink); --accent-ink: var(--sb); }
 main.sb-tint .post a:not(.ghost):not(.btn), main.sb-tint .bio a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 /* the colour fades out of the column into the side menus: one wide layer behind it, solid over the column and easing out on both sides */
 main.sb-tint { color: var(--text); border-color: transparent; position: relative; overflow: clip; overflow-clip-margin: 200px; }
-main.sb-tint::before { content: ""; position: absolute; inset: 0 -200px; z-index: -1; pointer-events: none; transition: background .25s;
-  /* the profile gradient (--sb → --sb2) runs down the column; the mask fades it out to both sides */
-  background: linear-gradient(120deg, var(--bg), var(--bg2), var(--bg), var(--bg2)); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate;
+main.sb-tint::before { content: ""; display: block; position: sticky; top: 0; z-index: -1; pointer-events: none; transition: background .25s;
+  /* exactly one screen tall and stuck to the screen while the page scrolls under it: the flow is always in view
+     (a layer as tall as the whole profile showed only a sliver of the gradient, so nothing seemed to move) */
+  width: calc(100% + 400px); height: 100vh; height: 100lvh; margin: 0 -200px -100vh; margin-bottom: -100lvh;
+  /* the profile gradient (--sb → --sb2 → --sb3) flows slowly to and fro; the mask fades it out to both sides */
+  background: linear-gradient(125deg, var(--bg), var(--bg2), var(--bg3), var(--bg2), var(--bg)); background-size: 300% 300%; animation: sb-flow 14s ease-in-out infinite alternate;
   -webkit-mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,.18) 70px, rgba(0,0,0,.5) 130px, rgba(0,0,0,.85) 180px, #000 210px, #000 calc(100% - 210px),
     rgba(0,0,0,.85) calc(100% - 180px), rgba(0,0,0,.5) calc(100% - 130px), rgba(0,0,0,.18) calc(100% - 70px), transparent);
   mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,.18) 70px, rgba(0,0,0,.5) 130px, rgba(0,0,0,.85) 180px, #000 210px, #000 calc(100% - 210px),
@@ -459,7 +465,7 @@ main.sb-tint .phead .bigava { border-color: var(--accent); }
 /* profile colour: gradient pills and «свій: ● → ●» */
 .sb-grads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
 .sb-gr:not(.none), .sb-flow { background-size: 300% 300% !important; animation: sb-flow 8s ease-in-out infinite alternate; }
-.sb-flow { animation-duration: 12s; }
+.sb-flow { animation-duration: 14s; }
 .sb-gr { height: 40px; border-radius: 999px; border: 2px solid rgba(0,0,0,.35); padding: 0; color: var(--muted); }
 .sb-gr.none { background: var(--bg); border-color: var(--line); }
 .sb-gr.on, .sb-dot.on { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -596,12 +602,12 @@ body:has(.chatbar) .fab { display: none; } /* in a chat the ✏️ button would 
 .mquote { max-width: min(280px, 70vw); }
 
 /* own profile card in the right column takes the same Skybee colour */
-.sideprof.sb-tint { background: linear-gradient(120deg, var(--panel), var(--panel2), var(--panel), var(--panel2)); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate; color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
+.sideprof.sb-tint { background: linear-gradient(125deg, var(--panel), var(--panel2), var(--panel3), var(--panel2), var(--panel)); background-size: 300% 300%; animation: sb-flow 14s ease-in-out infinite alternate; color: var(--text); border-color: color-mix(in srgb, var(--sb) 60%, transparent); transition: background-color .25s; }
 .sideprof.sb-tint .sp-ava { border-color: var(--panel); }
 .sideprof.sb-tint .ghost { border-color: color-mix(in srgb, var(--text) 30%, transparent); }
 /* Liquid Glass and Material give every .card their own surface with a stronger selector: the profile colour wins over it */
-:root[data-ui] .card.sideprof.sb-tint { background: linear-gradient(120deg, var(--panel), var(--panel2), var(--panel), var(--panel2)); background-size: 300% 300%; border: 1px solid color-mix(in srgb, var(--sb) 60%, transparent); }
-.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(120deg, var(--sb), var(--sb2, var(--sb)), var(--sb), var(--sb2, var(--sb))); background-size: 300% 300%; animation: sb-flow 12s ease-in-out infinite alternate; }
+:root[data-ui] .card.sideprof.sb-tint { background: linear-gradient(125deg, var(--panel), var(--panel2), var(--panel3), var(--panel2), var(--panel)); background-size: 300% 300%; border: 1px solid color-mix(in srgb, var(--sb) 60%, transparent); }
+.sideprof.sb-tint .sp-banner:not([style]) { background: linear-gradient(125deg, var(--sb), var(--sb2, var(--sb)), var(--sb3, var(--sb)), var(--sb2, var(--sb)), var(--sb)); background-size: 300% 300%; animation: sb-flow 14s ease-in-out infinite alternate; }
 
 /* ---------- LIVE ---------- */
 .live-ava { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
@@ -1563,10 +1569,25 @@ body.calm .rowlens { transition: none !important; }
   :root[data-ui="glass"][data-theme="light"] main { background: color-mix(in srgb, var(--panel) 90%, transparent); }
   /* the page colour stays inside the bubble (no soft spill into the side panels — they are separate glass now) */
   :root[data-ui="glass"] main.sb-tint { border-color: var(--g-edge); overflow-clip-margin: 0; }
-  :root[data-ui="glass"] main.sb-tint::before { inset: 0; -webkit-mask-image: none; mask-image: none; }
+  :root[data-ui="glass"] main.sb-tint::before { width: 100%; margin-left: 0; margin-right: 0; -webkit-mask-image: none; mask-image: none; }
   /* the sticky header keeps the bubble's round top when the column scrolls under it */
   :root[data-ui="glass"] main .topbar { border-radius: 27px 27px 0 0; }
   /* «Колонки»: the bubble fits the window exactly; the chat input sits inside the bubble's round bottom */
   :root[data-ui="glass"] body.deckmode main { height: calc(100vh - 20px); min-height: 0; }
   :root[data-ui="glass"] .chatbar { width: min(574px, calc(100% - 26px)); bottom: 11px; border-radius: 0 0 27px 27px; }
 }
+
+/* ---------- profile colours on posts in any feed (js/flair.js tintPosts; Налаштування → Вміст і медіа) ----------
+   a calm wash of the author's gradient behind the post, flowing like their profile page */
+article.post.sb-post { background: linear-gradient(125deg, color-mix(in srgb, var(--sb) var(--sbp, 22%), transparent), color-mix(in srgb, var(--sb2) var(--sbp, 22%), transparent),
+    color-mix(in srgb, var(--sb3, var(--sb)) var(--sbp, 22%), transparent), color-mix(in srgb, var(--sb2) var(--sbp, 22%), transparent), color-mix(in srgb, var(--sb) var(--sbp, 22%), transparent));
+  background-size: 300% 300%; animation: sb-flow 14s ease-in-out infinite alternate; }
+[data-theme="light"] article.post.sb-post { --sbp: 28%; }
+main.sb-tint article.post.sb-post { background: none; animation: none; } /* on the author's own page the whole page already has the colour */
+/* «переливання» switched off in the author's «✨ Оформлення»: the gradient stays still */
+.sb-still, .sb-still::before, .sb-still .sp-banner, .sb-still .banner { animation: none !important; }
+body.calm article.post.sb-post { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { article.post.sb-post { animation: none !important; } }
+.sb-third { display: inline-flex; align-items: center; gap: 4px; }
+.sb-add3 { display: grid; place-items: center; font-size: 20px; color: var(--muted); background: var(--hover) !important; border-style: dashed !important; }
+.sb-rm3 { width: 28px; height: 28px; min-width: 0; padding: 0; font-size: 13px; }

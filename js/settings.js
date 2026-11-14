@@ -379,6 +379,7 @@ export async function media(el) {
       ${toggle("autogif", "Автоматично відтворювати GIF", store.get("skybee.autogif") === "1")}
       <label class="field">Ключ Tenor API — для пошуку GIF<input id="tenorkey" autocomplete="off" spellcheck="false" placeholder="AIza…" value="${esc(store.get("skybee.tenorKey") || "")}"></label>
       <p class="small muted">Безплатний: Google Cloud Console → новий проєкт → увімкнути «Tenor API» → «Облікові дані» → «Створити ключ API». Зберігається лише на цьому пристрої.</p>
+      ${toggle("postcolors", "Кольори профілів на постах", store.get("skybee.postColors") !== "0", "Пости людей з оформленням Skybee — на м'якому градієнті їхнього профілю")}
       ${toggle("flairall", "Оформлення з власних серверів", store.get("skybee.flairAll") === "1", "Статус, музика, колір та іграшка людей, чий акаунт не на серверах Bluesky. Їхній сервер бачитиме твою IP-адресу, коли ти відкриваєш їхній профіль")}
       ${toggle("players", "Вбудовані плеєри", store.get("skybee.players") !== "0", "YouTube, Spotify, SoundCloud, Vimeo, Twitch, Apple Music грають прямо в пості — після натискання ▶")}
       ${toggle("extmedia", "Показувати картки посилань із зображеннями", store.get("skybee.noLinkThumbs") !== "1")}
@@ -393,6 +394,7 @@ export async function media(el) {
   };
   $("#autogif", el).onchange = (e) => { store.set("skybee.autogif", e.target.checked ? "1" : null); toast("Збережено"); };
   $("#tenorkey", el).onchange = (e) => { store.set("skybee.tenorKey", e.target.value.trim() || null); toast(e.target.value.trim() ? "Ключ збережено — шукай GIF кнопкою «GIF» у редакторі" : "Ключ прибрано"); };
+  $("#postcolors", el).onchange = (e) => { store.set("skybee.postColors", e.target.checked ? null : "0"); toast("Збережено — діє на нових екранах"); };
   $("#flairall", el).onchange = (e) => { store.set("skybee.flairAll", e.target.checked ? "1" : null); toast("Збережено"); };
   $("#players", el).onchange = (e) => { store.set("skybee.players", e.target.checked ? null : "0"); toast("Збережено"); };
   $("#extmedia", el).onchange = (e) => { store.set("skybee.noLinkThumbs", e.target.checked ? null : "1"); document.body.classList.toggle("nolinkthumbs", !e.target.checked); toast("Збережено"); };
@@ -601,7 +603,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "flairAll", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "flairAll", "postColors", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }
