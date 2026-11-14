@@ -111,11 +111,31 @@ def segments(s):
             yield words
 
 
+def cloud_config_ok():
+    # Хмарні сесії Claude Code самі ставлять GIT_CONFIG_COUNT/KEY_n/VALUE_n, щоб git ходив через їхній проксі.
+    # Пропускаємо їх лише там (CLAUDE_CODE_REMOTE=true) і лише з безпечними ключами: вхід (credential.*),
+    # налаштування http.* і підміна чужих адрес НА https://github.com/. Будь-що інше — блок.
+    if os.environ.get("CLAUDE_CODE_REMOTE") != "true":
+        return False
+    try:
+        n = int(os.environ.get("GIT_CONFIG_COUNT", "0"))
+    except ValueError:
+        return False
+    if not 0 <= n <= 20 or any(k in os.environ for k in ("GIT_CONFIG", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM")):
+        return False
+    for i in range(n):
+        key = os.environ.get(f"GIT_CONFIG_KEY_{i}", "").lower()
+        if not (key.startswith("credential.") or key.startswith("http.") or key == "url.https://github.com/.insteadof"):
+            return False
+    known = {"GIT_CONFIG_COUNT"} | {f"GIT_CONFIG_{s}_{i}" for i in range(n) for s in ("KEY", "VALUE")}
+    return not ({k for k in os.environ if k.startswith("GIT_CONFIG")} - known)
+
+
 def push_config_problem(git, branch):
     if git("config", "--get-all", "remote.origin.push") or git("config", "--get", "remote.pushdefault") \
             or git("config", "--get", f"branch.{branch}.pushremote") or git("config", "--get", "remote.origin.mirror") \
             or git("config", "--get", "push.default") not in ("", "simple", "current") \
-            or any(k.startswith("GIT_CONFIG") or k in ("GIT_DIR", "GIT_WORK_TREE") for k in os.environ):
+            or any((k.startswith("GIT_CONFIG") and not cloud_config_ok()) or k in ("GIT_DIR", "GIT_WORK_TREE") for k in os.environ):
         return "нестандартні налаштування push (remote.origin.push / mirror / push.default / pushRemote / GIT_CONFIG_*)"
     urls = git("config", "--get-all", "remote.origin.pushurl").split() or git("config", "--get-all", "remote.origin.url").split()
     for u in urls + [git("remote", "get-url", "--push", "origin")]:
