@@ -1,10 +1,10 @@
-# Хук PreToolUse (Bash/PowerShell): жоден `git push` не піде без «Так» у Telegram.
-# Агент не може підробити згоду — хук сам надсилає запит і сам чекає натискання.
+# Хук PreToolUse (Bash/PowerShell): жоден `git push` не піде без твоєї ✅ у Discord (scripts/dc_confirm.py).
+# Агент не може підробити згоду — хук сам надсилає запит і сам чекає реакції власника.
 #
 # Правила:
 #  * push у будь-якому вигляді (git, обгортки, змінні, eval, python -c) → дозволені лише точні форми
 #    `git push`, `git push origin <поточна гілка>`, `git push -u origin <поточна гілка>` —
-#    і лише після «Так» у Telegram. Решта — блок.
+#    і лише після ✅ у Discord. Решта — блок.
 #  * Аліаси, git-хуки, credential, send-pack, apply/am, clean, stash -u, небезпечні -c,
 #    зміна remote/config/upstream — блок.
 #  * gh / GitHub API, що змінюють репозиторій — блок.
@@ -20,13 +20,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 REPO = "github.com/vysocavnu/skybee"
 SEP = r"&&|\|\||[;|\n]"
 # Heredoc, тіло якого — лише текст: лише з лапками в розділювачі (<<'EOF' — без підстановок).
-SAFE_HEREDOC = re.compile(r"(?:^|[\s;&|])(?:cat|python3?(?:\.exe)?\s+(?:\S*[/\\])?scripts[/\\](?:notify|post|tg_confirm)\.py[^\n<]*"
+SAFE_HEREDOC = re.compile(r"(?:^|[\s;&|])(?:cat|python3?(?:\.exe)?\s+(?:\S*[/\\])?scripts[/\\](?:dc_notify|post|dc_confirm)\.py[^\n<]*"
                           r"|git\s+(?:commit|tag)\b[^\n<]*\s-F\s*-)\s*$", re.I)
 SAFE_SUBST_CAT = re.compile(r"git\s+(?:commit|tag)\b[^\n<]*\s(?:-[a-z]*m|--message)[\s=]*\"?\$\(cat\s*$", re.I)
-PROTECTED_FILES = ["scripts/hooks/git_guard.py", "scripts/tg_confirm.py", "scripts/tg_bot.py", "scripts/post.py", "scripts/notify.py",
-                   "scripts/check_mail.py", "scripts/bsky_search.py", ".claude/settings.json",
-                   ".claude/settings.local.json", ".git/config", ".git/hooks/pre-push"]
-PROTECTED = re.compile(r"scripts/hooks|hooks/|git_guard|tg_confirm|tg_bot|\.skybee-bot|settings\.json|scripts/(post|notify|check_mail|bsky_search)\.py|\.claude/|\.claude\b"
+PROTECTED_FILES = ["scripts/hooks/git_guard.py", "scripts/dc_confirm.py", "scripts/dc_bot.py", "scripts/start_dc_bot.cmd",
+                   "scripts/post.py", "scripts/dc_notify.py", "scripts/check_mail.py", "scripts/bsky_search.py",
+                   ".claude/settings.json", ".claude/settings.local.json", ".git/config", ".git/hooks/pre-push"]
+PROTECTED = re.compile(r"scripts/hooks|hooks/|git_guard|dc_confirm|dc_bot|\.skybee-bot|settings\.json|scripts/(post|dc_notify|check_mail|bsky_search)\.py|\.claude/|\.claude\b"
                        r"|settings\.local|\.gitconfig|\.config/git|/git/config|(^|[^\w])\.git([/\s'\"),]|$)"
                        r"|\.bashrc|\.bash_profile|\.bash_login|\.profile\b|\.zshrc|\.zprofile|profile\.ps1|\$profile"
                        r"|/etc/(bash|profile|gitconfig)|\.inputrc")
@@ -145,15 +145,14 @@ def main():
     # 1) Захищені файли: лише читати й запускати.
     if re.search(r"disableallhooks|managed-settings", low):
         deny("Налаштування хуків змінює лише власник вручну.")
-    # Міст Telegram (tg_bot.py, порт 47321) запускає й зупиняє лише власник: підроблений міст
-    # міг би «натискати Так» замість тебе.
+    # Міст Discord (dc_bot.py) запускає й зупиняє лише власник.
     if re.search(r"stop-process|\bspps\b|taskkill|\btskill\b|\bkill(all)?\b|\bpkill\b|wmic|terminate\b"
                  r"|invoke-cimmethod|\.kill\(|\bkill\s*-\d|get-nettcpconnection.*owningprocess", low) or (
-            re.search(r"47321|tg_bot|skybee-bot", low)
+            re.search(r"dc_bot|skybee-bot", low)
             and re.search(r"(?<![\w.-])(python[\d.]*|pythonw|py|node|start|start-process|saps|cmd|powershell|pwsh|bash|sh)(\.exe)?(\s|$)"
                           r"|socket|http\.server", low)) \
-            or any(w[0].endswith("start_tg_bot.cmd") for w in segments(low)):
-        deny("Зупиняти процеси й чіпати Skybee-бота (міст Telegram) агентам заборонено — лише власник вручну.")
+            or any(w[0].endswith("start_dc_bot.cmd") for w in segments(low)):
+        deny("Зупиняти процеси й чіпати Skybee-бота (міст Discord) агентам заборонено — лише власник вручну.")
     for t in re.findall(r"\d?>{1,2}\s*([^\s&|;]+)", low):
         if PROTECTED.search(t):
             deny("Хук, скрипти згоди, .git і налаштування змінює лише власник вручну.")
@@ -171,7 +170,7 @@ def main():
         w0 = words[0].lstrip("(&")
         ok = (w0 in READERS and not (w0 in ("node", "npm", "npx") and PROTECTED.search(seg))) or (
             re.fullmatch(r"(python[\d.]*|py)(\.exe)?", w0) and len(words) > 1
-            and (re.fullmatch(r"(?:\./|\S*/)?scripts/(tg_confirm|post|notify|check_mail|bsky_search)\.py", words[1])
+            and (re.fullmatch(r"(?:\./|\S*/)?scripts/(dc_confirm|post|dc_notify|check_mail|bsky_search)\.py", words[1])
                  or words[1:3] == ["-m", "py_compile"])) or (
             re.fullmatch(r"(?:.*/)?git(\.exe)?", w0) and any(s in GIT_READ for s, _ in git_subs(seg)))
         if not ok or re.search(r"\s-i\b|--in-place|-delete|\s-exec|-fprint", seg):
@@ -259,7 +258,7 @@ def main():
     if re.search(r"atproto|send_post|createrecord|putrecord|deleterecord|applywrites|createsession|bsky_app_password", low) \
             and re.search(r"\bcurl\b|\bwget\b|invoke-(restmethod|webrequest)|\birm\b|\biwr\b|" + INTERP +
                           r"|\bfetch\(|requests\.|urllib|\brequire\(|\$env|\$\{|\$bsky|printenv|(?<![\w.-])env(\s|$)|env:|environ", low):
-        deny("Bluesky напряму заборонено. Пости — лише `python scripts/post.py` (питає згоди в Telegram).")
+        deny("Bluesky напряму заборонено. Пости — лише `python scripts/post.py` (питає згоди в Discord).")
 
     # 4) push у будь-якому вигляді.
     pushre = r"(?<![\w./=:-])push(?![\w.-])"
@@ -299,17 +298,17 @@ def main():
     who = str(data.get("agent_type") or "").strip()
     who = re.sub(r"[^\w .:-]", "", who)[:40]
     who = f"агент {who}" if who else "Claude (головна сесія)"
-    r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "tg_confirm.py"), "--push", "540"],
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "dc_confirm.py"), "--push", "540"],
                        cwd=cwd, input=f"Хто просить: {who}".encode("utf-8"), capture_output=True, timeout=590)
     if r.returncode == 0:
-        # Поки чекали «Так», налаштування могли змінити — перевіряємо ще раз.
+        # Поки чекали ✅, налаштування могли змінити — перевіряємо ще раз.
         problem = push_config_problem(git, branch)
         if problem:
             deny(f"Поки чекали згоди, з'явилися {problem} — push скасовано.")
         sys.exit(0)  # «Так» — далі звичайна перевірка дозволів Claude Code
     msg = r.stdout.decode("utf-8", "replace").strip()
-    why = {1: "ти натиснув «Ні» в Telegram", 2: "немає відповіді в Telegram (час вийшов)",
-           4: "поки чекали, змінилися коміти — запусти push ще раз"}.get(r.returncode, f"помилка запиту в Telegram: {msg}")
+    why = {1: "ти поставив ❌ у Discord", 2: "немає відповіді в Discord (час вийшов)",
+           4: "поки чекали, змінилися коміти — запусти push ще раз"}.get(r.returncode, f"помилка запиту в Discord: {msg}")
     deny(f"git push заблоковано: {why}.")
 
 
