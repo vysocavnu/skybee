@@ -1676,3 +1676,18 @@ html.lg-refract:root[data-ui="glass"] { --lg-filter: url(#lg-refract) blur(var(-
 :root[data-ui="glass"] :is(.popmenu, .modal, .msheet .mactions) { background: color-mix(in srgb, var(--panel) 86%, transparent);
   -webkit-backdrop-filter: blur(30px) saturate(190%); backdrop-filter: blur(30px) saturate(190%); }
 :root[data-ui="glass"][data-theme="light"] :is(.popmenu, .modal, .msheet .mactions) { background: color-mix(in srgb, #fff 82%, transparent); }
+
+/* ---------- war positions of artists (js/stars.js; data from starsaboutwar.in.ua) ---------- */
+.saw-line { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 0 10px 8px 64px; font-size: 13px; }
+.saw-mark { font-size: 13px; font-weight: 600; }
+.saw-mark a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.saw-za { color: #ff5a5f; } .saw-proty { color: #3ec27a; } .saw-movchat { color: var(--muted); } .saw-spirno { color: #e0a800; } .saw-none { color: var(--muted); font-weight: 500; }
+[data-theme="light"] .saw-za { color: #c62828; } [data-theme="light"] .saw-proty { color: #1b7f46; } [data-theme="light"] .saw-spirno { color: #9a6b00; }
+.saw-q { margin: 6px 0 2px; }
+.saw-q summary { cursor: pointer; list-style: none; font-size: 14px; color: var(--muted); width: max-content; padding: 4px 0; }
+.saw-q summary::-webkit-details-marker { display: none; }
+.saw-q[open] summary { color: var(--text); }
+.saw-body { padding: 8px 12px; border-radius: 14px; background: color-mix(in srgb, var(--text) 6%, transparent); margin-top: 4px; }
+.saw-item + .saw-item { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.saw-item p { margin: 6px 0; }
+.saw-src { margin: 10px 0 0; }

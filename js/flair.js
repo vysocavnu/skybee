@@ -3,7 +3,8 @@
 // other Bluesky apps simply ignore the collection.
 import { errText } from "./errors.js";
 import * as api from "./api.js";
-import { esc, modal, toast } from "./ui.js";
+import { esc, modal, toast, confirmBox } from "./ui.js";
+import * as saw from "./stars.js";
 
 export const NSID = "io.github.vysocavnu.skybee.profile";
 const STATUS_MAX = 60;
@@ -157,7 +158,14 @@ export async function decorate(el, p) {
     banner.classList.add("sb-flow"); banner.classList.toggle("sb-still", rec.flow === false);
   }
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
-  if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));
+  if (rec.music) {
+    // under the track: «Підтримує війну? ⬇️» — opens the positions of its artists, a short text and the source
+    (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music)
+      + `<details class="saw-q"><summary>Підтримує війну? ⬇️</summary><div class="saw-body"><p class="muted small">Перевіряю…</p></div></details>`);
+    const box = head.parentElement.querySelector(".saw-q .saw-body");
+    saw.check(rec.music.artist).then(res => { if (box) box.innerHTML = saw.details(res); })
+      .catch(() => { if (box) box.innerHTML = `<p class="muted small">Не вдалося перевірити — спробуй пізніше.</p>`; });
+  }
   if (rec.toy && banner) {
     const src = esc(toyUrl(pds, p.did, rec.toy));
     banner.insertAdjacentHTML("beforeend", `<img class="sb-toy" src="${src}" alt="Іграшка" data-act="lightboxOne" data-full="${src}">`);
@@ -211,17 +219,25 @@ function pickTrack() {
         if (isHttps(term)) { const t = await lookupTrack(term); list = t ? [t] : []; }
         else list = await searchTracks(term);
         if (my !== seq) return; // a newer search is already running
-        box.innerHTML = list.length ? list.map((t, i) => `<div class="sb-pick" data-i="${i}">${trackCard(t, "flat")}</div>`).join("")
+        box.innerHTML = list.length ? list.map((t, i) => `<div class="sb-pick" data-i="${i}">${trackCard(t, "flat")}<div class="saw-line" data-saw="${i}"></div></div>`).join("")
           : `<p class="muted small">Нічого не знайдено</p>`;
+        // under each track: the position of every artist on the war (starsaboutwar.in.ua)
+        list.forEach((t, i) => saw.check(t.artist).then((res) => {
+          t.saw = res; const el = box.querySelector(`[data-saw="${i}"]`);
+          if (el && my === seq) el.innerHTML = saw.marks(res);
+        }).catch(() => { const el = box.querySelector(`[data-saw="${i}"]`); if (el) el.innerHTML = `<span class="muted small">Не вдалося перевірити виконавця</span>`; }));
       } catch (ex) { if (my === seq) box.innerHTML = `<p class="err">${esc(errText(ex))}</p>`; }
     };
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 400); });
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") { clearTimeout(timer); run(); } });
-    box.addEventListener("click", (e) => {
+    box.addEventListener("click", async (e) => {
       const row = e.target.closest(".sb-pick");
-      if (!row || e.target.closest(".sb-play")) return; // ▶ only plays the preview
+      if (!row || e.target.closest(".sb-play, .saw-line a")) return; // ▶ only plays the preview; the source link opens the site
       e.preventDefault();
-      picked = list[row.dataset.i]; m.close();
+      const t = list[row.dataset.i];
+      const bad = (t.saw || []).filter(x => x.entry?.status === "za").map(x => x.name);
+      if (bad.length && !await confirmBox(`За даними starsaboutwar.in.ua ${bad.join(", ")} ${bad.length > 1 ? "підтримують" : "підтримує"} війну. Все одно поставити цей трек у профіль?`, "Так, поставити", true)) return;
+      picked = t; m.close();
     });
   });
 }
