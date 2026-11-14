@@ -3,7 +3,8 @@
 // other Bluesky apps simply ignore the collection.
 import { errText } from "./errors.js";
 import * as api from "./api.js";
-import { esc, modal, toast } from "./ui.js";
+import { esc, modal, toast, confirmBox } from "./ui.js";
+import * as saw from "./stars.js";
 
 export const NSID = "io.github.vysocavnu.skybee.profile";
 const STATUS_MAX = 60;
@@ -27,8 +28,8 @@ const cut = (s, n) => (typeof s === "string" ? s.trim().slice(0, n) : "");
 const lum = (c) => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); return (r * 299 + g * 587 + b * 114) / 1000; };
 // for a gradient: what reads on both ends of it
 export const inkFor = (c, c2 = c) => ((lum(c) + lum(c2)) / 2 > 160 ? "#14110a" : "#ffffff");
-// the colours of a record: [from, to], or null
-export const colorsOf = (rec) => (rec?.color ? [rec.color, rec.color2 || rec.color] : null);
+// the colours of a record: [from, to, third or ""], or null
+export const colorsOf = (rec) => (rec?.color ? [rec.color, rec.color2 || rec.color, rec.color3 || ""] : null);
 export const gradientName = (c1, c2) => GRADIENTS.find(([a, b]) => a === c1 && b === c2)?.[2] || "";
 
 // Records come from other people's repos: keep only well-formed fields
@@ -38,6 +39,8 @@ function clean(v) {
   if (cut(v.status, STATUS_MAX)) out.status = cut(v.status, STATUS_MAX);
   if (isColor(v.color)) out.color = v.color.toLowerCase();
   if (out.color && isColor(v.color2)) out.color2 = v.color2.toLowerCase();
+  if (out.color2 && isColor(v.color3)) out.color3 = v.color3.toLowerCase();
+  if (out.color && v.flow === false) out.flow = false; // the owner stopped the flowing
   if (v.music && isHttps(v.music.url) && cut(v.music.title, 120)) {
     out.music = { url: v.music.url, title: cut(v.music.title, 120), artist: cut(v.music.artist, 120) };
     for (const k of ["cover", "preview"]) if (isMedia(v.music[k])) out.music[k] = v.music[k];
@@ -92,12 +95,12 @@ export function tint(el, did) {
     if (el._tint !== did) return; // the user has already moved on
     const c = colorsOf(got?.rec);
     if (!c) return untint(el);
-    setColors(el, c);
+    setColors(el, c, got.rec.flow === false);
   });
 }
 // A card (own profile in the right column) in the person's colours; no colour → back to the usual look
 export function paint(el, did) {
-  load(did).then((got) => { const c = colorsOf(got?.rec); c ? setColors(el, c) : untint(el); });
+  load(did).then((got) => { const c = colorsOf(got?.rec); c ? setColors(el, c, got.rec.flow === false) : untint(el); });
 }
 // One colour only (a record from before gradients): its partner is the same colour turned a little round the colour
 // wheel and lightened, so the page still flows between two shades of it
@@ -111,13 +114,33 @@ function partner(c) {
   const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))).toString(16).padStart(2, "0");
   return "#" + f(0) + f(8) + f(4);
 }
-const setColors = (el, [c1, c2]) => {
+// [c1, c2, c3] → the custom properties of the gradient (one colour gets a partner shade, two colours flow back through c1)
+const VARS = ["--sb", "--sb2", "--sb3", "--sb-ink"];
+function putColors(el, [c1, c2, c3], still, cls) {
   if (c2 === c1) c2 = partner(c1);
-  el.style.setProperty("--sb", c1); el.style.setProperty("--sb2", c2); el.style.setProperty("--sb-ink", inkFor(c1, c2)); el.classList.add("sb-tint");
-};
+  el.style.setProperty("--sb", c1); el.style.setProperty("--sb2", c2); el.style.setProperty("--sb3", c3 || c1);
+  el.style.setProperty("--sb-ink", inkFor(c1, c2)); el.classList.add(cls); el.classList.toggle("sb-still", !!still);
+}
+const setColors = (el, c, still) => putColors(el, c, still, "sb-tint");
 export function untint(el) {
   el._tint = null;
-  el.classList.remove("sb-tint"); for (const k of ["--sb", "--sb2", "--sb-ink"]) el.style.removeProperty(k);
+  el.classList.remove("sb-tint", "sb-still"); for (const k of VARS) el.style.removeProperty(k);
+}
+
+/* ---------- the author's colours on their posts, in every feed ----------
+   Each new post on screen asks for its author's Skybee look (once per person, cached); the post gets a calm wash of the
+   gradient. Off in Налаштування → Вміст і медіа («Кольори профілів на постах»). */
+export const postColorsOn = () => { try { return localStorage.getItem("skybee.postColors") !== "0"; } catch { return true; } };
+function tintPost(art) {
+  art.dataset.sbp = "1";
+  const did = (art.dataset.uri || "").split("/")[2];
+  if (!did?.startsWith("did:")) return;
+  load(did).then((got) => { const c = colorsOf(got?.rec); if (c && art.isConnected) putColors(art, c, got.rec.flow === false, "sb-post"); });
+}
+if (typeof MutationObserver !== "undefined") {
+  let queued = false;
+  const scan = () => { queued = false; if (!postColorsOn() || !api.session) return; document.querySelectorAll("article.post[data-uri]:not([data-sbp])").forEach(tintPost); };
+  new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(scan); } }).observe(document.documentElement, { childList: true, subtree: true });
 }
 
 // Called right after the profile header is rendered; fills in the extras when they arrive
@@ -130,9 +153,19 @@ export async function decorate(el, p) {
   const banner = el.querySelector(".banner");
   const cs = colorsOf(rec);
   if (cs && cs[1] === cs[0]) cs[1] = partner(cs[0]);
-  if (cs && banner && !banner.style.backgroundImage) { banner.style.backgroundImage = `linear-gradient(120deg, ${cs[0]}, ${cs[1]}, ${cs[0]}, ${cs[1]})`; banner.classList.add("sb-flow"); }
+  if (cs && banner && !banner.style.backgroundImage) {
+    banner.style.backgroundImage = `linear-gradient(125deg, ${cs[0]}, ${cs[1]}, ${cs[2] || cs[0]}, ${cs[1]}, ${cs[0]})`;
+    banner.classList.add("sb-flow"); banner.classList.toggle("sb-still", rec.flow === false);
+  }
   if (rec.status) head.querySelector(".bigava")?.insertAdjacentHTML("beforeend", `<div class="sb-bubble" title="Статус у Skybee">${esc(rec.status)}</div>`);
-  if (rec.music) (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music));
+  if (rec.music) {
+    // under the track: «Підтримує війну? ⬇️» — opens the positions of its artists, a short text and the source
+    (head.querySelector(".bio") || head.querySelector(".counts"))?.insertAdjacentHTML("afterend", trackCard(rec.music)
+      + `<details class="saw-q"><summary>Підтримує війну? ⬇️</summary><div class="saw-body"><p class="muted small">Перевіряю…</p></div></details>`);
+    const box = head.parentElement.querySelector(".saw-q .saw-body");
+    saw.check(rec.music.artist).then(res => { if (box) box.innerHTML = saw.details(res); })
+      .catch(() => { if (box) box.innerHTML = `<p class="muted small">Не вдалося перевірити — спробуй пізніше.</p>`; });
+  }
   if (rec.toy && banner) {
     const src = esc(toyUrl(pds, p.did, rec.toy));
     banner.insertAdjacentHTML("beforeend", `<img class="sb-toy" src="${src}" alt="Іграшка" data-act="lightboxOne" data-full="${src}">`);
@@ -186,17 +219,25 @@ function pickTrack() {
         if (isHttps(term)) { const t = await lookupTrack(term); list = t ? [t] : []; }
         else list = await searchTracks(term);
         if (my !== seq) return; // a newer search is already running
-        box.innerHTML = list.length ? list.map((t, i) => `<div class="sb-pick" data-i="${i}">${trackCard(t, "flat")}</div>`).join("")
+        box.innerHTML = list.length ? list.map((t, i) => `<div class="sb-pick" data-i="${i}">${trackCard(t, "flat")}<div class="saw-line" data-saw="${i}"></div></div>`).join("")
           : `<p class="muted small">Нічого не знайдено</p>`;
+        // under each track: the position of every artist on the war (starsaboutwar.in.ua)
+        list.forEach((t, i) => saw.check(t.artist).then((res) => {
+          t.saw = res; const el = box.querySelector(`[data-saw="${i}"]`);
+          if (el && my === seq) el.innerHTML = saw.marks(res);
+        }).catch(() => { const el = box.querySelector(`[data-saw="${i}"]`); if (el) el.innerHTML = `<span class="muted small">Не вдалося перевірити виконавця</span>`; }));
       } catch (ex) { if (my === seq) box.innerHTML = `<p class="err">${esc(errText(ex))}</p>`; }
     };
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 400); });
     q.addEventListener("keydown", (e) => { if (e.key === "Enter") { clearTimeout(timer); run(); } });
-    box.addEventListener("click", (e) => {
+    box.addEventListener("click", async (e) => {
       const row = e.target.closest(".sb-pick");
-      if (!row || e.target.closest(".sb-play")) return; // ▶ only plays the preview
+      if (!row || e.target.closest(".sb-play, .saw-line a")) return; // ▶ only plays the preview; the source link opens the site
       e.preventDefault();
-      picked = list[row.dataset.i]; m.close();
+      const t = list[row.dataset.i];
+      const bad = (t.saw || []).filter(x => x.entry?.status === "za").map(x => x.name);
+      if (bad.length && !await confirmBox(`За даними starsaboutwar.in.ua ${bad.join(", ")} ${bad.length > 1 ? "підтримують" : "підтримує"} війну. Все одно поставити цей трек у профіль?`, "Так, поставити", true)) return;
+      picked = t; m.close();
     });
   });
 }
@@ -220,8 +261,9 @@ export async function edit(onDone) {
   cache.delete(did);
   const got = await load(did);
   const cur = got?.rec || {};
-  let music = cur.music || null, [c1, c2] = colorsOf(cur) || ["", ""];
-  let own = [c1 || "#c471f5", c2 || "#5b6cf9"]; // «свій» gradient: starts from the current one
+  let music = cur.music || null, [c1, c2, c3] = colorsOf(cur) || ["", "", ""];
+  let own = [c1 || "#c471f5", c2 || "#5b6cf9", c3 || ""]; // «свій» gradient: starts from the current one; the third colour is optional
+  let flow = cur.flow !== false;
   const m = modal(`
     <h3>✨ Оформлення профілю</h3>
     <p class="muted small">Це бачать лише ті, хто користується Skybee. В інших застосунках Bluesky профіль виглядає як завжди.</p>
@@ -231,8 +273,10 @@ export async function edit(onDone) {
         GRADIENTS.map(([a, b, n]) => `<button type="button" class="sb-gr" data-g="${a} ${b}" title="${n}" aria-label="${n}" style="background:linear-gradient(90deg, ${a}, ${b}, ${a}, ${b})"></button>`).join("")}</div>
       <div class="sb-own">свій:
         <label class="sb-dot" title="Перший колір"><input type="color" data-own="0"></label><span class="sb-arrow">→</span>
-        <label class="sb-dot" title="Другий колір"><input type="color" data-own="1"></label></div>
-      <p class="muted small sb-gname"></p></div>
+        <label class="sb-dot" title="Другий колір"><input type="color" data-own="1"></label><span class="sb-arrow">→</span>
+        <span class="sb-third"></span></div>
+      <p class="muted small sb-gname"></p>
+      <label class="stoggle"><span class="grow">Переливання<small class="muted">Кольори повільно перетікають один в одний — на сторінці профілю й на твоїх постах</small></span><input type="checkbox" data-f="flow" ${flow ? "checked" : ""}><i></i></label></div>
     <div class="field">Музика під біо<div data-f="music"></div></div>
     <label class="field">Іграшка — фото, яке сидітиме на банері (найкраще PNG з прозорим тлом)<input type="file" accept="image/*" data-f="toy"></label>
     ${cur.toy ? `<label class="row small"><input type="checkbox" data-f="notoy" style="width:auto"> прибрати іграшку</label>` : ""}
@@ -241,16 +285,19 @@ export async function edit(onDone) {
   const f = (k) => m.querySelector(`[data-f=${k}]`);
   const err = m.querySelector(".err");
   const drawColor = () => {
-    const key = c1 ? `${c1} ${c2}` : "";
+    const key = c1 && !c3 ? `${c1} ${c2}` : c1 ? "-" : "";
     m.querySelectorAll(".sb-gr").forEach(b => b.classList.toggle("on", b.dataset.g === key));
-    const name = c1 && gradientName(c1, c2);
+    const name = c1 && !c3 && gradientName(c1, c2);
     const isOwn = !!c1 && !name;
-    m.querySelectorAll("[data-own]").forEach((i, n) => { i.value = own[n]; i.parentElement.style.background = own[n]; i.parentElement.classList.toggle("on", isOwn); });
-    m.querySelector(".sb-gname").textContent = !c1 ? "Без кольору — сторінка як завжди" : name ? `Градієнт «${name}»` : "Свій градієнт";
+    // the third colour: a «＋» until it is added, then a dot with a small «✕» to take it away
+    m.querySelector(".sb-third").innerHTML = own[2]
+      ? `<label class="sb-dot" title="Третій колір"><input type="color" data-own="2"></label><button type="button" class="ghost sm icon sb-rm3" data-x="rm3" title="Прибрати третій колір">✕</button>`
+      : `<button type="button" class="sb-dot sb-add3" data-x="add3" title="Додати третій колір">＋</button>`;
+    m.querySelectorAll("[data-own]").forEach((i) => { const n = +i.dataset.own; i.value = own[n]; i.parentElement.style.background = own[n]; i.parentElement.classList.toggle("on", isOwn);
+      i.oninput = () => { own[n] = i.value.toLowerCase(); [c1, c2, c3] = own; drawColor(); }; });
+    m.querySelector(".sb-gname").textContent = !c1 ? "Без кольору — сторінка як завжди" : name ? `Градієнт «${name}»` : c3 ? "Свій градієнт із трьох кольорів" : "Свій градієнт";
   };
-  m.querySelectorAll("[data-own]").forEach((i) => i.addEventListener("input", () => {
-    own[+i.dataset.own] = i.value.toLowerCase(); [c1, c2] = own; drawColor();
-  }));
+
   const drawMusic = () => {
     f("music").innerHTML = music
       ? `<div class="row">${trackCard(music, "grow")}<button type="button" class="ghost sm icon" data-x="nomusic" title="Прибрати">✕</button></div>
@@ -260,8 +307,11 @@ export async function edit(onDone) {
   drawColor(); drawMusic();
   m.addEventListener("click", async (e) => {
     const gr = e.target.closest(".sb-gr");
-    if (gr) { [c1 = "", c2 = ""] = gr.dataset.g ? gr.dataset.g.split(" ") : []; if (c1) own = [c1, c2]; return drawColor(); }
-    if (e.target.closest(".sb-dot")) { if (!c1 || gradientName(c1, c2)) { [c1, c2] = own; drawColor(); } return; } // the picker opens by itself
+    if (gr) { [c1 = "", c2 = ""] = gr.dataset.g ? gr.dataset.g.split(" ") : []; c3 = ""; if (c1) own = [c1, c2, ""]; return drawColor(); }
+    const x0 = e.target.closest("[data-x]")?.dataset.x;
+    if (x0 === "add3") { own[2] = partner(own[1]); [c1, c2, c3] = own; return drawColor(); }
+    if (x0 === "rm3") { own[2] = ""; [c1, c2, c3] = own; return drawColor(); }
+    if (e.target.closest(".sb-dot")) { if (!c1 || gradientName(c1, c2) && !c3) { [c1, c2, c3] = own; drawColor(); } return; } // the picker opens by itself
     const x = e.target.closest("[data-x]"); if (!x) return;
     err.textContent = "";
     if (x.dataset.x === "0") return m.close();
@@ -272,7 +322,11 @@ export async function edit(onDone) {
       const record = { $type: NSID, updatedAt: new Date().toISOString() };
       const status = cut(f("status").value, STATUS_MAX);
       if (status) record.status = status;
-      if (isColor(c1)) { record.color = c1; if (isColor(c2) && c2 !== c1) record.color2 = c2; }
+      if (isColor(c1)) {
+        record.color = c1;
+        if (isColor(c2) && c2 !== c1) { record.color2 = c2; if (isColor(c3)) record.color3 = c3; }
+        if (!f("flow").checked) record.flow = false;
+      }
       if (music) {
         record.music = { url: music.url, title: music.title, artist: music.artist || "" };
         for (const k of ["cover", "preview"]) if (isHttps(music[k])) record.music[k] = music[k];

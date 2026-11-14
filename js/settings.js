@@ -379,6 +379,7 @@ export async function media(el) {
       ${toggle("autogif", "Автоматично відтворювати GIF", store.get("skybee.autogif") === "1")}
       <label class="field">Ключ Tenor API — для пошуку GIF<input id="tenorkey" autocomplete="off" spellcheck="false" placeholder="AIza…" value="${esc(store.get("skybee.tenorKey") || "")}"></label>
       <p class="small muted">Безплатний: Google Cloud Console → новий проєкт → увімкнути «Tenor API» → «Облікові дані» → «Створити ключ API». Зберігається лише на цьому пристрої.</p>
+      ${toggle("postcolors", "Кольори профілів на постах", store.get("skybee.postColors") !== "0", "Пости людей з оформленням Skybee — на м'якому градієнті їхнього профілю")}
       ${toggle("flairall", "Оформлення з власних серверів", store.get("skybee.flairAll") === "1", "Статус, музика, колір та іграшка людей, чий акаунт не на серверах Bluesky. Їхній сервер бачитиме твою IP-адресу, коли ти відкриваєш їхній профіль")}
       ${toggle("players", "Вбудовані плеєри", store.get("skybee.players") !== "0", "YouTube, Spotify, SoundCloud, Vimeo, Twitch, Apple Music грають прямо в пості — після натискання ▶")}
       ${toggle("extmedia", "Показувати картки посилань із зображеннями", store.get("skybee.noLinkThumbs") !== "1")}
@@ -393,6 +394,7 @@ export async function media(el) {
   };
   $("#autogif", el).onchange = (e) => { store.set("skybee.autogif", e.target.checked ? "1" : null); toast("Збережено"); };
   $("#tenorkey", el).onchange = (e) => { store.set("skybee.tenorKey", e.target.value.trim() || null); toast(e.target.value.trim() ? "Ключ збережено — шукай GIF кнопкою «GIF» у редакторі" : "Ключ прибрано"); };
+  $("#postcolors", el).onchange = (e) => { store.set("skybee.postColors", e.target.checked ? null : "0"); toast("Збережено — діє на нових екранах"); };
   $("#flairall", el).onchange = (e) => { store.set("skybee.flairAll", e.target.checked ? "1" : null); toast("Збережено"); };
   $("#players", el).onchange = (e) => { store.set("skybee.players", e.target.checked ? null : "0"); toast("Збережено"); };
   $("#extmedia", el).onchange = (e) => { store.set("skybee.noLinkThumbs", e.target.checked ? null : "1"); document.body.classList.toggle("nolinkthumbs", !e.target.checked); toast("Збережено"); };
@@ -414,6 +416,7 @@ export function uiStyle() {
   if (v !== "auto") return v;
   return { ios: "glass", android: "material" }[devicePlatform()] || "skybee";
 }
+export const refractWorks = () => /Chrome\/|Chromium|Electron/.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent);
 export function applyLook() {
   const t = store.get("skybee.theme") || "dark";
   const sys = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -430,6 +433,8 @@ export function applyLook() {
   root.dataset.ui = ui;
   root.dataset.glass = store.get("skybee.glass") || "normal";
   root.classList.toggle("glass-float", store.get("skybee.glassFloat") !== "0");
+  // refraction needs backdrop-filter: url(…), which only Chromium draws (desktop app, Android, Chrome); Safari would drop the blur too
+  root.classList.toggle("lg-refract", store.get("skybee.lgRefract") === "1" && refractWorks());
   root.classList.toggle("m-labels", store.get("skybee.mLabels") !== "0");
   root.classList.toggle("m-tonal", store.get("skybee.mTonal") !== "0");
   root.classList.toggle("m-ripple", store.get("skybee.mRipple") !== "0");
@@ -451,6 +456,9 @@ export async function appearance(el) {
         [["", "Золотий — як у бджілки"], ...APP_COLORS].map(([c, n]) => `<button type="button" class="sb-sw${c ? "" : " none"}${c === color ? " on" : ""}" data-color="${c}" title="${n}" aria-label="${n}"${c ? ` style="background:${c}"` : ""}>${c ? "" : bee(18)}</button>`).join("")}<label class="sb-sw sb-any${color && !APP_COLORS.some(([c]) => c === color) ? " on" : ""}" title="Свій колір"${color && !APP_COLORS.some(([c]) => c === color) ? ` style="--own:${color}"` : ""}><input type="color" data-anycolor value="${isHex(color) ? color : "#ff4d4d"}"><b>+</b></label></div>
         <p class="muted small">${!color ? "Золотий — як у бджілки" : APP_COLORS.find(([c]) => c === color)?.[1] || `Свій колір ${color}`}</p></div>
       <div class="card"><h3>Розмір тексту</h3>${seg("font", [["14", "Менший"], ["15", "Звичайний"], ["17", "Більший"], ["19", "Великий"]], font)}</div>
+      ${window.skybeeDesktop || window.Capacitor?.isNativePlatform?.() ? `<div class="card"><h3>Анімація запуску</h3>
+        <p class="muted small">Бджола пролітає над лукою й сідає в логотип. Небо — за темою (уночі місяць і зорі) і кольором застосунку.</p>
+        ${seg("intro", [["full", "Повна"], ["short", "Коротка"], ["off", "Без неї"]], store.get("skybee.intro") || "full")}</div>` : ""}
       <div class="card"><h3>Стиль інтерфейсу</h3>
         <p class="muted small">«Авто»: на iPhone та iPad — Liquid Glass, на Android — Material Design, на комп'ютері — Skybee. Можна вибрати будь-який на будь-якому пристрої.</p>
         ${seg("ui", [["auto", "Авто"], ["glass", "Liquid Glass"], ["material", "Material"], ["skybee", "Skybee"]], uiPick)}
@@ -459,6 +467,8 @@ export async function appearance(el) {
       ${ui === "glass" ? `<div class="card"><h3>Liquid Glass</h3>
         <div class="field">Скло${seg("glass", [["clear", "Прозоре"], ["normal", "Звичайне"], ["frost", "Матове"]], store.get("skybee.glass") || "normal")}</div>
         ${toggle("glassFloat", "Плаваюча панель вкладок", store.get("skybee.glassFloat") !== "0", "Нижня панель — скляна капсула над стрічкою, як в iOS")}
+        ${toggle("lgTilt", "Відблиск від нахилу", store.get("skybee.lgTilt") === "1", "Світлий край скла рухається, коли нахиляєш телефон. На комп'ютері світло й так іде за мишею")}
+        ${toggle("lgRefract", "Заломлення", store.get("skybee.lgRefract") === "1", refractWorks() ? "Краї скла викривлюють те, що під ними, як справжня лінза. Більше навантажує відеокарту й батарею" : "Поки не показується на iPhone та iPad — Safari такого не вміє. Працює в застосунку для комп'ютера й на Android", !refractWorks())}
       </div>` : ""}
       ${ui === "material" ? `<div class="card"><h3>Material Design</h3>
         ${toggle("mTonal", "Кольори Material You", store.get("skybee.mTonal") !== "0", "Поверхні й кнопки відтінені кольором застосунку")}
@@ -471,8 +481,18 @@ export async function appearance(el) {
     any.oninput = () => { store.set("skybee.color", any.value.toLowerCase()); applyLook(); }; // live while the picker is open
     any.onchange = () => { store.set("skybee.color", any.value.toLowerCase()); applyLook(); draw(); };
     el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => { store.set("skybee.font", b.dataset.font); applyLook(); draw(); });
+    el.querySelectorAll("[data-intro]").forEach(b => b.onclick = () => { store.set("skybee.intro", b.dataset.intro === "full" ? null : b.dataset.intro); draw(); });
     el.querySelectorAll("[data-ui]").forEach(b => b.onclick = () => { store.set("skybee.ui", b.dataset.ui === "auto" ? null : b.dataset.ui); applyLook(); draw(); });
     el.querySelectorAll("[data-glass]").forEach(b => b.onclick = () => { store.set("skybee.glass", b.dataset.glass === "normal" ? null : b.dataset.glass); applyLook(); draw(); });
+    el.querySelector("#lgTilt")?.addEventListener("change", (e) => {
+      store.set("skybee.lgTilt", e.target.checked ? "1" : null);
+      // iPhone shows its motion-sensor question only from a tap — this tap
+      if (e.target.checked && window.DeviceOrientationEvent?.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {});
+    });
+    el.querySelector("#lgRefract")?.addEventListener("change", async (e) => {
+      if (e.target.checked && !await confirmBox("Заломлення — найважчий ефект скла: відеокарта перемальовує його щоразу, коли щось рухається під склом. На слабших пристроях прокрутка може стати менш плавною, а батарея — сідати швидше. Увімкнути?", "Увімкнути")) { e.target.checked = false; return; }
+      store.set("skybee.lgRefract", e.target.checked ? "1" : null); applyLook();
+    });
     for (const k of ["glassFloat", "mTonal", "mLabels", "mRipple"]) {
       const i = el.querySelector("#" + k); if (i) i.onchange = () => { store.set("skybee." + k, i.checked ? null : "0"); applyLook(); };
     }
@@ -601,7 +621,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "flairAll", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "lgTilt", "lgRefract", "intro", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "flairAll", "postColors", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }

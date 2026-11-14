@@ -298,6 +298,7 @@ function shell() {
     <div id="sidebox"></div>
     <div class="card small muted">${bee(16)} Skybee · <a href="https://github.com/vysocavnu/skybee" target="_blank" rel="noopener">GitHub</a></div>
   </aside>
+  <section id="detail" aria-label="Пост"></section>
   <nav class="bottom">${NAV.filter((_, i) => [0, 1, 3, 2, 8].includes(i)).map(([h, i, l, b]) => `<a href="${h}" data-nav="${h}" aria-label="${l}"><span class="ni">${ico(i, 26)}${b ? `<i class="dot" id="m${b}"></i>` : ""}</span><span class="bl">${l}</span></a>`).join("")}</nav>
   <button class="fab" data-act="compose" title="Новий пост">${ico("pen", 24)}<span class="fl">Новий пост</span></button>`;
 }
@@ -346,11 +347,49 @@ function playNav(main, kind) {
   main.addEventListener("animationend", function end(e) { if (e.target === main) { main.classList.remove("nav-" + kind); main.removeEventListener("animationend", end); } });
 }
 
+/* ---------- tablets sideways: a post opens beside the list (master–detail) ----------
+   On an iPad or an unfolded phone held sideways, a post tapped in a list (home, a feed, a profile, notifications…) opens
+   in #detail next to it, in place of the right column; the list keeps its place and scroll. «Back» (or the gesture) closes it. */
+const DETAIL_MQ = matchMedia("(pointer: coarse) and (orientation: landscape) and (min-width: 900px) and (min-height: 501px)");
+const listy = (p) => !!p && (p === "/" || /^\/(feed|list|myfeed|notifications|search|tag|bookmarks)(\/|$)/.test(p)
+  || /^\/profile\/[^/]+(\/(posts|replies|media|videos|likes|feeds|lists|starter-packs))?$/.test(p));
+let detailCleanup = null;
+function closeDetail() {
+  detailCleanup?.(); detailCleanup = null;
+  $("#main")?.querySelectorAll(".is-open").forEach(x => x.classList.remove("is-open"));
+  document.body.classList.remove("detail");
+  const pane = $("#detail"); if (pane) { pane.innerHTML = ""; flair.untint(pane); }
+}
+DETAIL_MQ.addEventListener?.("change", () => { if (!DETAIL_MQ.matches && document.body.classList.contains("detail")) { closeDetail(); route(); } });
+// → true when this route was handled by the pane (opened, changed or closed without redrawing the list)
+async function detailRoute() {
+  const main = $("#main"), pane = $("#detail");
+  const path = location.hash.slice(1).split("?")[0] || "/";
+  const seg = path.split("/").filter(Boolean).map(decodeURIComponent);
+  const thread = seg[0] === "profile" && seg[2] === "post" && seg[3] && !seg[4];
+  if (main && pane && DETAIL_MQ.matches && thread && listy(main.dataset.route)) {
+    detailCleanup?.(); detailCleanup = null;
+    pane.innerHTML = ""; pane.scrollTop = 0;
+    document.body.classList.add("detail");
+    main.querySelectorAll(".is-open").forEach(x => x.classList.remove("is-open"));
+    main.querySelector(`[data-href="${CSS.escape(location.hash.split("?")[0])}"]`)?.classList.add("is-open");
+    try { detailCleanup = await V.thread(pane, { actor: seg[1], rkey: seg[3], read: false }); }
+    catch (e) { pane.innerHTML = `<div class="card"><p class="err">${esc(errText(e))}</p></div>`; }
+    return true;
+  }
+  if (document.body.classList.contains("detail")) {
+    closeDetail();
+    if (main && path === main.dataset.route) return true; // back to the list: it is still there, as it was
+  }
+  return false;
+}
+
 async function route() {
   await api.prefsReady; // muted words must be known before the first post is drawn
   if (location.hash.startsWith("#/signup") && (!api.session || hashQuery().get("app") === "1")) return signupScreen();
   if (!api.session && !guestRoute()) return loginScreen();
   if (!api.session && !$("#main")) guestShell();
+  if (api.session && await detailRoute()) return;
   cleanup?.(); cleanup = null;
   document.body.classList.remove("drawer");
   document.querySelector(".popmenu")?.remove();
@@ -376,6 +415,7 @@ async function route() {
   document.documentElement.classList.remove("tab-min", "fab-min", "scrolled"); // a new screen starts with the full bars
   placeLens($("nav.bottom a.on"));
   main.innerHTML = "";
+  main.dataset.route = path; // the pane beside it (tablets sideways) opens posts only from list screens
   document.body.classList.remove("deckmode");
   main._tint = null; // the page colour stays only if the new screen claims it (profile, post)
   let keepScroll = null; try { keepScroll = JSON.parse(sessionStorage.getItem("skybee.scroll:" + location.hash)); } catch {}
@@ -423,6 +463,42 @@ window.addEventListener("skybee:report", (e) => reportDialog(e.detail));
 // pinned feeds changed: the right column's list and the home tabs are built again
 window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
 
+/* ---------- Liquid Glass: the lens flows like a drop ----------
+   Moving to another tab, the lens stretches along the way and settles with a little wobble (iOS 26); other styles,
+   «Зменшити анімацію» and a first placement just move it. */
+function liquid(lens, x) {
+  const from = lens._x;
+  lens._x = x;
+  lens.style.setProperty("--lx", x + "px");
+  if (from == null || Math.abs(from - x) < 3 || document.documentElement.dataset.ui !== "glass" || calmMotion() || !lens.animate) return;
+  const w = lens.offsetWidth || 60, d = Math.min(Math.abs(x - from) / w, 2.5);
+  const mid = from + (x - from) * .55;
+  lens._anim?.cancel();
+  lens._anim = lens.animate([
+    { transform: `translateX(${from}px) scale(1, 1)` },
+    { transform: `translateX(${mid}px) scale(${1 + .18 * d}, ${1 - .07 * d})`, offset: .45 },
+    { transform: `translateX(${x + (x > from ? 4 : -4)}px) scale(.96, 1.04)`, offset: .78 },
+    { transform: `translateX(${x}px) scale(1, 1)` },
+  ], { duration: 420 + 60 * Math.min(d, 2), easing: "cubic-bezier(.25,.8,.35,1)" });
+}
+
+/* ---------- Liquid Glass: the light on the glass follows the tilt of the phone (or the mouse on a computer) ----------
+   --gx/--gy (−1.6…1.6) move the bright rim of every glass surface (css: --lg-rim). The tilt needs «Відблиск від нахилу»
+   (Налаштування → Оформлення; iPhone asks for the motion sensor once); the mouse works by itself. */
+{
+  const root = document.documentElement;
+  let raf = 0, gx = -1, gy = -1;
+  const clamp = (v) => Math.max(-1.6, Math.min(1.6, v));
+  const put = (x, y) => { gx = clamp(x); gy = clamp(y); if (!raf) raf = requestAnimationFrame(() => { raf = 0; root.style.setProperty("--gx", gx.toFixed(2)); root.style.setProperty("--gy", gy.toFixed(2)); }); };
+  const live = () => root.dataset.ui === "glass" && !calmMotion();
+  const tiltOn = () => { try { return localStorage.getItem("skybee.lgTilt") === "1"; } catch { return false; } };
+  addEventListener("deviceorientation", (e) => { if (e.beta == null || !tiltOn() || !live()) return; put(-(e.gamma || 0) / 22, -((e.beta || 45) - 45) / 22); });
+  addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse" || !live()) return; put(-(e.clientX / innerWidth * 2 - 1) * 1.3, -(e.clientY / innerHeight * 2 - 1) * 1.3); }, { passive: true });
+  // iPhone gives the motion sensor only after asking, and only from a tap: ask on the first tap if the setting is on
+  const ask = () => { if (tiltOn() && window.DeviceOrientationEvent?.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {}); };
+  addEventListener("pointerup", ask, { once: true, passive: true });
+}
+
 /* ---------- bottom bar: the bubble under the current tab, and dragging a finger along the bar to switch tabs ---------- */
 // The bubble (.navlens, shown in Liquid Glass) slides to the tab; holding the bar and moving along it carries the bubble
 // with the finger, and letting go opens the tab under it — as the tab bar does on iPhone. Works in every style.
@@ -437,7 +513,7 @@ function placeLens(a) {
   // from the boxes on screen, not offsetLeft: the same in every browser, whatever the tab's own scale or position
   const r = a.getBoundingClientRect(); // its centre: a pressed tab (scale .94) keeps its centre, not its edges
   const x = r.left + r.width / 2 - a.offsetWidth / 2 - bar.getBoundingClientRect().left - bar.clientLeft;
-  lens.style.setProperty("--lx", Math.round(x + inset) + "px");
+  liquid(lens, Math.round(x + inset));
 }
 addEventListener("resize", () => placeLens($("nav.bottom a.on")));
 // The tabs change size after the bubble was placed — fonts arrive, a badge appears, the bar collapses or expands —
@@ -540,8 +616,8 @@ addEventListener("resize", () => placeLens($("nav.bottom a.on")));
     const a = glass() && (target || current(row));
     if (!a || !a.offsetWidth) { lens?.remove(); return; }
     const tab = row.classList.contains("tabs"), inset = tab ? 6 : 0;
-    const box = { x: a.offsetLeft, w: a.offsetWidth, y: a.offsetTop + inset, h: a.offsetHeight - inset * 2 };
-    const put = (l, b) => { l.style.setProperty("--lx", b.x + "px"); l.style.width = b.w + "px"; l.style.top = b.y + "px"; l.style.height = b.h + "px"; };
+    const box = { x: a.offsetLeft + inset, w: a.offsetWidth - inset * 2, y: a.offsetTop + inset, h: a.offsetHeight - inset * 2 }; // tabs: a little air all round
+    const put = (l, b) => { liquid(l, b.x); l.style.width = b.w + "px"; l.style.top = b.y + "px"; l.style.height = b.h + "px"; };
     if (!lens) { // new (or the row was redrawn): appear where the bubble last was, then slide on
       lens = document.createElement("span"); lens.className = "rowlens"; lens.setAttribute("aria-hidden", "true");
       lens.style.transition = "none"; put(lens, last.get(keyOf(row)) || box); row.prepend(lens);
@@ -1065,11 +1141,37 @@ new MutationObserver(() => {
   document.querySelectorAll("video[data-gif]:not([data-watched])").forEach(v => { v.dataset.watched = "1"; gifSeen.observe(v); });
 }).observe(document.getElementById("app"), { childList: true, subtree: true });
 
-/* ---------- keyboard shortcuts ---------- */
+/* ---------- keyboard shortcuts (a computer, an iPad with a keyboard) ----------
+   n — new post, / — search, j / k — next / previous post, Enter or o — open it, l — like, r — reply,
+   Esc or Backspace — back, 1…5 — the tabs of the menu, ? — this list */
+const KEYS_HELP = [["n", "новий пост"], ["/", "пошук"], ["j / k", "наступний / попередній пост"], ["Enter, o", "відкрити пост"], ["l", "вподобати"],
+  ["r", "відповісти"], ["Esc, Backspace", "назад"], ["1 – 5", "головна, пошук, сповіщення, чати, профіль"], ["?", "ці підказки"]];
+function kbdPost(step) {
+  const all = [...document.querySelectorAll("#main article.post, #detail article.post")].filter(a => a.offsetParent);
+  if (!all.length) return null;
+  let i = all.findIndex(a => a.classList.contains("kbd-on"));
+  if (i < 0) i = all.findIndex(a => a.getBoundingClientRect().bottom > 80) - (step > 0 ? 1 : 0);
+  const next = all[Math.max(0, Math.min(all.length - 1, i + step))];
+  all.forEach(a => a.classList.remove("kbd-on"));
+  next.classList.add("kbd-on");
+  next.scrollIntoView({ block: "center", behavior: calmMotion() ? "auto" : "smooth" });
+  return next;
+}
 document.addEventListener("keydown", (e) => {
-  if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === "n" && api.session && !document.querySelector(".modal-bg:not(.leaving)")) { e.preventDefault(); openComposer({}, reloadView); }
-  if (e.key === "/" && api.session) { e.preventDefault(); location.hash = "#/search"; }
+  if (e.target.closest("input, textarea, select, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const open = document.querySelector(".modal-bg:not(.leaving), .msheet-bg:not(.leaving), .popmenu:not(.leaving)");
+  if (open || !api.session) return;
+  const cur = document.querySelector("article.post.kbd-on");
+  const k = e.key;
+  if (k === "n") { e.preventDefault(); openComposer({}, reloadView); }
+  else if (k === "/") { e.preventDefault(); location.hash = "#/search"; }
+  else if (k === "j" || k === "k") { e.preventDefault(); kbdPost(k === "j" ? 1 : -1); }
+  else if ((k === "Enter" || k === "o") && cur?.dataset.href) { e.preventDefault(); location.hash = cur.dataset.href; }
+  else if (k === "l" && cur) { e.preventDefault(); cur.querySelector('[data-act="like"]')?.click(); }
+  else if (k === "r" && cur) { e.preventDefault(); cur.querySelector('[data-act="reply"]')?.click(); }
+  else if ((k === "Escape" || k === "Backspace") && location.hash && location.hash !== "#/") { e.preventDefault(); history.back(); }
+  else if (/^[1-5]$/.test(k)) { e.preventDefault(); location.hash = ["#/", "#/search", "#/notifications", "#/messages", "#/profile/me"][+k - 1]; }
+  else if (k === "?") { e.preventDefault(); modal(`<h3>Клавіші</h3><table class="kbd-help">${KEYS_HELP.map(([a, b]) => `<tr><td><kbd>${esc(a)}</kbd></td><td>${esc(b)}</td></tr>`).join("")}</table>`); }
 });
 
 /* ---------- other tabs ---------- */

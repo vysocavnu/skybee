@@ -1,7 +1,7 @@
 // Skybee service worker: keeps the app shell available offline and shows notification clicks the way.
 // Network first — a new deploy is picked up at once; the cache is only a fallback without a connection.
 const CACHE = "skybee-shell-v15";
-const SHELL = ["./", "css/style.css", "js/app.js", "js/api.js", "js/ui.js", "js/views.js", "js/compose.js", "js/more.js", "js/settings.js", "js/notify.js", "js/flair.js", "js/sources.js", "js/deck.js", "js/splash.js", "js/errors.js", "js/newbie.js", "js/native.js", "js/updates.js", "js/vendor/hls.min.js",
+const SHELL = ["./", "css/style.css", "js/app.js", "js/api.js", "js/ui.js", "js/views.js", "js/compose.js", "js/more.js", "js/settings.js", "js/notify.js", "js/flair.js", "js/sources.js", "js/deck.js", "js/splash.js", "js/errors.js", "js/newbie.js", "js/native.js", "js/stars.js", "js/updates.js", "js/vendor/hls.min.js",
   "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon.svg", "icons/favicon.svg", "favicon.ico", "offline.html"];
 
 self.addEventListener("install", (e) => {
