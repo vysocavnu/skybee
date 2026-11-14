@@ -1,4 +1,5 @@
 // Skybee — system notifications while the app is open (a tab, even a background one, or the installed app).
+import { t } from "./i18n.js";
 // Real push for a closed app needs a server that watches the network; a static site has none.
 import * as api from "./api.js";
 import { matchMuted } from "./ui.js";
@@ -27,12 +28,13 @@ export async function enable() {
   if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") return false;
   const now = new Date().toISOString();
   setItem(KEY, "1"); setItem(markKey(), JSON.stringify({ n: now, c: now })); // only what arrives from now on
-  show("Skybee", "Сповіщення увімкнено", "#/notifications", "skybee-on");
+  show("Skybee", t("Сповіщення увімкнено"), "#/notifications", "skybee-on");
   return true;
 }
 export const disable = () => setItem(KEY, null);
 
 export async function show(title, body, hash, tag) {
+  title = t(title); // the body is someone's post or message: never translated
   const opts = { body, tag, icon: "icons/icon-192.png", data: { hash } };
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
@@ -76,5 +78,5 @@ export async function check(count, convos) {
   // while the user is looking at Skybee, the badges in the menu are enough
   if (!fresh.length || (document.visibilityState === "visible" && document.hasFocus())) return;
   for (const f of fresh.slice(0, 3)) show(f.title, f.body, f.hash, f.tag);
-  if (fresh.length > 3) show("Skybee", `І ще нових сповіщень: ${fresh.length - 3}`, "#/notifications", "skybee-more");
+  if (fresh.length > 3) show("Skybee", t("І ще нових сповіщень: {0}", fresh.length - 3), "#/notifications", "skybee-more");
 }

@@ -1,4 +1,5 @@
 // Skybee — app shell, router, global actions
+import { ready } from "./i18n.js"; // the interface language: its dictionary loads before the first screen
 import { errText } from "./errors.js";
 import "./splash.js"; // the welcome scene, first of all
 import { isNative, onLink } from "./native.js"; // Android/iOS app: links to the browser, the Back button, skybee:// links
@@ -1222,4 +1223,4 @@ function boot() {
   const sp = $("#sideProf"); if (sp) flair.paint(sp, api.session.did); // own Skybee colour on the profile card
   setTimeout(() => U.autoCheck().catch(() => {}), 5000); // phones: a new version (or beta build) to download?
 }
-boot();
+ready.then(boot); // the interface language first (js/i18n.js)

@@ -5,6 +5,7 @@ import { session } from "./api.js";
 import { bee, $, esc, name, vname, at, avatar, empty, spinner, toast, modal, confirmBox, pwa, actors, ico } from "./ui.js";
 import { header } from "./views.js";
 import { getLang } from "./compose.js";
+import { UI_LANGS, uiLang, setUiLang } from "./i18n.js";
 import * as notify from "./notify.js";
 import { inkFor, colorsOf } from "./flair.js";
 
@@ -525,7 +526,9 @@ export const translateLang = () => store.get("skybee.tlang") || "uk";
 export async function langs(el) {
   const content = api.contentLangs();
   el.innerHTML = header("Мови", true) + `
-    <div class="card"><h3>Мова інтерфейсу</h3><p class="small muted">Skybee поки розмовляє лише українською 🇺🇦</p></div>
+    <div class="card"><h3>Мова інтерфейсу</h3>
+      <select id="uilang" class="noi18n">${UI_LANGS.map(([c, n]) => `<option value="${c}" ${c === uiLang ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
+      <p class="small muted">Після вибору Skybee перезавантажиться. Пости й повідомлення людей не перекладаються — для них є «Перекласти».</p></div>
     <div class="card"><h3>Мова моїх постів за замовчуванням</h3>
       <select id="deflang">${LANGS.map(([c, n]) => `<option value="${c}" ${c === getLang() ? "selected" : ""}>${n}</option>`).join("")}</select></div>
     <div class="card"><h3>Перекладати на</h3>
@@ -533,6 +536,7 @@ export async function langs(el) {
     <div class="card"><h3>Мови вмісту</h3>
       <p class="small muted">Які мови показувати в тематичних фідах. Нічого не обрано — усі мови. На стрічку «Підписки» це не впливає.</p>
       ${LANGS.map(([c, n]) => `<label class="radio"><input type="checkbox" data-cl="${c}" ${content.includes(c) ? "checked" : ""}> ${n}</label>`).join("")}</div>`;
+  $("#uilang", el).onchange = (e) => { setUiLang(e.target.value); location.reload(); };
   $("#deflang", el).onchange = (e) => { store.set("skybee.lang", e.target.value); toast("Збережено"); };
   $("#tlang", el).onchange = (e) => { store.set("skybee.tlang", e.target.value); toast("Збережено"); };
   el.querySelectorAll("[data-cl]").forEach(c => c.onchange = () => {
