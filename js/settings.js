@@ -416,6 +416,7 @@ export function uiStyle() {
   if (v !== "auto") return v;
   return { ios: "glass", android: "material" }[devicePlatform()] || "skybee";
 }
+export const refractWorks = () => /Chrome\/|Chromium|Electron/.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent);
 export function applyLook() {
   const t = store.get("skybee.theme") || "dark";
   const sys = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -432,6 +433,8 @@ export function applyLook() {
   root.dataset.ui = ui;
   root.dataset.glass = store.get("skybee.glass") || "normal";
   root.classList.toggle("glass-float", store.get("skybee.glassFloat") !== "0");
+  // refraction needs backdrop-filter: url(…), which only Chromium draws (desktop app, Android, Chrome); Safari would drop the blur too
+  root.classList.toggle("lg-refract", store.get("skybee.lgRefract") === "1" && refractWorks());
   root.classList.toggle("m-labels", store.get("skybee.mLabels") !== "0");
   root.classList.toggle("m-tonal", store.get("skybee.mTonal") !== "0");
   root.classList.toggle("m-ripple", store.get("skybee.mRipple") !== "0");
@@ -461,6 +464,8 @@ export async function appearance(el) {
       ${ui === "glass" ? `<div class="card"><h3>Liquid Glass</h3>
         <div class="field">Скло${seg("glass", [["clear", "Прозоре"], ["normal", "Звичайне"], ["frost", "Матове"]], store.get("skybee.glass") || "normal")}</div>
         ${toggle("glassFloat", "Плаваюча панель вкладок", store.get("skybee.glassFloat") !== "0", "Нижня панель — скляна капсула над стрічкою, як в iOS")}
+        ${toggle("lgTilt", "Відблиск від нахилу", store.get("skybee.lgTilt") === "1", "Світлий край скла рухається, коли нахиляєш телефон. На комп'ютері світло й так іде за мишею")}
+        ${toggle("lgRefract", "Заломлення", store.get("skybee.lgRefract") === "1", refractWorks() ? "Краї скла викривлюють те, що під ними, як справжня лінза. Більше навантажує відеокарту й батарею" : "Поки не показується на iPhone та iPad — Safari такого не вміє. Працює в застосунку для комп'ютера й на Android", !refractWorks())}
       </div>` : ""}
       ${ui === "material" ? `<div class="card"><h3>Material Design</h3>
         ${toggle("mTonal", "Кольори Material You", store.get("skybee.mTonal") !== "0", "Поверхні й кнопки відтінені кольором застосунку")}
@@ -475,6 +480,15 @@ export async function appearance(el) {
     el.querySelectorAll("[data-font]").forEach(b => b.onclick = () => { store.set("skybee.font", b.dataset.font); applyLook(); draw(); });
     el.querySelectorAll("[data-ui]").forEach(b => b.onclick = () => { store.set("skybee.ui", b.dataset.ui === "auto" ? null : b.dataset.ui); applyLook(); draw(); });
     el.querySelectorAll("[data-glass]").forEach(b => b.onclick = () => { store.set("skybee.glass", b.dataset.glass === "normal" ? null : b.dataset.glass); applyLook(); draw(); });
+    el.querySelector("#lgTilt")?.addEventListener("change", (e) => {
+      store.set("skybee.lgTilt", e.target.checked ? "1" : null);
+      // iPhone shows its motion-sensor question only from a tap — this tap
+      if (e.target.checked && window.DeviceOrientationEvent?.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {});
+    });
+    el.querySelector("#lgRefract")?.addEventListener("change", async (e) => {
+      if (e.target.checked && !await confirmBox("Заломлення — найважчий ефект скла: відеокарта перемальовує його щоразу, коли щось рухається під склом. На слабших пристроях прокрутка може стати менш плавною, а батарея — сідати швидше. Увімкнути?", "Увімкнути")) { e.target.checked = false; return; }
+      store.set("skybee.lgRefract", e.target.checked ? "1" : null); applyLook();
+    });
     for (const k of ["glassFloat", "mTonal", "mLabels", "mRipple"]) {
       const i = el.querySelector("#" + k); if (i) i.onchange = () => { store.set("skybee." + k, i.checked ? null : "0"); applyLook(); };
     }
@@ -603,7 +617,7 @@ export async function about(el) {
   };
   $("#resetlocal", el).onclick = async () => {
     if (!await confirmBox("Скинути налаштування цього пристрою?", "Скинути", true)) return;
-    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "flairAll", "postColors", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
+    for (const k of ["theme", "color", "ui", "glass", "glassFloat", "lgTilt", "lgRefract", "mTonal", "mLabels", "mRipple", "font", "lang", "tlang", "contentLangs", "requireAlt", "calm", "autogif", "players", "flairAll", "postColors", "tenorKey", "noLinkThumbs", "draft"]) store.set("skybee." + k, null);
     location.reload();
   };
 }

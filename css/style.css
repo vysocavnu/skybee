@@ -1591,3 +1591,88 @@ body.calm article.post.sb-post { animation: none !important; }
 .sb-third { display: inline-flex; align-items: center; gap: 4px; }
 .sb-add3 { display: grid; place-items: center; font-size: 20px; color: var(--muted); background: var(--hover) !important; border-style: dashed !important; }
 .sb-rm3 { width: 28px; height: 28px; min-width: 0; padding: 0; font-size: 13px; }
+
+/* =====================================================================
+   LIQUID GLASS 2 — as in Apple's own apps (iOS 26 / iPadOS 26 / macOS 26)
+   • a clearer material: little blur, a lot of saturation, content shows through
+   • a specular rim lit from one side (--gx/--gy: the tilt of the phone or the mouse moves the light, js in app.js)
+   • something to see through: a soft colour field behind the whole app
+   • optional refraction (html.lg-refract, Chromium only: an SVG displacement filter in index.html)
+   • posts sit on glass cards; buttons are glass (the main action tinted with the accent)
+   ===================================================================== */
+:root[data-ui="glass"] {
+  --gx: -1; --gy: -1;
+  --lg-fill: rgba(255,255,255,.07); --lg-fill-2: rgba(255,255,255,.13); --lg-blur: 12px; --lg-sat: 190%;
+  --lg-rim-a: .5; --lg-rim-b: .14; --lg-drop: 0 10px 30px rgba(0,0,0,.30), 0 1px 3px rgba(0,0,0,.25);
+  --lg-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  --lg-rim: inset calc(var(--gx) * -1px) calc(var(--gy) * -1px) 0 rgba(255,255,255,var(--lg-rim-a)),
+            inset calc(var(--gx) * 1px) calc(var(--gy) * 1px) 0 rgba(255,255,255,var(--lg-rim-b)),
+            inset 0 0 0 .5px rgba(255,255,255,.10), inset 0 0 18px rgba(255,255,255,.035);
+}
+:root[data-ui="glass"][data-glass="clear"] { --lg-fill: rgba(255,255,255,.035); --lg-blur: 6px; }
+:root[data-ui="glass"][data-glass="frost"] { --lg-fill: rgba(255,255,255,.14); --lg-blur: 26px; }
+:root[data-ui="glass"][data-theme="light"] {
+  --lg-fill: rgba(255,255,255,.5); --lg-fill-2: rgba(255,255,255,.7); --lg-rim-a: .95; --lg-rim-b: .5;
+  --lg-drop: 0 8px 28px rgba(30,40,70,.12), 0 1px 3px rgba(30,40,70,.08);
+}
+:root[data-ui="glass"][data-theme="light"][data-glass="clear"] { --lg-fill: rgba(255,255,255,.32); }
+:root[data-ui="glass"][data-theme="light"][data-glass="frost"] { --lg-fill: rgba(255,255,255,.72); }
+/* refraction: the edges of the glass bend what is behind them (Chromium: desktop app, Android) */
+html.lg-refract:root[data-ui="glass"] { --lg-filter: url(#lg-refract) blur(var(--lg-blur)) saturate(var(--lg-sat)); }
+
+/* a soft colour field behind everything — glass needs something to show through */
+:root[data-ui="glass"] body::before { content: ""; position: fixed; inset: -12%; z-index: -1; pointer-events: none;
+  background: radial-gradient(42% 34% at 12% 6%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
+    radial-gradient(38% 32% at 94% 26%, rgba(91,140,255,.20), transparent 70%),
+    radial-gradient(46% 38% at 26% 96%, rgba(196,113,245,.17), transparent 70%),
+    radial-gradient(36% 30% at 86% 88%, rgba(62,230,190,.12), transparent 70%); }
+:root[data-ui="glass"][data-theme="light"] body::before { opacity: .9; filter: saturate(1.2); }
+
+/* the material on the floating chrome */
+:root[data-ui="glass"] :is(nav.side, .modal, .popmenu, .toast, .chatbar, .msheet .mactions, .dcol, .dhead, .seg, .card),
+:root[data-ui="glass"].glass-float nav.bottom::before,
+:root[data-ui="glass"].glass-float nav.bottom a[data-nav="#/search"],
+:root[data-ui="glass"]:not(.glass-float) nav.bottom {
+  background: var(--lg-fill); -webkit-backdrop-filter: var(--lg-filter); backdrop-filter: var(--lg-filter);
+  border: 0; box-shadow: var(--lg-rim), var(--lg-drop); }
+:root[data-ui="glass"] :is(.modal, .popmenu, .msheet .mactions) { background: var(--lg-fill-2); }
+:root[data-ui="glass"] .seg { box-shadow: var(--lg-rim); }
+/* the lens under the chosen tab / segment: a brighter drop of the same glass */
+:root[data-ui="glass"] :is(.navlens, .rowlens) { background: var(--lg-fill-2) !important; box-shadow: var(--lg-rim), 0 3px 12px rgba(0,0,0,.18) !important; }
+:root[data-ui="glass"][data-theme="light"] :is(.navlens, .rowlens) { background: rgba(255,255,255,.85) !important; }
+/* the lens moves with JS (a liquid stretch on the way, app.js); only its size eases here */
+@media (max-width: 640px) { :root[data-ui="glass"] .navlens { transition: width .45s var(--ease-spring), opacity .2s; } }
+:root[data-ui="glass"] .rowlens { transition: width .45s var(--ease-spring), top .2s, height .2s, background .2s; }
+
+/* the top: transparent, the content blurs softly as it slides under (as in Mail and Music) */
+@media (max-width: 640px) {
+  :root[data-ui="glass"] .topbar::before { background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent) 0, color-mix(in srgb, var(--bg) 25%, transparent) calc(var(--sat) + 30px), transparent 100%); }
+}
+:root[data-ui="glass"] .topbar { background: color-mix(in srgb, var(--bg) 35%, transparent); border-bottom: 0; box-shadow: none; }
+@media (max-width: 640px) { :root[data-ui="glass"] .topbar { background: none; } }
+
+/* buttons: round glass for icons, glass capsules, the main action tinted with the accent */
+:root[data-ui="glass"] .topbar .ghost, :root[data-ui="glass"] .ghost.icon {
+  background: var(--lg-fill); -webkit-backdrop-filter: var(--lg-filter); backdrop-filter: var(--lg-filter); border: 0; box-shadow: var(--lg-rim), 0 2px 10px rgba(0,0,0,.16); }
+:root[data-ui="glass"] .ghost:not(.icon) { background: var(--lg-fill); border: 0; box-shadow: var(--lg-rim); }
+:root[data-ui="glass"] .btn, :root[data-ui="glass"] .fab {
+  background: color-mix(in srgb, var(--accent) 82%, transparent); color: var(--accent-ink); border: 0;
+  -webkit-backdrop-filter: var(--lg-filter); backdrop-filter: var(--lg-filter);
+  box-shadow: inset calc(var(--gx) * -1px) calc(var(--gy) * -1px) 0 rgba(255,255,255,.55), inset 0 0 0 .5px rgba(255,255,255,.25), 0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* posts: each on its own glass card */
+:root[data-ui="glass"] .plist > article.post { margin: 8px 10px; border: 0 !important; border-radius: 24px; box-shadow: var(--lg-rim), 0 2px 12px rgba(0,0,0,.10); }
+:root[data-ui="glass"] .plist > article.post:not(.sb-post) { background: var(--lg-fill); }
+:root[data-ui="glass"][data-theme="light"] .plist > article.post:not(.sb-post) { background: rgba(255,255,255,.62); }
+:root[data-ui="glass"] .plist > article.post.sb-post { box-shadow: var(--lg-rim), 0 2px 12px rgba(0,0,0,.10); }
+:root[data-ui="glass"] main.sb-tint .plist > article.post { background: var(--lg-fill); }
+
+/* «Reduce transparency» (system) / «Зменшити анімацію»: solid surfaces, no colour field, the light stays put */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-ui="glass"] body::before { display: none; }
+  :root[data-ui="glass"] { --lg-fill: var(--panel); --lg-fill-2: var(--panel); --lg-filter: none; }
+}
+/* menus, windows and sheets are mostly solid glass, as in iOS: what is under them must never mix with their text */
+:root[data-ui="glass"] :is(.popmenu, .modal, .msheet .mactions) { background: color-mix(in srgb, var(--panel) 86%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(190%); backdrop-filter: blur(30px) saturate(190%); }
+:root[data-ui="glass"][data-theme="light"] :is(.popmenu, .modal, .msheet .mactions) { background: color-mix(in srgb, #fff 82%, transparent); }

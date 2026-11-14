@@ -423,6 +423,42 @@ window.addEventListener("skybee:report", (e) => reportDialog(e.detail));
 // pinned feeds changed: the right column's list and the home tabs are built again
 window.addEventListener("skybee:tabsChanged", () => { V.forgetHomeTabs(); const b = $("#sidebox"); if (b) M.sidebar(b).catch(() => {}); });
 
+/* ---------- Liquid Glass: the lens flows like a drop ----------
+   Moving to another tab, the lens stretches along the way and settles with a little wobble (iOS 26); other styles,
+   «Зменшити анімацію» and a first placement just move it. */
+function liquid(lens, x) {
+  const from = lens._x;
+  lens._x = x;
+  lens.style.setProperty("--lx", x + "px");
+  if (from == null || Math.abs(from - x) < 3 || document.documentElement.dataset.ui !== "glass" || calmMotion() || !lens.animate) return;
+  const w = lens.offsetWidth || 60, d = Math.min(Math.abs(x - from) / w, 2.5);
+  const mid = from + (x - from) * .55;
+  lens._anim?.cancel();
+  lens._anim = lens.animate([
+    { transform: `translateX(${from}px) scale(1, 1)` },
+    { transform: `translateX(${mid}px) scale(${1 + .18 * d}, ${1 - .07 * d})`, offset: .45 },
+    { transform: `translateX(${x + (x > from ? 4 : -4)}px) scale(.96, 1.04)`, offset: .78 },
+    { transform: `translateX(${x}px) scale(1, 1)` },
+  ], { duration: 420 + 60 * Math.min(d, 2), easing: "cubic-bezier(.25,.8,.35,1)" });
+}
+
+/* ---------- Liquid Glass: the light on the glass follows the tilt of the phone (or the mouse on a computer) ----------
+   --gx/--gy (−1.6…1.6) move the bright rim of every glass surface (css: --lg-rim). The tilt needs «Відблиск від нахилу»
+   (Налаштування → Оформлення; iPhone asks for the motion sensor once); the mouse works by itself. */
+{
+  const root = document.documentElement;
+  let raf = 0, gx = -1, gy = -1;
+  const clamp = (v) => Math.max(-1.6, Math.min(1.6, v));
+  const put = (x, y) => { gx = clamp(x); gy = clamp(y); if (!raf) raf = requestAnimationFrame(() => { raf = 0; root.style.setProperty("--gx", gx.toFixed(2)); root.style.setProperty("--gy", gy.toFixed(2)); }); };
+  const live = () => root.dataset.ui === "glass" && !calmMotion();
+  const tiltOn = () => { try { return localStorage.getItem("skybee.lgTilt") === "1"; } catch { return false; } };
+  addEventListener("deviceorientation", (e) => { if (e.beta == null || !tiltOn() || !live()) return; put(-(e.gamma || 0) / 22, -((e.beta || 45) - 45) / 22); });
+  addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse" || !live()) return; put(-(e.clientX / innerWidth * 2 - 1) * 1.3, -(e.clientY / innerHeight * 2 - 1) * 1.3); }, { passive: true });
+  // iPhone gives the motion sensor only after asking, and only from a tap: ask on the first tap if the setting is on
+  const ask = () => { if (tiltOn() && window.DeviceOrientationEvent?.requestPermission) DeviceOrientationEvent.requestPermission().catch(() => {}); };
+  addEventListener("pointerup", ask, { once: true, passive: true });
+}
+
 /* ---------- bottom bar: the bubble under the current tab, and dragging a finger along the bar to switch tabs ---------- */
 // The bubble (.navlens, shown in Liquid Glass) slides to the tab; holding the bar and moving along it carries the bubble
 // with the finger, and letting go opens the tab under it — as the tab bar does on iPhone. Works in every style.
@@ -437,7 +473,7 @@ function placeLens(a) {
   // from the boxes on screen, not offsetLeft: the same in every browser, whatever the tab's own scale or position
   const r = a.getBoundingClientRect(); // its centre: a pressed tab (scale .94) keeps its centre, not its edges
   const x = r.left + r.width / 2 - a.offsetWidth / 2 - bar.getBoundingClientRect().left - bar.clientLeft;
-  lens.style.setProperty("--lx", Math.round(x + inset) + "px");
+  liquid(lens, Math.round(x + inset));
 }
 addEventListener("resize", () => placeLens($("nav.bottom a.on")));
 // The tabs change size after the bubble was placed — fonts arrive, a badge appears, the bar collapses or expands —
@@ -540,8 +576,8 @@ addEventListener("resize", () => placeLens($("nav.bottom a.on")));
     const a = glass() && (target || current(row));
     if (!a || !a.offsetWidth) { lens?.remove(); return; }
     const tab = row.classList.contains("tabs"), inset = tab ? 6 : 0;
-    const box = { x: a.offsetLeft, w: a.offsetWidth, y: a.offsetTop + inset, h: a.offsetHeight - inset * 2 };
-    const put = (l, b) => { l.style.setProperty("--lx", b.x + "px"); l.style.width = b.w + "px"; l.style.top = b.y + "px"; l.style.height = b.h + "px"; };
+    const box = { x: a.offsetLeft + inset, w: a.offsetWidth - inset * 2, y: a.offsetTop + inset, h: a.offsetHeight - inset * 2 }; // tabs: a little air all round
+    const put = (l, b) => { liquid(l, b.x); l.style.width = b.w + "px"; l.style.top = b.y + "px"; l.style.height = b.h + "px"; };
     if (!lens) { // new (or the row was redrawn): appear where the bubble last was, then slide on
       lens = document.createElement("span"); lens.className = "rowlens"; lens.setAttribute("aria-hidden", "true");
       lens.style.transition = "none"; put(lens, last.get(keyOf(row)) || box); row.prepend(lens);

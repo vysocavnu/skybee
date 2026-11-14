@@ -476,7 +476,12 @@ export function menu(anchor, items) {
     const r = anchor.getBoundingClientRect();
     const w = m.offsetWidth, h = m.offsetHeight;
     m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
-    m.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + scrollY + "px";
+    // below the button if it fits, else above; a menu taller than either side keeps inside the screen and scrolls
+    const below = innerHeight - r.bottom - 12, above = r.top - 12;
+    const room = Math.max(below, above);
+    if (h > room) { m.style.maxHeight = Math.max(160, room) + "px"; m.style.overflowY = "auto"; }
+    const mh = Math.min(h, Math.max(160, room));
+    m.style.top = (mh <= below || below >= above ? r.bottom + 4 : Math.max(8, r.top - mh - 4)) + scrollY + "px";
     const done = (v) => { leave(m); document.removeEventListener("click", outside, true); document.removeEventListener("keydown", esc_); res(v); };
     const outside = (e) => { if (!m.contains(e.target)) { e.stopPropagation(); e.preventDefault(); done(null); } };
     const esc_ = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(null); } }; // Esc (and Android «Back») closes the menu too
