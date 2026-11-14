@@ -1730,3 +1730,49 @@ html.lg-refract:root[data-ui="glass"] { --lg-filter: url(#lg-refract) blur(var(-
 #splash.eclipse .sp-sun { outline: 3px solid #ff2a2a; outline-offset: -1px; }
 #splash .sp-sun::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: inherit; } /* the disk over its own glow */
 .saw-points { margin: 6px 0; padding-left: 18px; color: var(--muted); } .saw-points li { margin: 2px 0; }
+
+/* =====================================================================
+   TABLETS & UNFOLDED PHONES (touch screens wider than a phone): iPad, Galaxy Fold / Pixel Fold opened
+   • upright (portrait): an icon rail and a long, wide feed; the feeds as tabs on top (like the phone)
+   • sideways (landscape): the icon rail (no text), the feed, and on the right the own profile and the feeds;
+     a post tapped in a list opens beside it, in place of the right column (#detail, js: detailRoute in app.js)
+   • narrower than a phone (Split View ⅓, a folded Fold) — the phone layout (max-width: 640px) as everywhere
+   ===================================================================== */
+@media (pointer: coarse) and (min-width: 641px) and (min-height: 501px) {
+  nav.side .nl, nav.side .logo span, .compose-side span, nav.side .me .nl { display: none !important; }
+  nav.side a, .me { justify-content: center; }
+  nav.side { width: 68px; justify-self: center; padding: 10px 6px calc(10px + var(--sab)); }
+  nav.side a { padding: 10px; }
+  .compose-side { padding: 10px; }
+  #app { padding: 0 var(--sar) 0 var(--sal); justify-content: stretch; }
+  /* «Колонки»: two columns side by side upright, three sideways */
+  .deck .dcol { flex-basis: calc((100% - 10px) / 2); }
+}
+@media (pointer: coarse) and (min-width: 641px) and (min-height: 501px) and (orientation: portrait) {
+  #app { grid-template-columns: 84px minmax(0, 1fr); }
+  aside.right { display: none !important; }
+  #feedTabs { display: flex !important; }
+  nav.side a[data-nav^="#/profile"] { display: flex !important; }
+  main { max-width: none; }
+}
+@media (pointer: coarse) and (min-width: 641px) and (min-height: 501px) and (orientation: landscape) {
+  #app { --side: clamp(260px, 30vw, 360px); grid-template-columns: 84px minmax(0, 1fr) var(--side); }
+  aside.right { display: block !important; padding: 10px 12px 10px 0; }
+  #feedTabs, nav.side a[data-nav^="#/profile"] { display: none !important; }
+  .deck .dcol { flex-basis: calc((100% - 20px) / 3); }
+  /* a post beside the list */
+  body.detail #app { grid-template-columns: 84px minmax(0, 1fr) minmax(0, 1.05fr); }
+  body.detail aside.right { display: none !important; }
+  body.detail #detail { display: block; }
+}
+#detail { display: none; position: sticky; top: 0; height: 100vh; height: 100dvh; overflow-y: auto; overscroll-behavior: contain;
+  border-left: 1px solid var(--line); background: var(--bg); position: sticky; }
+:root[data-ui="glass"] #detail { margin: 10px 12px 10px 0; height: calc(100dvh - 20px); top: 10px; border: 0; border-radius: 28px;
+  background: var(--lg-fill-2, var(--panel)); -webkit-backdrop-filter: var(--lg-filter, none); backdrop-filter: var(--lg-filter, none); box-shadow: var(--lg-rim, none), var(--lg-drop, none); }
+:root[data-ui="material"] #detail { border: 0; background: var(--m-s1, var(--panel)); border-radius: 16px; margin: 8px 8px 8px 0; height: calc(100dvh - 16px); top: 8px; }
+#detail .topbar { position: sticky; top: 0; }
+#detail.sb-tint::before { width: 100%; margin-left: 0; margin-right: 0; }
+/* the post that is open beside the list stays marked in it */
+body.detail main article.post.is-open { box-shadow: inset 3px 0 0 var(--accent); }
+article.post.kbd-on { box-shadow: inset 3px 0 0 var(--accent), 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 12px; }
+.kbd-help td { padding: 5px 10px 5px 0; vertical-align: top; } .kbd-help kbd { white-space: nowrap; }
