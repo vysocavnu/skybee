@@ -33,9 +33,9 @@ export function stars() {
     if (!r.ok) throw new Error("stars " + r.status);
     const d = await r.json();
     const index = new Map();
-    for (const [slug, status, names, excerpt] of d.artists || []) {
+    for (const [slug, status, names, excerpt, points] of d.artists || []) {
       if (!STATUS[status]) continue;
-      const e = { slug, status, names, excerpt: String(excerpt || ""), url: `${SOURCE}/${encodeURIComponent(slug)}` };
+      const e = { slug, status, names, excerpt: String(excerpt || ""), points: Array.isArray(points) ? points.map(String).slice(0, 6) : [], url: `${SOURCE}/${encodeURIComponent(slug)}` };
       for (const n of [...names, slug.replace(/-/g, " ")]) for (const k of keys(n)) if (!index.has(k)) index.set(k, e);
     }
     return { find: (name) => { for (const k of keys(name)) { const e = index.get(k); if (e) return e; } return null; } };
@@ -66,6 +66,7 @@ export function details(list) {
     const st = STATUS[entry?.status || "none"];
     return `<div class="saw-item"><div class="saw-mark saw-${st.cls}">${st.icon ? st.icon + " " : ""}<b>${esc(name)}</b> — ${st.t}</div>${
       entry?.excerpt ? `<p class="small">${esc(entry.excerpt)}</p>` : ""}${
+      entry?.points?.length ? `<ul class="small saw-points">${entry.points.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${
       entry ? `<a class="small" href="${esc(entry.url)}" target="_blank" rel="noopener">Читати повністю на starsaboutwar.in.ua ↗</a>` : ""}</div>`;
   }).join("") + `<p class="muted small saw-src">Позиції й тексти — <a href="${SOURCE}" target="_blank" rel="noopener">starsaboutwar.in.ua</a>. Це їхня оцінка, не Skybee.</p>`;
 }

@@ -47,18 +47,30 @@ function cards(html) {
   return out;
 }
 
-// the first sentences of the artist's page, at most ~320 characters
-function excerpt(html) {
-  const body = html.match(/itemprop="articleBody"[^>]*>([\s\S]*?)<\/div>/)?.[1];
-  if (!body) return "";
-  const t = text(body);
-  if (t.length <= 320) return t;
-  const cut = t.slice(0, 320), end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
-  return (end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…").trim();
+// from the «Позиція … щодо війни» part of the artist's page (not the biography above it): its first paragraphs, at most
+// ~320 characters, and the points of that part (its sub-headings, e.g. «Підтримка анексії Криму») — a summary with
+// a link to the full text on the site
+function summary(html) {
+  const art = html.match(/itemprop="articleBody"[^>]*>([\s\S]*?)(?:<h4[^>]*>\s*Розділ коментарів|<footer|$)/)?.[1] || "";
+  const at = art.search(/<h2[^>]*>[^<]*(?:війн|войн)/i);
+  const part = at >= 0 ? art.slice(at) : art;
+  const points = [...part.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/g)].map(m => text(m[1])).filter(Boolean).slice(0, 6);
+  let t = "";
+  for (const m of part.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)) {
+    const para = text(m[1]);
+    if (!para || /^Навігація/.test(para)) continue;
+    t += (t ? " " : "") + para;
+    if (t.length > 200) break;
+  }
+  if (t.length > 320) {
+    const cut = t.slice(0, 320), end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+    t = end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…";
+  }
+  return [t.trim(), points];
 }
 
 let prev = {};
-try { for (const [slug, , , ex] of JSON.parse(readFileSync(OUT, "utf8")).artists) prev[slug] = ex; } catch { /* first run */ }
+try { for (const [slug, , , ex, points] of JSON.parse(readFileSync(OUT, "utf8")).artists) if (Array.isArray(points)) prev[slug] = [ex, points]; } catch { /* first run */ }
 
 const artists = new Map(); // slug → [slug, status, names, excerpt]
 for (const [cat, status] of CATS) {
@@ -66,7 +78,7 @@ for (const [cat, status] of CATS) {
     const html = await get(`/${cat}${start ? `?start=${start}` : ""}`);
     const found = html ? cards(html) : [];
     let fresh = 0;
-    for (const c of found) if (!artists.has(c.slug)) { artists.set(c.slug, [c.slug, status, c.names, ""]); fresh++; }
+    for (const c of found) if (!artists.has(c.slug)) { artists.set(c.slug, [c.slug, status, c.names, "", []]); fresh++; }
     console.log(`${cat} @${start}: ${found.length} cards, ${fresh} new`);
     if (!fresh) break;
     await sleep(400);
@@ -76,8 +88,8 @@ if (artists.size < 100) { console.error(`Only ${artists.size} artists — the si
 
 let fetched = 0;
 for (const a of artists.values()) {
-  if (prev[a[0]] != null) { a[3] = prev[a[0]]; continue; }
-  try { const html = await get("/" + a[0]); a[3] = html ? excerpt(html) : ""; fetched++; } catch (e) { console.warn(e.message); }
+  if (prev[a[0]]) { [a[3], a[4]] = prev[a[0]]; continue; }
+  try { const html = await get("/" + a[0]); if (html) [a[3], a[4]] = summary(html); fetched++; } catch (e) { console.warn(e.message); }
   await sleep(300);
 }
 
@@ -87,7 +99,7 @@ if (old === JSON.stringify(list)) { console.log(`No changes (${list.length} arti
 mkdirSync(new URL("../data/", import.meta.url), { recursive: true });
 writeFileSync(OUT, JSON.stringify({
   source: SITE,
-  note: "Позиції й тексти — starsaboutwar.in.ua, не Skybee. Кожен запис: [адреса сторінки, позиція za|proty|movchat|spirno, імена, уривок].",
+  note: "Позиції й тексти — starsaboutwar.in.ua, не Skybee. Кожен запис: [адреса сторінки, позиція za|proty|movchat|spirno, імена, уривок про позицію, пункти].",
   updated: new Date().toISOString(),
   artists: list,
 }) + "\n");
